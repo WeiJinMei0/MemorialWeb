@@ -10,10 +10,10 @@ const Loader = () => (
   </Html>
 );
 
-const Model = forwardRef(({ 
-  modelPath, 
+const Model = forwardRef(({
+  modelPath,
   texturePath,
-  position = [0, 0, 0], 
+  position = [0, 0, 0],
   dimensions = { length: 1, width: 1, height: 1 },
   color = 'Black',
   onLoad,
@@ -43,20 +43,20 @@ const Model = forwardRef(({
         clonedScene.position.set(position[0], position[1], position[2]);
         // const clonedScene = gltf.scene;
         scene.add(clonedScene);
-      
+
         const box = new THREE.Box3().setFromObject(clonedScene);
         const size = new THREE.Vector3();
         box.getSize(size);
-        
+
         const originalDims = {
           length: size.x,
           width: size.y,
           height: size.z
         };
-        
+
         setOriginalDimensions(originalDims);
-        
-        if (onDimensionsChange && !hasReportedDimensions && 
+
+        if (onDimensionsChange && !hasReportedDimensions &&
             (dimensions.length === 0 || dimensions.width === 0 || dimensions.height === 0)) {
           onDimensionsChange(originalDims);
           setHasReportedDimensions(true);
@@ -69,7 +69,7 @@ const Model = forwardRef(({
             // console.log(`Texture loaded: ${texturePath}`);
             textureLoader.load(texturePath, (texture) => {
               texture.colorSpace = THREE.SRGBColorSpace;
-              
+
               console.log(`Texture loaded: ${texturePath}`);
               child.material = new THREE.MeshStandardMaterial({
                 map: texture,
@@ -147,9 +147,9 @@ const Model = forwardRef(({
   }
 
   const ModelComponent = (
-    <primitive 
-      ref={meshRef} 
-      object={model} 
+    <primitive
+      ref={meshRef}
+      object={model}
     />
   );
 
@@ -161,7 +161,7 @@ const Model = forwardRef(({
 });
 
 // 主场景组件
-const MonumentScene = forwardRef(({ 
+const MonumentScene = forwardRef(({
   designState,
   onDimensionsChange,
   onDuplicateElement,
@@ -213,7 +213,7 @@ const MonumentScene = forwardRef(({
 
   const calculateModelPositions = () => {
     const positions = {};
-    
+
     // 获取模型的长度（X轴方向尺寸）
     const getModelLength = (modelId) => {
       const mesh = modelRefs.current[modelId]?.getMesh();
@@ -258,22 +258,22 @@ const MonumentScene = forwardRef(({
       const totalSubBaseLength = designState.subBases.reduce((sum, subBase) => {
         return sum + getModelLength(subBase.id);
       }, 0) + (designState.subBases.length - 1) * 0.2; // 添加间隔
-    
+
       if (totalSubBaseLength>0){
         currentX_subBase = -totalSubBaseLength / 2; // 从左侧开始
       }
-      
+
       designState.subBases.forEach((subBase, index) => {
         const height = getModelHeight(subBase.id);
         const length = getModelLength(subBase.id);
-        
+
         // 设置位置，Y坐标为当前堆叠高度
         positions[subBase.id] = [currentX_subBase, currentY_subBase, 0];
 
         // 计算X轴偏移，基于次底座的长度
         // const xOffset = currentX_subBase;
         currentX_subBase += length + 0.2;
-        
+
         // 只有第一个次底座参与Y轴堆叠计算
         if (index === 0){
           if(height > 0){
@@ -281,7 +281,7 @@ const MonumentScene = forwardRef(({
             currentY_Top += height;
             currentY_base = currentY_Top;
           }
-          } 
+          }
         });
     }
 
@@ -293,7 +293,7 @@ const MonumentScene = forwardRef(({
           currentY_Tablet = -0.3;
           currentY_Top = -0.3;
       }
-      
+
       // 计算所有底座的总长度
       const totalBaseLength = designState.bases.reduce((sum, base) => {
         return sum + getModelLength(base.id);
@@ -306,14 +306,14 @@ const MonumentScene = forwardRef(({
       designState.bases.forEach((base, index) => {
         const height = getModelHeight(base.id);
         const length = getModelLength(base.id);
-        
+
         // 设置位置，Y坐标为当前堆叠高度
         positions[base.id] = [currentX_base, currentY_base, 0];
 
         // 计算X轴偏移，基于底座的长度
         // const xOffset = currentX_base;
         currentX_base += length + 0.2;
-        
+
         // 只有第一个底座参与Y轴堆叠计算
         if (index === 0){
           if (height > 0){
@@ -321,7 +321,7 @@ const MonumentScene = forwardRef(({
             currentY_Top += height
             currentY_Tablet = currentY_Top;
           }
-        } 
+        }
       });
     }
 
@@ -332,31 +332,31 @@ const MonumentScene = forwardRef(({
         currentY_Tablet = -0.5;
         currentY_Top = -0.5;
       }
-      
+
       // 计算所有纪念碑的总长度
       const totalMonumentLength = designState.monuments.reduce((sum, monument) => {
         return sum + getModelLength(monument.id);
       }, 0) + (designState.monuments.length - 1) * 0.2; // 添加间隔
-      
+
       if (totalMonumentLength > 0){
         currentX_Tablet = -totalMonumentLength / 2; // 从左侧开始
       }
-      
+
       designState.monuments.forEach((monument, index) => {
         const height = getModelHeight(monument.id);
         const length = getModelLength(monument.id);
-        
+
         // 设置位置，Y坐标为当前堆叠高度
         positions[monument.id] = [currentX_Tablet, currentY_Tablet, 0];
 
         // 计算X轴偏移，基于纪念碑的长度
         // const xOffset = currentX_Tablet;
         currentX_Tablet += length + 0.2;
-        
+
         // 只有第一个碑参与Y轴堆叠计算
         if (index === 0){
           currentY_Top += height;
-        } 
+        }
       });
     }
     return positions;
@@ -384,7 +384,7 @@ const MonumentScene = forwardRef(({
           onDimensionsChange={(dims) => handleModelLoad(subBase.id, 'subBase', dims)}
         />
       ))}
-      
+
       {designState.bases.map(base => (
         <Model
           key={base.id}
@@ -397,7 +397,7 @@ const MonumentScene = forwardRef(({
           onDimensionsChange={(dims) => handleModelLoad(base.id, 'base', dims)}
         />
       ))}
-      
+
       {designState.monuments.map(monument => (
         <Model
           key={monument.id}
@@ -410,7 +410,7 @@ const MonumentScene = forwardRef(({
           onDimensionsChange={(dims) => handleModelLoad(monument.id, 'monument', dims)}
         />
       ))}
-      
+
       {designState.vases.map(vase => (
         <Model
           key={vase.id}
@@ -424,7 +424,7 @@ const MonumentScene = forwardRef(({
           onDimensionsChange={(dims) => handleModelLoad(vase.id, 'vase', dims)}
         />
       ))}
-      
+
       {designState.artElements.map(art => (
         <Model
           key={art.id}
@@ -437,19 +437,19 @@ const MonumentScene = forwardRef(({
           onDimensionsChange={(dims) => handleModelLoad(art.id, 'art', dims)}
         />
       ))}
-      
+
       <ambientLight intensity={0.6} />
       <directionalLight position={[10, 10, 5]} intensity={1} />
       <axesHelper args={[5]} />
-      
-      <OrbitControls 
+
+      <OrbitControls
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
         minDistance={1}
         maxDistance={50}
-        minPolarAngle={Math.PI / 2}  
-        maxPolarAngle={Math.PI / 2} 
+        minPolarAngle={Math.PI / 2}
+        maxPolarAngle={Math.PI / 2}
       />
     </group>
   );
@@ -460,20 +460,19 @@ const Scene3D = forwardRef(({background, ...props }, ref) => {
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <Canvas
-        camera={{ 
-          position: [0, 3, 1], 
+        camera={{
+          position: [0, 3, 1],
           fov: 25,
           near: 0.1,
           far: 1000
         }}
-        gl={{ 
+        gl={{
           antialias: true,
           alpha: true,
           preserveDrawingBuffer: true
         }}
         onCreated={({ gl }) => {
           gl.setClearColor('#f0f2f5');
-  
         }}
       >
         <Suspense fallback={<Loader />}>
