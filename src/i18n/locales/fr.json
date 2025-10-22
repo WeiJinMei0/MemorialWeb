@@ -1,0 +1,43 @@
+{
+  "login": {
+    "title": "Système de Conception de Monuments",
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "login": "Connexion",
+    "register": "S'inscrire",
+    "admin": "Administrateur",
+    "user": "Utilisateur",
+    "usernameRequired": "Veuillez saisir le nom d'utilisateur!",
+    "passwordRequired": "Veuillez saisir le mot de passe!",
+    "success": "Connexion réussie",
+    "error": "Échec de la connexion"
+  },
+  "designer": {
+    "home": "Accueil",
+    "savedDesigns": "Conceptions sauvegardées",
+    "orderHistory": "Historique des commandes",
+    "artPanels": "Motifs artistiques",
+    "vases": "Vases",
+    "text": "Texte",
+    "base": "Base",
+    "shapes": "Formes",
+    "materialColor": "Matériau et Couleur",
+    "save": "Sauve",
+    "generateOrder": "Commande",
+    "undo": "Annuler",
+    "redo": "Refaire",
+    "logout": "Déconnexion",
+    "tablet": "Tablette",
+    "Base": "Base",
+    "subBase": "Sous-base",
+    "polish": "Polissage",
+    "weight": "Poids",
+    "material": "Matériau",
+    "addBase": "+ Ajouter une base",
+    "removeBase": "Supprimer la base",
+    "addTablet": "+ Tablette",
+    "addSubBase": "+ Ajouter une sous-base",
+    "removeSubBase": "Supprimer la sous-base",
+    "kg": "kg"
+  }
+}

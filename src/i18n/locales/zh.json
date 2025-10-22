@@ -1,0 +1,43 @@
+{
+  "login": {
+    "title": "纪念碑设计系统",
+    "username": "用户名",
+    "password": "密码",
+    "login": "登录",
+    "register": "注册",
+    "admin": "管理员",
+    "user": "普通用户",
+    "usernameRequired": "请输入用户名",
+    "passwordRequired": "请输入密码",
+    "success": "登录成功",
+    "error": "登录失败"
+  },
+  "designer": {
+    "home": "首页",
+    "savedDesigns": "保存的设计",
+    "orderHistory": "订单历史",
+    "artPanels": "艺术图案",
+    "vases": "花瓶",
+    "text": "文字",
+    "base": "底座",
+    "shapes": "形状",
+    "materialColor": "材质颜色",
+    "save": "保存",
+    "generateOrder": "生成订单",
+    "undo": "撤销",
+    "redo": "重做",
+    "logout": "退出登录",
+    "tablet": "碑身",
+    "Base": "底座",
+    "subBase": "副底座",
+    "polish": "抛光",
+    "weight": "重量",
+    "material": "材质",
+    "addBase": "+ 添加底座",
+    "removeBase": "- 移除底座",
+    "addTablet": "+ 添加碑",
+    "addSubBase": "+ 添加副底座",
+    "removeSubBase": "- 移除副底座",
+    "kg": "公斤"
+  }
+}

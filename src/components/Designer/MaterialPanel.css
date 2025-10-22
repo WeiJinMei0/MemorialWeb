@@ -1,0 +1,92 @@
+/* MaterialPanel.css */
+.material-panel {
+  padding: 12px;
+}
+
+.materials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 12px;
+}
+
+.material-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.material-item:hover {
+  background-color: #f5f5f5;
+}
+
+.material-thumbnail-container {
+  position: relative;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.material-thumbnail {
+  width: 100%;
+  height: 60px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.material-item:hover .material-thumbnail {
+  border-color: #1890ff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
+}
+
+.material-item.selected .material-thumbnail {
+  border-color: #1890ff;
+  box-shadow: 0 2px 12px rgba(24, 144, 255, 0.4);
+}
+
+.material-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.selection-indicator {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  background: #1890ff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 10px;
+}
+
+.material-name {
+  font-size: 11px;
+  text-align: center;
+  color: #666;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+/* 紧凑模式 */
+.material-panel.compact .materials-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.material-panel.compact .material-thumbnail {
+  height: 50px;
+}
+
+.material-panel.compact .material-name {
+  font-size: 10px;
+}

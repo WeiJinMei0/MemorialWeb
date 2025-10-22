@@ -1,0 +1,43 @@
+{
+  "login": {
+    "title": "Memorial Designer",
+    "username": "Username",
+    "password": "Password",
+    "login": "Login",
+    "register": "Register",
+    "admin": "Administrator",
+    "user": "User",
+    "success": "Login successful",
+    "error": "Login failed",
+    "usernameRequired": "Please input your username!",
+    "passwordRequired": "Please input your password!"
+  },
+  "designer": {
+    "home": "Home",
+    "savedDesigns": "Saved Designs",
+    "orderHistory": "Order History",
+    "artPanels": "Art/Panels",
+    "vases": "Vases",
+    "text": "Text",
+    "base": "Base",
+    "shapes": "Shapes",
+    "materialColor": "Material & Color",
+    "save": "Save",
+    "generateOrder": "Order",
+    "undo": "Undo",
+    "redo": "Redo",
+    "logout": "Logout",
+    "tablet": "Tablet",
+    "Base": "Base",
+    "subBase": "SubBase",
+    "polish": "Polish",
+    "weight": "Weight",
+    "material": "Material",
+    "addBase": "+ Base",
+    "removeBase": "- Base",
+    "addTablet": "+ Tablet",
+    "addSubBase": "+ SubBase",
+    "removeSubBase": "- SubBase",
+    "kg": "kg"
+  }
+}
