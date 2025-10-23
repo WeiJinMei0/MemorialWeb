@@ -74,6 +74,14 @@ export const useDesignState = () => {
     });
   }, [addHistory]);
 
+  const loadDesign = useCallback((designToLoad) => {
+    const parsedDesign = JSON.parse(JSON.stringify(designToLoad));
+    setDesignState(parsedDesign);
+    // 重置历史记录，将加载的设计作为起点
+    historyRef.current = [parsedDesign];
+    historyIndexRef.current = 0;
+  }, []);
+
 
   // 构建模型路径
   const buildModelPath = useCallback((type, family, productClass, polish) => {
@@ -99,7 +107,7 @@ export const useDesignState = () => {
     const productClass = 'Serp Top';
     const polish = 'P5';
     const color = 'Black';
-    
+
     const monument = {
       id: 'monument-1',
       type: 'monument',
@@ -151,7 +159,7 @@ export const useDesignState = () => {
       color,
       modelPath: buildModelPath('monument', family, productClass, polish),
       texturePath: buildTexturePath('monument', family, productClass, polish, color),
-      position: [designState.monuments.length * 2, 0, 0], 
+      position: [designState.monuments.length * 2, 0, 0],
       dimensions: { length: 0, width: 0, height: 0 },
       weight: 0
     };
@@ -176,7 +184,7 @@ export const useDesignState = () => {
         newState.bases = [];
         newState.subBases = [];
       }
-      
+
       return newState;
     });
   }, [designState, updateDesignState, buildModelPath, buildTexturePath]);
@@ -235,10 +243,10 @@ export const useDesignState = () => {
     }));
   }, [updateDesignState]);
 
-  
+
   const updateMaterial = useCallback((color) => {
     updateDesignState(prev => {
-      const updateElementMaterial = (elements) => 
+      const updateElementMaterial = (elements) =>
         elements.map(element => ({
           ...element,
           color,
@@ -257,14 +265,14 @@ export const useDesignState = () => {
     });
   }, [updateDesignState]);
 
-  
+
   const updatePolish = useCallback((elementId, newPolish, elementType) => {
     updateDesignState(prev => {
       const updateElement = (elements) =>
         elements.map(element => {
           if (element.id === elementId) {
             let newModelPath, newTexturePath;
-            
+
             if (elementType === 'monument') {
               newModelPath = buildModelPath('monument', element.family, element.class, newPolish);
               newTexturePath = buildTexturePath('monument', element.family, element.class, newPolish, element.color);
@@ -272,10 +280,10 @@ export const useDesignState = () => {
               newModelPath = buildModelPath(elementType, null, null, newPolish);
               newTexturePath = buildTexturePath(elementType, null, null, newPolish, element.color);
             }
-            
-            return { 
-              ...element, 
-              polish: newPolish, 
+
+            return {
+              ...element,
+              polish: newPolish,
               modelPath: newModelPath,
               texturePath: newTexturePath
             };
@@ -284,7 +292,7 @@ export const useDesignState = () => {
         });
 
       let updatedState = { ...prev };
-    
+
       switch (elementType) {
         case 'monument':
           updatedState.monuments = updateElement(prev.monuments);
@@ -303,7 +311,7 @@ export const useDesignState = () => {
     });
   },[updateDesignState, buildModelPath, buildTexturePath]);
 
-  
+
   const updateDimensions = useCallback((elementId, newDimensions, elementType) => {
     updateDesignState(prev => {
       const updateElement = (elements) =>
@@ -319,20 +327,20 @@ export const useDesignState = () => {
               currentDims.length === newDims.length &&
               currentDims.width === newDims.width &&
               currentDims.height === newDims.height
-              ) {
-                return element;
-              }
+            ) {
+              return element;
+            }
             return {
               ...element,
               dimensions: newDims,
               weight: calculateWeight(newDims, element.color)
             };
-            }
+          }
           return element;
         });
 
       let updatedState = { ...prev };
-    
+
       switch (elementType) {
         case 'monument':
           updatedState.monuments = updateElement(prev.monuments);
@@ -357,7 +365,7 @@ export const useDesignState = () => {
     });
   }, [updateDesignState]);
 
-  
+
   const addVase = useCallback((vaseData) => {
     const vase = {
       id: `vase-${Date.now()}`,
@@ -378,7 +386,7 @@ export const useDesignState = () => {
     }));
   }, [designState, updateDesignState]);
 
-  
+
   const addArt = useCallback((artData) => {
     const art = {
       id: `art-${Date.now()}`,
@@ -480,14 +488,13 @@ export const useDesignState = () => {
     }
   }, []);
 
-  // 初始化默认Monument(Tablet+Base)
-  useEffect(() => {
-    loadDefaultTablet();
-  }, [loadDefaultTablet]);
+  // ****** 移除了这里的 useEffect ******
 
   return {
     designState,
     updateDesignState,
+    loadDesign,
+    loadDefaultTablet,
     updateDimensions,
     updatePolish,
     updateMaterial,
