@@ -43,6 +43,8 @@ const DesignerPage = () => {
 
   // --- 【新增】填充颜色工具状态 ---
   const [fillColor, setFillColor] = useState('#4285F4');
+  /** 【新增】控制填充模式是否激活的状态 */
+  const [isFillModeActive, setIsFillModeActive] = useState(false);
 
   const {
     designState,
@@ -76,33 +78,33 @@ const DesignerPage = () => {
     { key: 'shapes', label: t('designer.shapes'), icon: '🔷' },
   ]
 
-  // 处理工具选择
-  const handleToolSelect = (key) => {
-    setSelectedArtId(null);
-    setActiveTool(activeTool === key ? null : key)
-  }
-
-  // 处理艺术元素点击事件 (来自 Scene3D)
+  // --- 【修改】处理艺术元素选择 ---
   const handleArtElementSelect = useCallback((artId) => {
     setSelectedArtId(artId);
     if (artId !== null) {
+      // 选中时
       setActiveTool(null);
       setTransformMode('translate');
+      // 注意：此处不自动开启填充模式，让用户在面板中自己决定
+    } else {
+      // 取消选中时 (artId === null)
+      setIsFillModeActive(false); // 【关键】自动禁用填充模式
     }
-  }, []);
+  }, [setActiveTool, setTransformMode, setIsFillModeActive]); // 增加依赖
 
-  // 关闭编辑面板
+  // --- 【修改】处理工具选择 ---
+  const handleToolSelect = (key) => {
+    handleArtElementSelect(null); // 【关键】切换工具时，取消选中并禁用填充模式
+    setActiveTool(activeTool === key ? null : key)
+  }
+
+  // --- 【修改】关闭编辑面板 ---
   const handleCloseArtEditor = useCallback(() => {
-    setSelectedArtId(null);
-    setTransformMode('translate');
-  }, []);
+    handleArtElementSelect(null); // 【关键】关闭面板时，取消选中并禁用填充模式
+  }, [handleArtElementSelect]);
 
   // 获取当前选中的艺术元素数据
   const selectedArt = useMemo(() => {
-    // 【修改】将依赖项从 [designState.artElements, selectedArtId]
-    // 更改为 [designState, selectedArtId]
-    // 这可以修复因 useDesignState 内部可能存在的状态突变（mutation）
-    // 导致的 useMemo 缓存不更新的问题。
     const art = designState.artElements.find(art => art.id === selectedArtId);
     if (art) {
       return {
@@ -111,47 +113,39 @@ const DesignerPage = () => {
       };
     }
     return null;
-  }, [designState, selectedArtId]); // 【关键修复】
+  }, [designState, selectedArtId]);
 
-  // 处理删除的包装函数
+  // --- 【修改】处理删除 ---
   const handleDeleteElement = useCallback((elementId, elementType) => {
     deleteElement(elementId, elementType);
-    setSelectedArtId(null);
-    setTransformMode('translate');
-  }, [deleteElement]);
+    handleArtElementSelect(null); // 【关键】删除后，取消选中并禁用填充模式
+  }, [deleteElement, handleArtElementSelect]);
 
   // --- 【新增】处理画布编辑的回调 ---
 
   /**
    * 更新艺术图案的线条颜色。
-   * 【修复】将 updateArtElementState 的第二个参数改为一个函数，
-   * 以防止竞态条件和陈旧闭包。
    */
   const handleLineColorChange = useCallback((artId, newColor) => {
-    // 不再从闭包中读取 designState.artElements
     updateArtElementState(artId, (prevArt) => ({
       properties: {
-        ...(prevArt.properties || {}), // 【关键】从 prevArt 读取
+        ...(prevArt.properties || {}),
         lineColor: newColor
       }
     }));
-    // 【修复】移除对 designState.artElements 的依赖
-  }, [updateArtElementState]); // 依赖项
+  }, [updateArtElementState]);
 
   /**
    * 更新艺术图案的线条透明度。
-   * 【修复】将 updateArtElementState 的第二个参数改为一个函数。
    */
   const handleLineAlphaChange = useCallback((artId, newAlpha) => {
-    // 不再从闭包中读取 designState.artElements
     updateArtElementState(artId, (prevArt) => ({
       properties: {
-        ...(prevArt.properties || {}), // 【关键】从 prevArt 读取
+        ...(prevArt.properties || {}),
         lineAlpha: newAlpha
       }
     }));
-    // 【修复】移除对 designState.artElements 的依赖
-  }, [updateArtElementState]); // 依赖项
+  }, [updateArtElementState]);
 
 
   // --- 现有函数 (保存, 订单, 背景等) ---
@@ -410,9 +404,9 @@ const DesignerPage = () => {
                 selectedElementId={selectedArtId}
                 transformMode={transformMode}
                 onUpdateArtElementState={updateArtElementState}
-                // --- 【新增】将填充颜色传递给 Scene3D ---
-                // Scene3D 内部的 onMouseDown 事件需要使用这个 prop
+                // --- 【新增】将填充颜色和模式传递给 Scene3D ---
                 fillColor={fillColor}
+                isFillModeActive={isFillModeActive} // <-- 传递状态
               />
 
               {/* 主工具面板 */}
@@ -437,6 +431,8 @@ const DesignerPage = () => {
                   setFillColor={setFillColor}
                   onLineColorChange={handleLineColorChange}
                   onLineAlphaChange={handleLineAlphaChange}
+                  isFillModeActive={isFillModeActive} // <-- 传递状态
+                  setIsFillModeActive={setIsFillModeActive} // <-- 传递 setter
                 />
               )}
             </div>

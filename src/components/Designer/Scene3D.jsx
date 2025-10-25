@@ -7,6 +7,81 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 // 移除了 DecalGeometry 导入
 import * as THREE from 'three';
 
+// 【修改】从 test.html 移植的 Flood Fill (泛洪填充) 算法
+const floodFill = (context, canvas, originalImageData, canvasTexture, startX, startY, newColor) => {
+  const { width, height } = canvas;
+  // 获取 *当前* 画布数据 (可能已包含其他填充色)
+  const imageData = context.getImageData(0, 0, width, height); //
+  const data = imageData.data;
+  const originalData = originalImageData.data; // 原始 PNG 数据
+
+  const getPixelIndex = (x, y) => (y * width + x) * 4; //
+
+  // --- 【新增】辅助函数，用于检查像素是否为“线条” ---
+  // 基于原始 PNG 图像数据
+  const isPixelLine = (idx) => {
+    return originalData[idx] < 150 &&       // R
+      originalData[idx + 1] < 150 &&   // G
+      originalData[idx + 2] < 150 &&   // B
+      originalData[idx + 3] > 10;    // Alpha (确保它不是完全透明的黑色)
+  };
+
+  const startIdx = getPixelIndex(startX, startY);
+
+  // 1. 检查是否点击了线条 (基于原始数据)
+  if (isPixelLine(startIdx)) {
+    return; // 不填充线条
+  }
+
+  // 2. 检查点击的区域是否已经是新颜色
+  if (data[startIdx] === newColor[0] &&
+    data[startIdx + 1] === newColor[1] &&
+    data[startIdx + 2] === newColor[2] &&
+    data[startIdx + 3] === 255) {
+    return; // 已经是这个颜色了，无需操作
+  }
+
+  // 3. 开始队列填充
+  const queue = [[startX, startY]]; //
+  while (queue.length > 0) {
+    const [x, y] = queue.shift(); //
+
+    // 检查边界
+    if (x < 0 || x >= width || y < 0 || y >= height) continue; //
+
+    const idx = getPixelIndex(x, y);
+
+    // --- 【核心逻辑修改】 ---
+
+    // A. 检查当前像素是否为线条边界
+    if (isPixelLine(idx)) {
+      continue; // 碰到线条，停止这个方向的填充
+    }
+
+    // B. 检查是否已填充为新颜色 (防止重复处理和无限循环)
+    if (data[idx] === newColor[0] &&
+      data[idx + 1] === newColor[1] &&
+      data[idx + 2] === newColor[2] &&
+      data[idx + 3] === 255) {
+      continue; // 已经填充过
+    }
+
+    // C. 填充新颜色
+    data[idx] = newColor[0];     //
+    data[idx + 1] = newColor[1]; //
+    data[idx + 2] = newColor[2]; //
+    data[idx + 3] = 255;         //
+
+    // D. 将邻居添加到队列
+    queue.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]); //
+  }
+
+  // 4. 将修改后的数据写回画布
+  context.putImageData(imageData, 0, 0); //
+  // 5. 通知 Three.js 更新纹理
+  canvasTexture.needsUpdate = true; //
+};
+
 const Loader = () => (
   // ... (Loader component unchanged)
   <Html center>
@@ -193,7 +268,9 @@ const InteractiveArtPlane = forwardRef(({
   isSelected,
   onSelect,
   onTransformEnd,
-  transformMode
+  transformMode,
+  fillColor, // 【新增】接收填充颜色
+  isFillModeActive // 【新增】接收填充模式状态
 }, ref) => {
   const meshRef = useRef();
   const controlRef = useRef();
@@ -204,48 +281,37 @@ const InteractiveArtPlane = forwardRef(({
   const artCanvasRef = useRef({
     canvas: null,
     context: null,
-    originalData: null // originalImageData
+    originalData: null
   });
 
 
-  // 1. 加载纹理并设置画布 (此部分无变化)
+  // 1. 加载纹理 (无变化)
   useEffect(() => {
     if (!art.imagePath) {
       setCanvasTexture(null);
       artCanvasRef.current = { canvas: null, context: null, originalData: null };
       return;
     }
-
     const loader = new THREE.TextureLoader();
     loader.load(art.imagePath, (loadedTexture) => {
       const img = loadedTexture.image;
-      if (!img || img.naturalHeight === 0) {
-        console.error('Failed to load art image or image is empty:', art.imagePath);
-        return;
-      }
-
+      if (!img || img.naturalHeight === 0) return;
       const aspect = img.naturalWidth / img.naturalHeight;
       setAspectRatio(aspect);
-
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d', { willReadFrequently: true });
       canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
       context.drawImage(img, 0, 0);
-
       const originalData = context.getImageData(0, 0, canvas.width, canvas.height); //
-
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
-
       artCanvasRef.current = { canvas, context, originalData };
       setCanvasTexture(texture);
-
     }, undefined, (error) => {
       console.error('Failed to load art texture:', art.imagePath, error);
       setCanvasTexture(null);
     });
-
     return () => {
       setCanvasTexture((currentTexture) => {
         currentTexture?.dispose();
@@ -256,18 +322,12 @@ const InteractiveArtPlane = forwardRef(({
   }, [art.imagePath]);
 
 
-  // 2. 【修改】监听 art properties 变化并重绘画布
+  // 2. 监听属性变化重绘画布 (无变化)
   useEffect(() => {
-    // 【修改】只获取 lineColor，不再设置默认值
     const { lineColor, lineAlpha } = art.properties || {};
-    // lineAlpha 仍然需要默认值 1.0
     const safeLineAlpha = lineAlpha ?? 1.0;
-
     const { context, originalData, canvas } = artCanvasRef.current;
-
-    if (!context || !originalData || !canvasTexture) {
-      return;
-    }
+    if (!context || !originalData || !canvasTexture) return;
 
     const currentImageData = context.getImageData(0, 0, canvas.width, canvas.height); //
     const newImageData = new ImageData(canvas.width, canvas.height); //
@@ -275,55 +335,36 @@ const InteractiveArtPlane = forwardRef(({
     const oldData = originalData.data; //
     const currentData = currentImageData.data; //
 
-    // 【修改】仅当 lineColor 存在时才计算 RGB 值
     let rgbColor = null;
     if (lineColor) {
       rgbColor = new THREE.Color(lineColor).toArray().map(c => Math.round(c * 255)); //
     }
 
     for (let i = 0; i < oldData.length; i += 4) {
-
-      // 检查 *原始* 像素是否为线条 (黑色 & 不透明)
-      const isLine = oldData[i] < 100 &&
-        oldData[i + 1] < 100 &&
-        oldData[i + 2] < 100 &&
-        oldData[i + 3] > 10;
-
+      const isLine = oldData[i] < 150 &&
+        oldData[i + 1] < 150 &&
+        oldData[i + 2] < 150
+        && oldData[i + 3] > 10;
       if (isLine) {
-        // --- 【关键逻辑修改】 ---
-
-        // 1. 设置颜色
         if (rgbColor) {
-          // 如果 lineColor 已设置 (用户已更改)，则应用新颜色
           newData[i] = rgbColor[0];     //
           newData[i + 1] = rgbColor[1]; //
           newData[i + 2] = rgbColor[2]; //
         } else {
-          // 否则 (初始加载时)，保留 *原始* 图像的颜色
           newData[i] = oldData[i];
           newData[i + 1] = oldData[i + 1];
           newData[i + 2] = oldData[i + 2];
         }
-
-        // 2. 设置透明度 (此逻辑不变)
-        // 应用透明度滑块的值 (默认为 1.0)
         newData[i + 3] = oldData[i + 3] * safeLineAlpha; //
-
       } else {
-        // 不是线条：保留 *当前* 画布的像素 (可能是透明，也可能是填充色)
         newData[i] = currentData[i];     //
         newData[i + 1] = currentData[i + 1]; //
         newData[i + 2] = currentData[i + 2]; //
         newData[i + 3] = currentData[i + 3]; //
       }
     }
-
-    // 7. 将修改后的数据写回画布
     context.putImageData(newImageData, 0, 0); //
-
-    // 8. 通知 Three.js 更新纹理
     canvasTexture.needsUpdate = true; //
-
   }, [
     art.properties?.lineColor,
     art.properties?.lineAlpha,
@@ -378,13 +419,11 @@ const InteractiveArtPlane = forwardRef(({
       onTransformEnd(art.id, newTransform);
     }
   };
-
   const onTransformStartHandler = () => {
     if (meshRef.current) {
       lastScaleRef.current = [...meshRef.current.scale.toArray()];
     }
   };
-
   const onTransformChangeHandler = () => {
     if (meshRef.current && controlRef.current.mode === 'scale') {
       const scale = meshRef.current.scale;
@@ -406,7 +445,7 @@ const InteractiveArtPlane = forwardRef(({
   };
 
 
-  // 6. 返回 JSX (无变化)
+  // 6. 返回 JSX (【修改】onPointerDown)
   return (
     <group ref={ref}>
       {isSelected && (
@@ -421,9 +460,52 @@ const InteractiveArtPlane = forwardRef(({
       )}
       <mesh
         ref={meshRef}
+        // 【关键修改】
         onPointerDown={(e) => {
-          e.stopPropagation();
-          onSelect(art.id);
+          e.stopPropagation(); // 必须阻止冒泡
+
+          // 1. 检查是否启用了填充模式
+          if (isSelected && isFillModeActive) {
+
+            // 仅在 e.uv 存在时执行填充 (确保点击在平面上)
+            if (e.uv) {
+              const { canvas, context, originalData } = artCanvasRef.current;
+              if (canvas && context && originalData && canvasTexture) {
+                // 转换 UV 坐标为像素坐标
+                const pixelX = Math.floor(e.uv.x * canvas.width);
+                const pixelY = Math.floor((1 - e.uv.y) * canvas.height);
+
+                // 转换填充颜色
+                const rgbColor = new THREE.Color(fillColor || '#4285F4')
+                  .toArray()
+                  .map(c => Math.round(c * 255));
+
+                // 调用填充算法
+                floodFill(
+                  context,
+                  canvas,
+                  originalData,
+                  canvasTexture,
+                  pixelX,
+                  pixelY,
+                  rgbColor
+                );
+              }
+            }
+            // 填充后，不执行任何其他操作 (不取消选中，不开始拖动)
+            return;
+          }
+
+          // 2. 如果未启用填充模式，检查是否是“选中”操作
+          if (!isSelected) {
+            onSelect(art.id);
+            return;
+          }
+
+          // 3. 如果已选中且未启用填充模式
+          // 此事件将由 TransformControls 捕获以进行拖动/缩放/旋转。
+          // 我们已经阻止了冒泡，所以 MonumentScene 的背景点击
+          // 不会被触发。
         }}
       >
         <planeGeometry args={[1, 1]} />
@@ -462,13 +544,10 @@ const MonumentScene = forwardRef(({
   const sceneRef = useRef();
   const modelRefs = useRef({});
 
-  // 移除了 isArtDragging 状态
-  // const [isArtDragging, setIsArtDragging] = useState(false);
-
   // 清除选中状态（点击场景空白处）
   const handleSceneClick = (e) => {
     // 阻止点击场景内部元素时触发取消选中
-    // 【修改】也阻止在填充模式下取消选中
+    // 【修改】也阻止在填充模式下取消选中 (e.event.target.tagName 检查确保是 R3F 画布的空白处)
     if (e.event.target.tagName === 'CANVAS' && !isFillModeActive) {
       onArtElementSelect(null); // 【关键】上报 null ID 取消选中
     }
@@ -497,9 +576,6 @@ const MonumentScene = forwardRef(({
       scene.background = null;
     }
   }, [background, scene]);
-
-  // 移除了 handleArtDragChange 回调
-  // const handleArtDragChange = useCallback((isDragging) => { setIsArtDragging(isDragging); }, []);
 
   // useImperativeHandle (不变)
   useImperativeHandle(ref, () => ({
@@ -681,8 +757,6 @@ const MonumentScene = forwardRef(({
     }
   };
 
-  // 移除了 ArtDecal 相关的代码
-
   return (
     // 添加 onClick 事件以处理点击空白处取消选中
     // 注意：这里的 onClick 是 R3F 事件，而不是 DOM 事件
@@ -780,6 +854,8 @@ const MonumentScene = forwardRef(({
           onTransformEnd={onUpdateArtElementState}
           // 移除了 onDragChange 属性
           transformMode={transformMode} // 【更新】使用 props 传入的 mode
+          fillColor={fillColor} // 【新增】将填充颜色传递下去
+          isFillModeActive={isFillModeActive} // <-- 【新增】传递模式状态
         />
       ))}
 

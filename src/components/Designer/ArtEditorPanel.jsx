@@ -1,6 +1,6 @@
 import React from 'react';
-// 【新增】导入 App, ColorPicker, Slider, Typography, Divider
-import { Card, Button, Space, Modal, Tooltip, App, ColorPicker, Slider, Typography, Divider } from 'antd';
+// 【新增】导入 App, ColorPicker, Slider, Typography, Divider, Switch
+import { Card, Button, Space, Modal, Tooltip, App, ColorPicker, Slider, Typography, Divider, Switch } from 'antd';
 import {
   DeleteOutlined,
   SwapOutlined,
@@ -34,6 +34,12 @@ const ArtEditorPanel = ({
   onLineColorChange,
   /** 当线条透明度改变时调用 (artId: string, newAlphaValue: number) => void */
   onLineAlphaChange,
+
+  // --- 【新增】填充模式状态 ---
+  /** 填充模式是否激活 */
+  isFillModeActive,
+  /** 设置填充模式激活状态 */
+  setIsFillModeActive,
 }) => {
   // 使用 App.useApp() 钩子获取 modal 实例
   const { modal } = App.useApp();
@@ -78,7 +84,6 @@ const ArtEditorPanel = ({
   };
 
   // 从 art.properties 获取当前值, 并提供默认值
-  // 假设您的 art 对象现在会包含 'properties' 键
   const currentLineColor = art.properties?.lineColor || '#000000';
   const currentLineAlpha = art.properties?.lineAlpha ?? 1.0;
   const currentFillColor = fillColor || '#4285F4'; // 从 prop 获取
@@ -126,23 +131,37 @@ const ArtEditorPanel = ({
 
         <Divider style={{ margin: '4px 0' }} />
 
-        {/* 2. 颜色编辑 (新增) */}
+        {/* 2. 颜色编辑 (【修改】) */}
         <div>
           <Text strong>颜色编辑 (画布)</Text>
 
           {/* 填充颜色 */}
           <div style={{ marginTop: '8px' }}>
-            <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
-              填充颜色 (点击模型)
-            </Text>
+            {/* --- 【修改】添加了 Flex 布局和 Switch --- */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
+                填充颜色 (点击模型)
+              </Text>
+              <Switch
+                checkedChildren="启用"
+                unCheckedChildren="禁用"
+                checked={isFillModeActive}
+                onChange={setIsFillModeActive}
+              />
+            </div>
+
             <ColorPicker
               value={currentFillColor}
               onChange={handleFillColor}
               showText
               style={{ width: '100%' }}
+              disabled={!isFillModeActive} // <-- 【新增】禁用颜色选择器
             />
             <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginTop: '4px' }}>
-              选择颜色后，在模型上点击图案的透明区域进行填充。
+              {/* --- 【新增】动态提示 --- */}
+              {isFillModeActive
+                ? "启用中：在模型上点击图案区域进行填充。"
+                : "已禁用：点击图案将进行拖动或变换。"}
             </Text>
           </div>
 
