@@ -14,7 +14,8 @@
   position: relative;
   z-index: 1000;
   flex-shrink: 0;
-  height: 64px; /* 固定头部高度 */
+  height: 64px;
+  /* 固定头部高度 */
 }
 
 .header-left {
@@ -112,7 +113,8 @@
 .main-content-layout {
   flex: 1;
   overflow: hidden;
-  height: calc(100vh - 64px); /* 减去头部高度 */
+  height: calc(100vh - 64px);
+  /* 减去头部高度 */
 }
 
 .toolbar-sider {
@@ -174,6 +176,7 @@
   background: transparent;
 }
 
+/* 主工具栏定位 */
 .tool-panel {
   position: absolute;
   top: 80px;
@@ -186,6 +189,19 @@
   overflow: hidden;
   z-index: 100;
   border: 1px solid #e8e8e8;
+}
+
+/* 【新增】图案编辑面板定位 */
+.art-editor-panel {
+  position: absolute;
+  top: 80px;
+  /* 保持与主工具面板一致的顶部位置 */
+  right: 20px;
+  width: 300px;
+  /* 调整宽度以区分 */
+  z-index: 101;
+  /* 确保它在主工具面板上方 */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 .tool-panel-arrow {
@@ -224,10 +240,12 @@
   padding: 16px;
   background: #f5f5f5;
   border-top: 1px solid #d9d9d9;
-  height: 150px; /* 固定高度 */
+  height: 150px;
+  /* 固定高度 */
   overflow-y: auto;
   flex-shrink: 0;
-  transition: none; /* 禁用过渡效果 */
+  transition: none;
+  /* 禁用过渡效果 */
 }
 
 .footer-controls {
@@ -244,7 +262,8 @@
   gap: 15px;
   flex: 1;
   overflow-y: auto;
-  max-height: 66px; /* 固定计算，减去按钮区域高度 */
+  max-height: 66px;
+  /* 固定计算，减去按钮区域高度 */
   padding-right: 20px;
   padding-bottom: 5px;
 }
@@ -258,7 +277,8 @@
 .control-section {
   flex: 1;
   background: white;
-  padding: 12px; /* 减小内边距 */
+  padding: 12px;
+  /* 减小内边距 */
   border-radius: 6px;
   border: 1px solid #e8e8e8;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
@@ -268,7 +288,8 @@
 .section-content {
   display: flex;
   align-items: center;
-  gap: 16px; /* 减小间距 */
+  gap: 16px;
+  /* 减小间距 */
   margin-bottom: 0;
 }
 
@@ -276,19 +297,22 @@
 .dimension-control-group {
   display: flex;
   align-items: center;
-  gap: 8px; /* 减小间距 */
+  gap: 8px;
+  /* 减小间距 */
 }
 
 .dimension-control-group label {
   font-size: 12px;
   color: #666;
   font-weight: 500;
-  min-width: 50px; /* 减小宽度 */
+  min-width: 50px;
+  /* 减小宽度 */
 }
 
 .dimension-inputs {
   display: flex;
-  gap: 6px; /* 减小间距 */
+  gap: 6px;
+  /* 减小间距 */
 }
 
 .dimension-input {
@@ -300,7 +324,8 @@
 .dimension-label {
   font-size: 11px;
   color: #8c8c8c;
-  min-width: 20px; /* 恢复原始宽度 */
+  min-width: 20px;
+  /* 恢复原始宽度 */
   text-align: right;
   font-weight: 500;
 }
@@ -313,33 +338,38 @@
 
 .designer-footer .footer-controls .dimension-control label {
   text-align: right;
-  min-width: 100px; /* 可选：设置固定宽度保持对齐 */
+  min-width: 100px;
+  /* 可选：设置固定宽度保持对齐 */
   margin-right: 10px;
   flex-shrink: 0;
 }
 
 .dimension-value {
-  width: 60px; /* 减小宽度 */
+  width: 60px;
+  /* 减小宽度 */
 }
 
 /* 附加控制组 */
 .additional-controls {
   display: flex;
-  gap: 16px; /* 减小间距 */
+  gap: 16px;
+  /* 减小间距 */
   align-items: center;
 }
 
 .control-group {
   display: flex;
   align-items: center;
-  gap: 6px; /* 减小间距 */
+  gap: 6px;
+  /* 减小间距 */
 }
 
 /* 统一所有标签样式 */
 .control-group .dimension-label {
   font-size: 11px;
   color: #8c8c8c;
-  min-width: 40px; /* 减小宽度 */
+  min-width: 40px;
+  /* 减小宽度 */
   text-align: right;
   font-weight: 500;
 }
@@ -348,7 +378,8 @@
   font-size: 11px;
   color: #333;
   font-weight: 600;
-  min-width: 35px; /* 减小宽度 */
+  min-width: 35px;
+  /* 减小宽度 */
 }
 
 /* 固定在底部的 SubBase 按钮 - 固定大小 */
@@ -359,14 +390,19 @@
   border-top: 1px dashed #e8e8e8;
   margin-top: 8px;
   flex-shrink: 0;
-  height: 40px; /* 固定按钮容器高度 */
+  height: 40px;
+  /* 固定按钮容器高度 */
 }
 
 .fixed-size-button {
-  height: 28px !important; /* 固定按钮高度 */
-  min-width: 140px !important; /* 固定按钮最小宽度 */
-  font-size: 12px !important; /* 减小字体 */
-  padding: 0 12px !important; /* 固定内边距 */
+  height: 28px !important;
+  /* 固定按钮高度 */
+  min-width: 140px !important;
+  /* 固定按钮最小宽度 */
+  font-size: 12px !important;
+  /* 减小字体 */
+  padding: 0 12px !important;
+  /* 固定内边距 */
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -426,102 +462,4 @@
 
 .designer-footer::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
-}
-
-/* --- Styles for Recently Saved Feature --- */
-
-/* 让页脚主容器横向排列 */
-.footer-content-wrapper {
-  display: flex;
-  gap: 16px;
-  width: 100%;
-  height: 100%;
-}
-
-/* 限制左侧控制区域的宽度，让右侧有空间 */
-.designer-footer .footer-controls {
-  flex: 3;
-  min-width: 600px; /* 根据需要调整 */
-}
-
-/* "Recently Saved" 和 "Art Options" 的容器样式 */
-.recently-saved-container,
-.art-options-placeholder {
-  display: flex;
-  flex-direction: column;
-  flex: 1; /* 分配 1 份空间 */
-  min-width: 200px; /* 设置最小宽度，决定了其“更小”的初始状态 */
-  max-width: 350px; /* 设置最大宽度，防止无限拉伸 */
-  height: 100%;
-  padding: 8px;
-  border: 1px solid #d9d9d9;
-  border-radius: 6px;
-  background-color: #fff;
-  overflow: hidden;
-}
-
-.recently-saved-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #595959;
-  margin-bottom: 8px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-/* 缩略图网格 */
-.recent-designs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); /* 自适应列数 */
-  gap: 8px;
-  overflow-y: auto;
-  padding: 4px;
-}
-
-/* 单个缩略图样式 */
-.recent-design-thumb {
-  width: 100%;
-  height: 40px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.recent-design-thumb:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* 悬停弹窗的内容样式 */
-.popover-preview-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.popover-preview-img {
-  width: 150px;
-  height: 120px;
-  object-fit: contain;
-  margin-bottom: 8px;
-  border-radius: 4px;
-}
-
-.popover-preview-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-  margin: 0;
-  text-align: center;
-}
-
-/* 新增的占位符方框样式 */
-.recent-design-placeholder {
-  width: 100%;
-  height: 50px;
-  background-color: #f5f5f5;
-  border: 1px dashed #d9d9d9;
-  border-radius: 4px;
 }

@@ -5,34 +5,34 @@ import './MaterialPanel.css'
 
 const MaterialPanel = ({ currentMaterial, onMaterialChange, compact = false }) => {
   const materials = [
-    { 
-      id: 'Black', 
-      name: 'Black Granite', 
+    {
+      id: 'Black',
+      name: 'Black Granite',
       thumbnail: '/textures/Material & Color/Black.jpg'
     },
-    { 
-      id: 'Grey', 
-      name: 'Grey Granite', 
+    {
+      id: 'Grey',
+      name: 'Grey Granite',
       thumbnail: '/textures/Material & Color/Grey.jpg'
     },
-    { 
-      id: 'Red', 
-      name: 'Red Granite', 
+    {
+      id: 'Red',
+      name: 'Red Granite',
       thumbnail: '/textures/Material & Color/Red.jpg'
     },
-    { 
-      id: 'Blue', 
-      name: 'Blue Granite', 
+    {
+      id: 'Blue',
+      name: 'Blue Granite',
       thumbnail: '/textures/Material & Color/Blue.jpg'
     },
-    { 
-      id: 'Green', 
-      name: 'Green Granite', 
+    {
+      id: 'Green',
+      name: 'Green Granite',
       thumbnail: '/textures/Material & Color/Green.jpg'
     },
-    { 
-      id: 'White', 
-      name: 'White Granite', 
+    {
+      id: 'White',
+      name: 'White Granite',
       thumbnail: '/textures/Material & Color/White.jpg'
     }
   ]
@@ -52,8 +52,8 @@ const MaterialPanel = ({ currentMaterial, onMaterialChange, compact = false }) =
           >
             <div className="material-thumbnail-container">
               <div className="material-thumbnail">
-                <img 
-                  alt={material.name} 
+                <img
+                  alt={material.name}
                   src={material.thumbnail}
                   onError={(e) => {
                     e.target.src = '/images/placeholder.png'
