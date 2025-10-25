@@ -284,9 +284,9 @@ const InteractiveArtPlane = forwardRef(({
     for (let i = 0; i < oldData.length; i += 4) {
 
       // 检查 *原始* 像素是否为线条 (黑色 & 不透明)
-      const isLine = oldData[i] < 50 &&
-        oldData[i + 1] < 50 &&
-        oldData[i + 2] < 50 &&
+      const isLine = oldData[i] < 100 &&
+        oldData[i + 1] < 100 &&
+        oldData[i + 2] < 100 &&
         oldData[i + 3] > 10;
 
       if (isLine) {
