@@ -355,6 +355,8 @@ export const useDesignState = () => {
           updatedState.vases = updateElement(prev.vases);
           break;
         case 'art':
+          // Dimensions for art elements are updated via updateArtElementState (scale property)
+          // This function is kept for generic dimension updates if needed, but not used by the new ArtPlane interaction.
           updatedState.artElements = updateElement(prev.artElements);
           break;
         default:
@@ -376,7 +378,7 @@ export const useDesignState = () => {
       modelPath: `./models/Vases/${vaseData.class}/${vaseData.name}.glb`,
       texturePath: `./textures/Vases/${vaseData.class}/${vaseData.name}_${designState.currentMaterial}.jpg`,
       position: [0, 0, 0],
-      dimensions: { length: 0, width: 0, height: 0 },
+      dimensions: { length: 0.5, width: 0.5, height: 0.5 },
       weight: 0
     };
 
@@ -387,6 +389,8 @@ export const useDesignState = () => {
   }, [designState, updateDesignState]);
 
 
+  // useDesignState.js (addArt 函数)
+
   const addArt = useCallback((artData) => {
     const art = {
       id: `art-${Date.now()}`,
@@ -394,9 +398,14 @@ export const useDesignState = () => {
       class: artData.class,
       subclass: artData.subclass,
       color: designState.currentMaterial,
-      modelPath: `./models/Art/${artData.class}/${artData.subclass}/${artData.class}_${artData.subclass}.glb`,
-      position: [0, 0, 0],
-      dimensions: { length: 0, width: 0, height: 0 },
+      // 确保 imagePath 存在，以便 InteractiveArtPlane 可以找到纹理
+      imagePath: artData.imagePath,
+      //modelPath: `./models/Art/${artData.class}/${artData.subclass}/${artData.class}_${artData.subclass}.glb`,
+      position: [0, 0, -0.205],
+      dimensions: { length: 0.2, width: 0.01, height: 0.2 }, // 给予一个初始尺寸，width即深度
+      // 新增：默认的缩放和旋转状态，InteractiveArtPlane的TransformControls会直接修改
+      //scale: [0.2, 0.2, 1], // 初始缩放，用于控制尺寸（1x1的平面被缩放）
+      rotation: [0, 0, 0], // 初始旋转
       weight: 0
     };
 
@@ -405,6 +414,28 @@ export const useDesignState = () => {
       artElements: [...prev.artElements, art]
     }));
   }, [designState, updateDesignState]);
+
+  // 【修复】更新 ArtElement 状态
+  // 这个函数现在是通用的。它接受一个 updater (更新器)，
+  // updater 可以是一个对象（将被合并），
+  // 也可以是一个函数 (prevArt) => newPartialArt（用于防止竞态条件）。
+  const updateArtElementState = useCallback((artId, updater) => {
+    updateDesignState(prev => ({
+      ...prev,
+      artElements: prev.artElements.map(art => {
+        if (art.id === artId) {
+          // 检查 updater 是函数还是对象
+          const newPartialState = typeof updater === 'function'
+            ? updater(art) // 如果是函数，传入旧 art 状态并获取新状态
+            : updater;     // 如果是对象，直接使用
+
+          // 将新状态与现有 art 对象合并
+          return { ...art, ...newPartialState };
+        }
+        return art;
+      })
+    }));
+  }, [updateDesignState]);
 
   // 复制元素
   const duplicateElement = useCallback((elementId, elementType) => {
@@ -434,15 +465,12 @@ export const useDesignState = () => {
         id: `${elementType}-${Date.now()}`,
         position: [
           elementToDuplicate.position[0] + 0.5,
-          elementToDuplicate.position[1],
+          elementToDuplicate.position[1] + 0.1, // 略微抬高/偏移，方便拖拽选中
           elementToDuplicate.position[2]
         ]
       };
 
-      return {
-        ...prev,
-        ...setElements([...elements, duplicatedElement])
-      };
+      return { ...prev, ...setElements([...elements, duplicatedElement]) };
     });
   }, [updateDesignState]);
 
@@ -462,9 +490,39 @@ export const useDesignState = () => {
 
   // 翻转元素
   const flipElement = useCallback((elementId, axis, elementType) => {
-    // 翻转逻辑在3D组件中处理
-    console.log(`Flip ${elementType} ${elementId} on ${axis} axis`);
-  }, []);
+    // 使用 scale 来实现翻转
+    updateDesignState(prev => {
+      if (elementType === 'art') {
+        return {
+          ...prev,
+          artElements: prev.artElements.map(art => {
+            if (art.id === elementId) {
+              // 假设 scale 存储为 [x, y, z]
+              const currentScale = art.scale || [1, 1, 1];
+              let newScale = [...currentScale];
+
+              // --- 修正后的逻辑 ---
+              if (axis === 'x') {
+                // 左右翻转: 反转 X 轴的 scale
+                newScale[0] *= -1;
+              } else if (axis === 'y') {
+                // 上下翻转: 反转 Y 轴的 scale
+                newScale[1] *= -1;
+              } else if (axis === 'z') {
+                // 前后翻转
+                newScale[2] *= -1;
+              }
+              // --- 修正结束 ---
+
+              return { ...art, scale: newScale };
+            }
+            return art;
+          })
+        };
+      }
+      return prev;
+    });
+  }, [updateDesignState]);
 
   // 计算重量
   const calculateWeight = (dimensions, material) => {
@@ -488,7 +546,7 @@ export const useDesignState = () => {
     }
   }, []);
 
-  // ****** 移除了这里的 useEffect ******
+  // ***** 移除了导致无限循环的 useEffect *****
 
   return {
     designState,
@@ -508,6 +566,7 @@ export const useDesignState = () => {
     duplicateElement,
     deleteElement,
     flipElement,
+    updateArtElementState,
     undo,
     redo,
     canUndo: historyIndexRef.current > 0,
