@@ -174,6 +174,7 @@
   background: transparent;
 }
 
+/* 主工具栏定位 */
 .tool-panel {
   position: absolute;
   top: 80px;
@@ -187,6 +188,20 @@
   z-index: 100;
   border: 1px solid #e8e8e8;
 }
+
+/* 【新增】图案编辑面板定位 */
+.art-editor-panel {
+  position: absolute;
+  top: 80px;
+  /* 保持与主工具面板一致的顶部位置 */
+  right: 20px;
+  width: 300px;
+  /* 调整宽度以区分 */
+  z-index: 101;
+  /* 确保它在主工具面板上方 */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
 
 .tool-panel-arrow {
   position: absolute;
