@@ -485,13 +485,41 @@ export const useDesignState = () => {
     loadDefaultTablet();
   }, [loadDefaultTablet]);
 
+  // 字体配置映射：名称 -> public 路径
+  const FONT_OPTIONS = [
+    { name: 'Helvetiker', path: '/fonts/helvetiker_regular.typeface.json' },
+    { name: 'Arial', path: '/fonts/Arial_Regular.json' },
+    { name: 'Arial Bold', path: '/fonts/Arial_Bold.json' },
+    { name: 'Arial Italic', path: '/fonts/Arial_Italic (1).json' },
+    { name: 'Roman', path: '/fonts/Adobe Myungjo Std M_Regular.json' },
+    { name: 'Times-Roman', path: '/fonts/Calisto MT_Regular.json' },
+    { name: 'Script MT Bold', path: '/fonts/AlgerianBasDEE_Regular.json' },
+    { name: 'EnglishScriptEF-BoldArbor', path: '/fonts/Arkipelago_Regular.json' },
+    { name: 'Gauranga', path: '/fonts/Adobe Gothic Std B_Bold.json' },
+    { name: 'FZLiShu', path: '/fonts/Arial Unicode MS_Regular.json' },
+    { name: 'Arkipelago', path: '/fonts/Arkipelago_Regular.json' },
+    { name: 'Calibri', path: '/fonts/Calibri_Regular.json' },
+    { name: 'Calibri Bold', path: '/fonts/Calibri_Bold.json' },
+    { name: 'Calibri Italic', path: '/fonts/Calibri_Italic.json' },
+    { name: 'Calibri Light', path: '/fonts/Calibri Light_Regular.json' },
+  ];
+
+  // 字体路径查找函数（用于 Scene3D 中获取字体路径）
+  const getFontPath = (nameOrPath) => {
+    if (!nameOrPath) return '/fonts/helvetiker_regular.typeface.json';
+    if (nameOrPath.startsWith('/fonts/') || nameOrPath.endsWith('.json')) return nameOrPath;
+    
+    // 从 FONT_OPTIONS 中查找
+    const font = FONT_OPTIONS.find(f => f.name === nameOrPath);
+    return font ? font.path : '/fonts/helvetiker_regular.typeface.json';
+  };
 
   const [currentTextId, setCurrentTextId] = useState(null);
   // 添加文本
   const addText = useCallback((textData) => {
     const newText = {
       id: `text-${Date.now()}`,
-      monumentId: textData.monumentId, // 关联的主碑ID
+      monumentId: textData.monumentId,
       content: textData.content,
       font: textData.font || 'Arial',
       size: textData.size || 16,
@@ -499,11 +527,20 @@ export const useDesignState = () => {
       alignment: textData.alignment || 'center',
       kerning: textData.kerning || 0,
       lineSpacing: textData.lineSpacing || 1.2,
-      engraveType: textData.engraveType || 'engraved', // engraved: 凹陷, embossed: 凸起
-      position: [0, 0, 0], // 相对于主碑的位置
-      rotation: [0, 0, 0],
-    };
+      engraveType: textData.engraveType || 'vcut', // vcut, frost, polish
+      // 使用相对位置而不是绝对位置
+      //relativePosition: textData.relativePosition || [0, 0, 0.5], // [x, y, depth] depth: 0=表面, 1=完全嵌入
+      // rotation: [0, 0, 0],
+      thickness: textData.thickness || 0.02,
+      curveAmount: textData.curveAmount || 0, // 弯曲程度 0-100
+      // 新增雕刻效果属性
+      vcutColor: textData.vcutColor || '#000000',
+      frostIntensity: textData.frostIntensity || 0.8,
+      polishBlend: textData.polishBlend || 0.5,
+      isSelected: true,// 选中状态
+      isDragging: false
 
+    };
     updateDesignState(prev => ({
       ...prev,
       textElements: [...prev.textElements, newText]
@@ -511,6 +548,37 @@ export const useDesignState = () => {
 
     return newText.id;
   }, [updateDesignState]);
+  // 添加更新相对位置的函数
+  const updateTextRelativePosition = useCallback((textId, newRelativePosition) => {
+    updateDesignState(prev => ({
+      ...prev,
+      textElements: prev.textElements.map(text =>
+        text.id === textId ? { ...text, relativePosition: newRelativePosition } : text
+      )
+    }));
+  }, [updateDesignState]);
+
+
+  // 添加文字变换函数
+  const transformText = useCallback((textId, transformation) => {
+    updateDesignState(prev => ({
+      ...prev,
+      textElements: prev.textElements.map(text =>
+        text.id === textId ? { ...text, ...transformation } : text
+      )
+    }));
+  }, [updateDesignState]);
+
+  // 设置文字选中状态
+  const setTextSelected = useCallback((textId, isSelected) => {
+    updateDesignState(prev => ({
+      ...prev,
+      textElements: prev.textElements.map(text =>
+        text.id === textId ? { ...text, isSelected } : text
+      )
+    }));
+  }, [updateDesignState]);
+
   //更新文本
   const updateText = useCallback((textId, updates) => {
     updateDesignState(prev => ({
@@ -519,7 +587,6 @@ export const useDesignState = () => {
         text.id === textId ? { ...text, ...updates } : text
       )
     }));
-    console.log('文本发生变化hhhhh:', updates);
   }, [updateDesignState]);
 
   // 删除文本
@@ -527,6 +594,25 @@ export const useDesignState = () => {
     updateDesignState(prev => ({
       ...prev,
       textElements: prev.textElements.filter(text => text.id !== textId)
+    }));
+  }, [updateDesignState]);
+  // 添加专门的文字位置更新函数
+  const updateTextPosition = useCallback((textId, newPosition) => {
+    updateDesignState(prev => ({
+      ...prev,
+      textElements: prev.textElements.map(text =>
+        text.id === textId ? { ...text, position: newPosition } : text
+      )
+    }));
+  }, [updateDesignState]);
+
+  // 添加专门的文字旋转更新函数
+  const updateTextRotation = useCallback((textId, newRotation) => {
+    updateDesignState(prev => ({
+      ...prev,
+      textElements: prev.textElements.map(text =>
+        text.id === textId ? { ...text, rotation: newRotation } : text
+      )
     }));
   }, [updateDesignState]);
 
@@ -560,5 +646,12 @@ export const useDesignState = () => {
     addText,
     updateText,
     deleteText,
+    transformText,
+    setTextSelected,
+    fontOptions: FONT_OPTIONS,
+    getFontPath, // 导出字体路径查找函数
+    updateTextPosition,
+    updateTextRotation,
+    updateTextRelativePosition
   };
 };

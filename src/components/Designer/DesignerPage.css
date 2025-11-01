@@ -188,6 +188,7 @@
   overflow: hidden;
   z-index: 100;
   border: 1px solid #e8e8e8;
+
 }
 
 .tool-panel-arrow {
@@ -574,4 +575,61 @@
 
 .dropdown-item.logout:hover {
   background: #fff2f0;
+}
+
+
+
+
+
+
+
+
+/*新增文字操作选项*/
+
+.text-controls-overlay {
+  position: relative;
+  pointer-events: none;
+}
+
+.control-buttons {
+  position: relative;
+}
+
+.control-button {
+  pointer-events: auto;
+  transition: all 0.2s ease;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.delete-button:hover {
+  background: #cc0000 !important;
+}
+
+.rotate-button:hover {
+  background: #096dd9 !important;
+}
+
+.text-editor-panel {
+  padding: 8px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* 雕刻效果按钮样式 */
+.engrave-button {
+  transition: all 0.3s ease;
+}
+
+.engrave-button.active {
+  background: #1890ff;
+  color: white;
+  border-color: #1890ff;
 }

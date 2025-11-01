@@ -62,7 +62,8 @@ const DesignerPage = () => {
   const [currentBackground, setCurrentBackground] = useState('transparent')
   //英尺英寸状态
   const [selectedUnit, setSelectedUnit] = useState(null);
-
+  const [currentTextId, setCurrentTextId] = useState(null);
+  const [isTextEditing, setIsTextEditing] = useState(false); // 新增：文字编辑状态
   const {
     designState,
     updateDimensions,
@@ -88,7 +89,11 @@ const DesignerPage = () => {
     addText,
     updateText,
     deleteText,
-    currentTextId
+    setTextSelected,
+    fontOptions,
+    getFontPath,
+    updateTextPosition,
+    updateTextRotation
   } = useDesignState();
 
   // 工具菜单项
@@ -113,11 +118,20 @@ const DesignerPage = () => {
 
 
 
-
-  // 处理工具选择
+  // 修改工具选择处理
   const handleToolSelect = (key) => {
-    setActiveTool(activeTool === key ? null : key)
-  }
+    if (activeTool === key) {
+      setIsTextEditing(false);
+      setCurrentTextId(null);
+      // 清除所有文字的选中状态
+      designState.textElements.forEach(text => {
+        setTextSelected(text.id, false);
+      });
+    } else {
+      setIsTextEditing(true);
+    }
+    setActiveTool(activeTool === key ? null : key);
+  };
 
   // 保存设计
   const handleSaveDesign = useCallback(async () => {
@@ -180,7 +194,6 @@ const DesignerPage = () => {
     return bgOption ? bgOption.url : null;
   };
 
-  // 新增：处理文本添加
 
 
 
@@ -332,15 +345,22 @@ const DesignerPage = () => {
   }
 
 
-  // 文本添加、更新
+  // 更新位置变化处理函数
+  const handleTextPositionChange = useCallback((textId, newPosition) => {
+    console.log('文字位置变化:', textId, newPosition);
+    updateTextPosition(textId, newPosition); // 使用专门的函数
+  }, [updateTextPosition]);
 
+  // 更新旋转变化处理函数
+  const handleTextRotationChange = useCallback((textId, newRotation) => {
+    console.log('文字旋转变化:', textId, newRotation);
+    updateTextRotation(textId, newRotation); // 使用专门的函数
+  }, [updateTextRotation]);
 
+  // 修改文字添加函数
   const handleTextAdd = useCallback((textProperties) => {
-    console.log('接收到文本属性1:', textProperties);
-    // addText(textData)
-    //setActiveTool(null)
-    message.success('Text added successfully')
-    // 这里需要添加逻辑来确定文本关联到哪个主碑
+    console.log('接收到文本属性:', textProperties);
+
     const targetMonumentId = designState.monuments.length > 0
       ? designState.monuments[0].id
       : null;
@@ -350,15 +370,38 @@ const DesignerPage = () => {
       return;
     }
 
-    // 将文本属性传递给 useDesignState
-    addText({
+    const newTextId = addText({
       ...textProperties,
-      monumentId: targetMonumentId // 关联到具体的主碑
+      monumentId: targetMonumentId,
+
     });
 
+    // 自动选中新添加的文字并进入编辑模式
+    setCurrentTextId(newTextId);
+    setIsTextEditing(true);
 
     message.success('文本添加成功');
+    console.log('新文字ID:', newTextId);
   }, [designState.monuments, addText]);
+
+  const handleDeleteText = useCallback((textId) => {
+    deleteText(textId);
+    setCurrentTextId(null);
+    setIsTextEditing(false);
+    message.success('文字已删除');
+  }, [deleteText]);
+
+
+  // 修改文字选择处理
+  const handleTextSelect = useCallback((textId) => {
+    console.log('DesignerPage: 文字被选中', textId);
+    setCurrentTextId(textId);
+    setIsTextEditing(true);
+    // 更新文字选中状态
+    setTextSelected(textId, true);
+  }, [setTextSelected]);
+
+
 
   // 语言下拉菜单配置
   const languageMenu = {
@@ -402,10 +445,12 @@ const DesignerPage = () => {
           <TextEditor
             onAddText={handleTextAdd}
             onUpdateText={updateText}
-            onDeleteText={deleteText}
+            onDeleteText={handleDeleteText}
             currentTextId={currentTextId} // 添加当前文本ID状态
             existingTexts={texts}
             monuments={designState.monuments}
+            isEditing={isTextEditing} // 传递编辑模式状态
+            fontOptions={fontOptions} // 从 useDesignState 获取
           />
         );
       default:
@@ -647,6 +692,13 @@ const DesignerPage = () => {
                   onDuplicateElement={duplicateElement}
                   onDeleteElement={deleteElement}
                   onFlipElement={deleteElement}
+                  onTextSelect={handleTextSelect}
+                  onTextPositionChange={handleTextPositionChange}
+                  onTextRotationChange={handleTextRotationChange} // 新增
+                  onDeleteText={handleDeleteText} // 新增
+                  currentTextId={currentTextId}
+                  isTextEditing={isTextEditing}
+                  getFontPath={getFontPath}
                 />
 
                 {activeTool && (
@@ -722,5 +774,4 @@ const DesignerPage = () => {
     </Layout>
   )
 }
-
 export default DesignerPage

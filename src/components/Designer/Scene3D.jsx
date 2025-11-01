@@ -1,17 +1,21 @@
-import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, Suspense, useLayoutEffect } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, Suspense, useLayoutEffect, useCallback, useMemo } from 'react';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html, TransformControls } from '@react-three/drei';
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry';
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
+import { Text3D, DragControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { Text } from '@react-three/drei';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry';
+import { extend } from '@react-three/fiber';
 
+// 扩展 TextGeometry 以便在 react-three-fiber 中使用
+extend({ TextGeometry });
 const Loader = () => (
   <Html center>
     <div>Loading 3D Model...</div>
   </Html>
 );
+
 
 const Model = forwardRef(({
   modelPath,
@@ -163,6 +167,8 @@ const Model = forwardRef(({
   ) : ModelComponent;
 });
 
+
+
 // 主场景组件
 const MonumentScene = forwardRef(({
   designState,
@@ -171,48 +177,20 @@ const MonumentScene = forwardRef(({
   onDeleteElement,
   onFlipElement,
   onTextPositionChange,
-  background = null
+  onTextRotationChange,
+  onTextSelect,
+  onDeleteText,
+  currentTextId,
+  isTextEditing,
+  background = null,
+  getFontPath, // 接收字体路径查找函数
+  //...props,
 }, ref) => {
   const { gl, scene } = useThree();
   const sceneRef = useRef();
   const modelRefs = useRef({});
-  const [selectedTextId, setSelectedTextId] = useState(null);
-
-  // 当添加新文字时，自动选中它
-  useEffect(() => {
-    const textElements = designState.textElements || [];
-    if (textElements.length > 0) {
-      // 获取最新添加的文字
-      const latestText = textElements[textElements.length - 1];
-      setSelectedTextId(latestText.id);
-    }
-  }, [designState.textElements]);
-
-  // 点击场景其他部分时取消选中文字
-  useEffect(() => {
-    const handleSceneClick = () => {
-      setSelectedTextId(null);
-    };
-
-    // 添加全局点击事件监听器
-    document.addEventListener('click', handleSceneClick);
-    return () => {
-      document.removeEventListener('click', handleSceneClick);
-    };
-  }, []);
-
-  // 处理文字位置变化
-  const handleTextPositionChange = (textId, newPosition) => {
-    if (onTextPositionChange) {
-      onTextPositionChange(textId, newPosition);
-    }
-  };
-
-  // 处理文字选中
-  const handleTextSelect = (textId) => {
-    console.log('wenbenbeixuanzhong:', textId);
-    setSelectedTextId(textId);
-  };
+  const selectedTextId = currentTextId;
+  const isEditingText = isTextEditing;
 
   // 处理背景图片
   useEffect(() => {
@@ -249,7 +227,8 @@ const MonumentScene = forwardRef(({
           resolve(URL.createObjectURL(blob));
         }, 'image/png', 1.0);
       });
-    }
+    },
+
   }));
 
   const calculateModelPositions = () => {
@@ -402,124 +381,6 @@ const MonumentScene = forwardRef(({
     }
     return positions;
   };
-  //文本
-  const TextElement = ({ text, monument, monumentRef, onTextPositionChange, isSelected, onSelect }) => {
-    const textRef = useRef();
-    const transformControlsRef = useRef();
-    const [initialPosition, setInitialPosition] = useState(null); // 修复：添加 initialPosition 状态
-    // 处理变换控制器的变化
-    const handleTransformChange = () => {
-      console.log('文本', textRef.current)
-      if (!textRef.current || !initialPosition) return;
-
-      // 获取当前位置
-      const currentPosition = textRef.current.position.clone();
-
-      // 保持Z轴不变，只更新XY坐标
-      const newPosition = new THREE.Vector3(
-        currentPosition.x,
-        currentPosition.y,
-        initialPosition.z // 保持原始的Z坐标
-      );
-
-      // 应用新位置
-      textRef.current.position.copy(newPosition);
-
-      // 通知父组件位置变化
-      if (onTextPositionChange) {
-        onTextPositionChange(text.id, [newPosition.x, newPosition.y, newPosition.z]);
-      }
-    };
-
-
-    useEffect(() => {
-      if (!textRef.current || !monument || initialPosition) return;
-
-      const monumentMesh = modelRefs.current[monument.id]?.getMesh();
-      if (!monumentMesh) return;
-
-      // 获取纪念碑的尺寸
-      const box = new THREE.Box3().setFromObject(monumentMesh);
-      const size = new THREE.Vector3();
-      box.getSize(size);
-
-      // 根据对齐方式计算水平位置
-      let xOffset = 0;
-      switch (text.alignment) {
-        case 'left':
-          xOffset = -size.x * 0.4;
-          break;
-        case 'right':
-          xOffset = size.x * 0.4;
-          break;
-        case 'center':
-        default:
-          xOffset = 0;
-      }
-
-      // 垂直居中
-      const yOffset = 0;
-      const frontSurfaceZ = -size.z;
-
-      // 根据雕刻类型调整深度
-      const zOffset = text.engraveType === 'engraved' ?
-        frontSurfaceZ + 0.02 :  // 凹陷，稍微向内
-        frontSurfaceZ - 0.02;   // 凸出，稍微向外
-
-      // 设置文字位置
-      const position = new THREE.Vector3(0, yOffset, -size.z - 0.01);
-      textRef.current.position.copy(position);
-      setInitialPosition(position);
-      textRef.current.rotation.y = Math.PI;
-
-
-
-    }, [text, monument, initialPosition]);
-    // 点击文字时选中
-    const handleTextClick = (event) => {
-      event.stopPropagation();
-      if (onSelect) {
-        onSelect(text.id);
-        console.log('wenbenbeixuanzhong:', text.id);
-      }
-    };
-
-    return (
-      <group ref={textRef} onClick={handleTextClick}>
-        <Text
-          color={text.color}
-          fontSize={text.size * 0.01}
-          anchorX={text.alignment}
-          anchorY="middle"
-          letterSpacing={text.kerning * 0.001}
-          lineHeight={text.lineSpacing}
-          position={[0, 0, 0]}
-          renderOrder={1}
-        >
-          {text.content}
-          <meshStandardMaterial
-            color={text.color}
-            roughness={0.3}
-            metalness={text.engraveType === 'engraved' ? 0.2 : 0.8}
-            side={THREE.DoubleSide} // 确保文字双面可见
-          />
-        </Text>
-        {/* 位置控制器 - 只有当文字被选中时显示 */}
-        {isSelected && (
-          <TransformControls
-            ref={transformControlsRef}
-            object={textRef}
-            mode="translate"
-            showX={true}
-            showY={true}
-            showZ={false} // 隐藏Z轴控制器
-            onObjectChange={handleTransformChange}
-            onMouseUp={handleTransformChange}
-          />
-        )}
-      </group>
-    );
-  };
 
   const positions = calculateModelPositions();
 
@@ -528,6 +389,496 @@ const MonumentScene = forwardRef(({
       onDimensionsChange(elementId, dimensions, elementType);
     }
   };
+
+
+  // 使用 drei 提供的默认字体
+  const EnhancedTextElement = ({
+    text,
+    monument,
+    onTextPositionChange,
+    onTextRotationChange,
+    onTextSelect,
+    onDeleteText,
+    isSelected,
+    isTextEditing
+  }) => {
+    const textRef = useRef();
+    const transformControlsRef = useRef();
+    const groupRef = useRef(); // 用于变换控制的组（锚定到墓碑正面平面）
+    const [isDragging, setIsDragging] = useState(false);
+    const { scene, controls } = useThree();
+    const [monumentMaterial, setMonumentMaterial] = useState(null);
+    const [dragEnabled, setDragEnabled] = useState(false);
+    const [hasInitPosition, setHasInitPosition] = useState(false);
+    const [transformMode, setTransformMode] = useState('translate');
+    const lineRefs = useRef([]); // 多行文字的 refs
+    const [lineOffsets, setLineOffsets] = useState([]);
+    const rafWriteRef = useRef(null);
+
+    // 使用传入的 getFontPath 函数（来自 useDesignState）
+    const localGetFontPath = useCallback((nameOrPath) => {
+      if (getFontPath) {
+        return getFontPath(nameOrPath);
+      }
+      // 回退：如果没有传入则使用默认
+      return nameOrPath || '/fonts/helvetiker_regular.typeface.json';
+    }, [getFontPath]);
+    // const initialPosition = useState()
+    // 首次没有位置时，将文字初始化到表面中心
+    useEffect(() => {
+      if (!monument || !onTextPositionChange) return;
+      if (hasInitPosition) return;
+      if (!text.position || text.position.length < 2) {
+        onTextPositionChange(text.id, [0, 0, 0]);
+      }
+      if (!text.rotation || text.rotation.length < 3) {
+        onTextRotationChange && onTextRotationChange(text.id, [0, 0, 0]);
+      }
+      setHasInitPosition(true);
+    }, [monument, text.id, text.position, text.rotation, onTextPositionChange, onTextRotationChange, hasInitPosition]);
+
+    // 将文字组锚定在墓碑正面平面，并随平面旋转（以墓碑包围盒正面中心为基准）
+    useEffect(() => {
+      if (!groupRef.current || !monument) return;
+      if (isDragging) return;
+
+      const monumentMesh = modelRefs.current[monument.id]?.getMesh();
+      if (!monumentMesh) return;
+
+      // 确保世界矩阵最新
+      monumentMesh.updateWorldMatrix(true, false);
+
+      // 获取墓碑包围盒（世界空间），计算尺寸
+      const box = new THREE.Box3().setFromObject(monumentMesh);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+
+      // 根据雕刻类型决定沿法线方向的偏移（局部 -Z 被认为是正面）
+      let frontOffset = 0.015; // 默认轻微抬起以避免Z冲突
+      switch (text.engraveType) {
+        case 'vcut':
+        case 'frost':
+          frontOffset = 0.021;
+          break;
+        case 'polish':
+          frontOffset = 0.0;
+          break;
+        default:
+          frontOffset = 0.015;
+      }
+
+      // 取墓碑的世界变换
+      const worldPosition = new THREE.Vector3();
+      const worldQuaternion = new THREE.Quaternion();
+      const worldScale = new THREE.Vector3();
+      monumentMesh.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale);
+      
+      // 前表面局部Z：使用 -size.z（用户要求），再加雕刻偏移
+      const localPlaneZ = -size.z + frontOffset;
+      const xLocal = (text.position?.[0] !== undefined)
+        ? text.position[0]
+        : 0;
+      const yLocal = (text.position?.[1] !== undefined)
+        ? text.position[1]
+        : 0;
+      const localPlanePoint = new THREE.Vector3(
+        xLocal,
+        yLocal,
+        localPlaneZ
+      );
+
+      // 将本地点变换到世界坐标
+      const localToWorld = localPlanePoint.clone().applyQuaternion(worldQuaternion).multiply(worldScale).add(worldPosition);
+
+      // 让文字朝外：在墓碑朝向基础上绕Y轴再旋转180度
+      const flipQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+      const finalQuat = worldQuaternion.clone().multiply(flipQuat);
+
+      groupRef.current.position.copy(localToWorld);
+      groupRef.current.quaternion.copy(finalQuat);
+    }, [monument, text.position, text.engraveType, isDragging, monument?.dimensions]);
+
+    // 非拖拽时每帧校准贴面（应对厚度/缩放变化）
+    useFrame(() => {
+      if (!groupRef.current || !monument) return;
+      if (isDragging) return;
+      const monumentMesh = modelRefs.current[monument.id]?.getMesh();
+      if (!monumentMesh) return;
+      monumentMesh.updateWorldMatrix(true, false);
+
+      const box = new THREE.Box3().setFromObject(monumentMesh);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+
+      let frontOffset = 0.015;
+      if (text.engraveType === 'vcut' || text.engraveType === 'frost') frontOffset = 0.021;
+      if (text.engraveType === 'polish') frontOffset = 0.0;
+
+      const worldPosition = new THREE.Vector3();
+      const worldQuaternion = new THREE.Quaternion();
+      const worldScale = new THREE.Vector3();
+      monumentMesh.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale);
+
+      // 使用厚度直接确定前表面 Z：-size.z + 偏移
+      const localPlaneZ = -size.z + frontOffset;
+
+      // 使用已存的局部 X/Y（若无则 0），更新到最新的前表面 Z
+      const localPoint = new THREE.Vector3(
+        text.position?.[0] || 0,
+        text.position?.[1] || 0,
+        localPlaneZ
+      );
+      const nextWorld = localPoint.clone().applyQuaternion(worldQuaternion).multiply(worldScale).add(worldPosition);
+      groupRef.current.position.lerp(nextWorld, 0.5);
+    });
+
+    // 将 group 的世界位姿回写为平面内的局部 X/Y 与绕法线的 Z 旋转
+    const writeBackPoseToState = useCallback(() => {
+      if (!groupRef.current || !monument) return;
+      const monumentMesh = modelRefs.current[monument.id]?.getMesh();
+      if (!monumentMesh) return;
+      monumentMesh.updateWorldMatrix(true, false);
+
+      const worldPosition = new THREE.Vector3();
+      const worldQuaternion = new THREE.Quaternion();
+      const worldScale = new THREE.Vector3();
+      monumentMesh.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale);
+
+      // 世界 -> 墓碑局部
+      const groupWorldPos = groupRef.current.getWorldPosition(new THREE.Vector3());
+      const localPos = groupWorldPos.clone().sub(worldPosition);
+      localPos.divide(worldScale);
+      localPos.applyQuaternion(worldQuaternion.clone().invert());
+
+      // 计算局部旋转（相对墓碑朝向，去除翻转）
+      const groupWorldQuat = groupRef.current.getWorldQuaternion(new THREE.Quaternion());
+      const relativeQuat = worldQuaternion.clone().invert().multiply(groupWorldQuat);
+      const flipQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+      const localQuat = flipQuat.clone().invert().multiply(relativeQuat);
+      const euler = new THREE.Euler().setFromQuaternion(localQuat, 'XYZ');
+
+      const doWrite = () => {
+        onTextPositionChange && onTextPositionChange(text.id, [localPos.x, localPos.y, 0]);
+        onTextRotationChange && onTextRotationChange(text.id, [euler.x, euler.y, euler.z]);
+        rafWriteRef.current = null;
+      };
+      if (!rafWriteRef.current) rafWriteRef.current = requestAnimationFrame(doWrite);
+    }, [monument, text.id, onTextPositionChange, onTextRotationChange]);
+
+    // 只在 polish 类型时获取主碑材质（包含 map），若未就绪会在下一帧重试一次
+    useEffect(() => {
+      let rafId;
+      const trySetMaterial = () => {
+        if (!monument || text.engraveType !== 'polish') {
+          setMonumentMaterial(null);
+          return;
+        }
+        const monumentMesh = modelRefs.current[monument.id]?.getMesh();
+        if (!monumentMesh) {
+          rafId = requestAnimationFrame(trySetMaterial);
+          return;
+        }
+        let found = false;
+        monumentMesh.traverse((child) => {
+          if (found) return;
+          if (child.isMesh && child.material) {
+            const baseMat = child.material;
+            const cloned = baseMat.clone();
+            cloned.map = baseMat.map || cloned.map;
+            if (cloned.map) cloned.map.needsUpdate = true;
+            cloned.roughness = 0.1 + ((text.polishBlend || 0.5) * 0.4);
+            cloned.metalness = 0.5 - ((text.polishBlend || 0.5) * 0.2);
+            if (cloned.clearcoat !== undefined) {
+              cloned.clearcoat = 0.5;
+              cloned.clearcoatRoughness = 0.1 + ((text.polishBlend || 0.5) * 0.3);
+            }
+            cloned.transparent = true;
+            cloned.side = THREE.DoubleSide;
+            cloned.needsUpdate = true;
+            setMonumentMaterial(cloned);
+            found = true;
+          }
+        });
+        if (!found) rafId = requestAnimationFrame(trySetMaterial);
+      };
+      trySetMaterial();
+      return () => { if (rafId) cancelAnimationFrame(rafId); };
+    }, [monument, text.engraveType, text.polishBlend]);
+
+    // 选中时提供键盘快捷键切换模式：T=移动，R=旋转
+    useEffect(() => {
+      if (!isSelected || !isTextEditing) {
+        controls && (controls.enabled = true);
+        setIsDragging(false);
+        return;
+      }
+      const onKey = (e) => {
+        if (e.key === 't' || e.key === 'T') setTransformMode('translate');
+        if (e.key === 'r' || e.key === 'R') setTransformMode('rotate');
+      };
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, [isSelected, isTextEditing, controls]);
+
+    // 使用主碑材质或回退材质
+    const textMaterial = useMemo(() => {
+      // 只有 polish 类型使用墓碑材质
+      if (text.engraveType === 'polish' && monumentMaterial) {
+        return monumentMaterial;
+      }
+
+      // 其他类型使用原来的逻辑
+      try {
+        const materialProps = {
+          transparent: true,
+          side: THREE.DoubleSide
+        };
+
+        switch (text.engraveType) {
+          case 'vcut':
+            // V-Cut: 深色凹陷效果
+            return new THREE.MeshPhysicalMaterial({
+              ...materialProps,
+              color: text.vcutColor || '#5D4037',
+              roughness: 0.9,
+              metalness: 0.05,
+              clearcoat: 0.1,
+              clearcoatRoughness: 0.2,
+              opacity: 0.95
+            });
+
+          case 'frost':
+            // Frost: 粗糙霜化表面
+            return new THREE.MeshPhysicalMaterial({
+              ...materialProps,
+              color: 0xF8F8F8,
+              roughness: Math.max(0.6, text.frostIntensity || 0.8),
+              metalness: 0.02,
+              transmission: 0.1,
+              thickness: 0.01,
+              opacity: 0.85 - ((text.frostIntensity || 0.8) * 0.2)
+            });
+
+          case 'polish':
+            // Polish: 如果无法获取墓碑材质，使用回退材质
+            return new THREE.MeshPhysicalMaterial({
+              ...materialProps,
+              color: 0x7A7A7A,
+              roughness: 0.1 + ((text.polishBlend || 0.5) * 0.4),
+              metalness: 0.5 - ((text.polishBlend || 0.5) * 0.2),
+              clearcoat: 0.5,
+              clearcoatRoughness: 0.1 + ((text.polishBlend || 0.5) * 0.3),
+              opacity: 0.98
+            });
+
+          default:
+            return new THREE.MeshStandardMaterial({
+              ...materialProps,
+              color: 0x333333,
+              roughness: 0.7,
+              metalness: 0.3
+            });
+        }
+      } catch (error) {
+        console.error('Error creating material, using fallback:', error);
+        return new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+      }
+    }, [monumentMaterial, text.engraveType, text.vcutColor, text.frostIntensity, text.polishBlend]);
+
+
+    // 普通文字的水平对齐（左/中/右）——通过几何包围盒计算偏移，保持在同一平面
+    useEffect(() => {
+      // 多行对齐：按每行宽度与最大宽度计算 X 偏移
+      const refs = lineRefs.current;
+      if (!refs || refs.length === 0) return;
+      // 计算所有行的宽度与中心
+      const metrics = refs.map((mesh) => {
+        if (!mesh || !mesh.geometry) return { width: 0, centerX: 0 };
+        mesh.geometry.computeBoundingBox();
+        const bb = mesh.geometry.boundingBox;
+        if (!bb) return { width: 0, centerX: 0 };
+        return { width: bb.max.x - bb.min.x, centerX: (bb.max.x + bb.min.x) / 2 };
+      });
+      const maxWidth = metrics.reduce((m, v) => Math.max(m, v.width), 0);
+
+      const newOffsets = metrics.map((m) => {
+        let desiredCenter = 0;
+        if (text.alignment === 'left') desiredCenter = -maxWidth / 2 + m.width / 2;
+        else if (text.alignment === 'right') desiredCenter = maxWidth / 2 - m.width / 2;
+        else desiredCenter = 0; // center
+        const x = desiredCenter - m.centerX;
+        return { x };
+      });
+      setLineOffsets(newOffsets);
+    }, [text.content, text.size, text.kerning, text.lineSpacing, text.alignment]);
+
+
+    // 点击处理
+    const handleClick = useCallback((event) => {
+      event
+        .stopPropagation();
+      console.log('文字被点击 - 详细信息:', {
+        textId: text.id,
+        eventType: event.type,
+        isTextEditing,
+        isSelected,
+        groupRefExists: !!groupRef.current,
+        monumentId: monument?.id
+      });
+      if (!isTextEditing) return;
+      if (onTextSelect) {
+        console.log('调用 onTextSelect');
+        onTextSelect(text.id);
+
+      }
+    }, [text.id, onTextSelect, isTextEditing]);
+
+
+    // 弯曲文字渲染函数 - 使用 Text3D，保持在同一平面，弧长由字距驱动
+    const renderCurvedText = () => {
+      if (!text.content) return null;
+
+      const characters = text.content.split('');
+      const fontSize = text.size * 0.01;
+      const kerningUnit = (text.kerning || 0) * 0.001; // drei Text3D 的 letterSpacing 与 size 同量纲
+
+      // 弯曲强度 -> 夹角（弧度）
+      const curveAmount = Math.max(0, text.curveAmount || 0) / 100; // 归一化 0..1
+      const minArcAngle = Math.PI * 0.3;
+      const maxArcAngle = Math.PI * 0.8;
+      const arcAngle = curveAmount === 0 ? 0 : (minArcAngle + (maxArcAngle - minArcAngle) * curveAmount);
+
+      // 近似每个字符的宽度（0.6 * 字号），总弧长由字距驱动
+      const avgCharWidth = 0.6 * fontSize;
+      const spacingPerGap = fontSize * kerningUnit;
+      const totalArcLength = characters.length * avgCharWidth + Math.max(0, characters.length - 1) * spacingPerGap;
+
+      // 半径 = 弧长 / 夹角（避免除0）
+      const radius = arcAngle > 1e-6 ? Math.max(1e-4, totalArcLength / arcAngle) : 1e6;
+
+      const n = characters.length;
+      return characters.map((char, index) => {
+        const centerIndex = (n - 1) / 2;
+        const step = n > 1 ? arcAngle / (n - 1) : 0;
+        
+        // 统一从中间向两边弯曲（不再受对齐方式影响）
+        let angle = (index - centerIndex) * step;
+
+        // 计算位置
+        const xOffset = Math.sin(angle) * radius;
+        const yOffset = Math.cos(angle) * radius - radius;
+
+        // 正确的旋转：在Z轴上旋转，使文字朝向扇形圆心
+        const rotationZ = -angle; // 负号使文字朝向圆心
+
+        return (
+          <group
+            key={index}
+            position={[xOffset, yOffset, 0]}
+            rotation={[0, 0, rotationZ]} // 在平面内绕Z旋转
+          >
+            <Text3D
+              font={localGetFontPath(text.font)}
+              size={fontSize}
+              height={text.thickness || 0.02}
+              letterSpacing={kerningUnit}
+              lineHeight={text.lineSpacing}
+              curveSegments={8}
+              bevelEnabled={true}
+              bevelThickness={0.002}
+              bevelSize={0.002}
+              bevelOffset={0}
+              bevelSegments={3}
+              material={textMaterial}
+            >
+              {char}
+            </Text3D>
+          </group>
+        );
+      });
+    };
+
+    // 渲染普通文字（非弯曲）
+    const renderNormalText = () => {
+      const content = text.content || 'Text';
+      const lines = content.split('\n');
+      // 计算每行 Y 偏移（顶部到下方）
+      const fontSize = text.size * 0.01;
+      const lineGap = fontSize * (text.lineSpacing || 1.2);
+
+      // 渲染多行，每行有独立 ref 用于计算 boundingBox
+      return (
+        <group>
+          {lines.map((ln, idx) => (
+            <Text3D
+              key={idx}
+              ref={(el) => (lineRefs.current[idx] = el)}
+              font={localGetFontPath(text.font)}
+              size={fontSize}
+              letterSpacing={text.kerning * 0.001}
+              height={text.thickness || 0.02}
+              curveSegments={8}
+              bevelEnabled={true}
+              bevelThickness={0.002}
+              bevelSize={0.002}
+              bevelOffset={0}
+              bevelSegments={3}
+              material={textMaterial}
+              position={[
+                lineOffsets[idx]?.x || 0,
+                -idx * lineGap + ((lines.length - 1) * lineGap) / 2,
+                0
+              ]}
+            >
+              {ln || ' '}
+            </Text3D>
+          ))}
+        </group>
+      );
+    };
+    // 根据 curveAmount 决定渲染方式
+    const renderTextContent = () => {
+      if (text.curveAmount && text.curveAmount > 0) {
+        return renderCurvedText();
+      } else {
+        return renderNormalText();
+      }
+    };
+
+
+
+    return (
+      <>
+        <group
+          ref={groupRef}
+          // 位置与旋转由上面的 useEffect 锚定到墓碑正面
+          onClick={handleClick}
+          userData={{ isTextElement: true, textId: text.id }}
+        >
+          {/* 使用 Text3D 创建有厚度的文字 */}
+          {renderTextContent()}
+        </group>
+
+        {/* 平面内拖拽与旋转控制器（仅选中且目标已就绪时显示），渲染为兄弟节点避免循环 */}
+        {isSelected && isTextEditing && groupRef.current && (
+          <TransformControls
+            object={groupRef.current}
+            mode={transformMode}
+            space="local"
+            showX={transformMode === 'translate'}
+            showY={transformMode === 'translate'}
+            showZ={transformMode === 'rotate'}
+            onMouseDown={() => { controls && (controls.enabled = false); setIsDragging(true); }}
+            onObjectChange={writeBackPoseToState}
+            onMouseUp={() => { writeBackPoseToState(); controls && (controls.enabled = true); setIsDragging(false); }}
+          />
+        )}
+      </>
+    );
+  };
+
+
+
 
 
 
@@ -577,15 +928,18 @@ const MonumentScene = forwardRef(({
               onDimensionsChange={(dims) => handleModelLoad(monument.id, 'monument', dims)}
             />
 
-            {/* 该纪念碑上的文本 */}
+            {/* 使用增强的文字元素 */}
             {monumentTexts.map(text => (
-              <TextElement
+              <EnhancedTextElement
                 key={text.id}
                 text={text}
                 monument={monument}
-                isSelected={selectedTextId === text.id}
-                onSelect={handleTextSelect}
-                onTextPositionChange={handleTextPositionChange}
+                isSelected={currentTextId === text.id}
+                isTextEditing={isTextEditing}
+                onTextSelect={onTextSelect}
+                onDeleteText={onDeleteText}
+                onTextPositionChange={onTextPositionChange}
+                onTextRotationChange={onTextRotationChange}
               />
             ))}
           </group>
@@ -624,6 +978,7 @@ const MonumentScene = forwardRef(({
       <axesHelper args={[5]} />
 
       <OrbitControls
+        makeDefault
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
