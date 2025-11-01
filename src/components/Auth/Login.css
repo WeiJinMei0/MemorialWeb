@@ -66,20 +66,89 @@
   line-height: 34px;
 }
 
+.register-section {
+  text-align: center;
+  margin-top: 16px;
+  /* background-color: yellow !important;*/
+}
+
+.register-text {
+  color: #666;
+  margin: 0;
+  font-size: 14px;
+}
+
+.register-link {
+  color: #1890ff;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.register-link:hover {
+  color: #40a9ff;
+  text-decoration: underline;
+}
+
 /* 响应式设计 */
 @media (max-width: 480px) {
   .login-card {
     margin: 20px;
   }
-  
+
   .ant-card-body {
     padding: 30px 20px;
   }
 }
 
 
+
+
 /* 如果需要更彻底的立即变化，可以禁用所有动画 */
 .custom-segmented * {
   transition: none !important;
   animation: none !important;
+}
+
+
+
+
+/* Login.css */
+.user-type-toggle-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: -15px 0px 4px 0px;
+  background: #ffff;
+}
+
+.user-type-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1890ff;
+}
+
+.toggle-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-icon-wrapper:hover {
+  background: #f0f8ff;
+}
+
+.toggle-icon-wrapper:hover .toggle-icon {
+  color: #1890ff;
+}
+
+.toggle-icon {
+  font-size: 16px;
+  color: #8c8c8c;
+  transition: all 0.3s ease;
 }

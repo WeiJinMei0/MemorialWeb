@@ -1,230 +1,345 @@
-import React, { useState } from 'react'
-import { Form, Input, Button, Select, Slider, InputNumber, Radio, Space, Divider } from 'antd'
-import { FontColorsOutlined, AlignLeftOutlined, AlignCenterOutlined, AlignRightOutlined } from '@ant-design/icons'
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  Button,
+  Input,
+  Select,
+  Slider,
+  Space,
+  Divider,
+  ColorPicker,
+  Row,
+  Col,
+  Card
+} from 'antd';
+import {
+  PlusOutlined,
+  CheckOutlined,
+  AlignLeftOutlined,
+  AlignCenterOutlined,
+  AlignRightOutlined
+} from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import './TextEditor.css'
 
-const { TextArea } = Input
-const { Option } = Select
-
-const TextEditor = ({ onAddText }) => {
-  const [form] = Form.useForm()
+const TextEditor = ({
+                      onAddText,
+                      onUpdateText,
+                      onDeleteText,
+                      currentTextId,
+                      existingTexts,
+                      monuments,
+                      isEditing,
+                      fontOptions
+                    }) => {
+  const { t } = useTranslation();
   const [textProperties, setTextProperties] = useState({
-    content: 'Sample Text',
+    content: '',
     font: 'Arial',
     size: 16,
-    color: '#000000',
-    alignment: 'left',
+    alignment: 'center',
     lineSpacing: 1.2,
     kerning: 0,
-   雕刻方式: 'engraved'
-  })
+    curveAmount: 0,
+    engraveType: 'vcut',
+    vcutColor: '#000000',
+    frostIntensity: 0.8,
+    polishBlend: 0.5,
+    thickness: 0.02
+  });
 
-  const fontOptions = [
-    'Arial',
-    'Helvetica',
-    'Times New Roman',
-    'Georgia',
-    'Verdana',
-    'Courier New',
-    'Roboto',
-    'Open Sans',
-    'Roman',
-    'Gothic',
-    'Script'
-  ]
+  // 雕刻效果按钮状态
+  const [engraveTypes, setEngraveTypes] = useState({
+    vcut: false,
+    frost: false,
+    polish: false
+  });
 
-  const handleFormChange = (changedValues, allValues) => {
+  // 当选中文字变化时更新表单
+  useEffect(() => {
+    if (currentTextId) {
+      const currentText = existingTexts.find(text => text.id === currentTextId);
+      if (currentText) {
+        setTextProperties({
+          content: currentText.content,
+          font: currentText.font,
+          size: currentText.size,
+          alignment: currentText.alignment,
+          lineSpacing: currentText.lineSpacing,
+          kerning: currentText.kerning,
+          curveAmount: currentText.curveAmount,
+          engraveType: currentText.engraveType,
+          vcutColor: currentText.vcutColor,
+          frostIntensity: currentText.frostIntensity,
+          polishBlend: currentText.polishBlend,
+          thickness: currentText.thickness
+        });
+
+        // 更新雕刻效果按钮状态
+        setEngraveTypes({
+          vcut: currentText.engraveType === 'vcut',
+          frost: currentText.engraveType === 'frost',
+          polish: currentText.engraveType === 'polish'
+        });
+      }
+    }
+  }, [currentTextId, existingTexts]);
+
+  const handlePropertyChange = (property, value) => {
     setTextProperties(prev => ({
       ...prev,
-      ...changedValues
-    }))
-  }
+      [property]: value
+    }));
+
+    // 实时更新选中的文字
+    if (currentTextId) {
+      onUpdateText(currentTextId, { [property]: value });
+    }
+  };
+
+  const handleEngraveTypeChange = (type) => {
+    const newEngraveTypes = {
+      vcut: false,
+      frost: false,
+      polish: false,
+      [type]: true
+    };
+
+    setEngraveTypes(newEngraveTypes);
+    handlePropertyChange('engraveType', type);
+  };
 
   const handleAddText = () => {
-    onAddText(textProperties)
-    form.resetFields()
+    if (!textProperties.content.trim()) {
+      message.error('请输入文字内容');
+      return;
+    }
+
+    const targetMonumentId = monuments.length > 0 ? monuments[0].id : null;
+    if (!targetMonumentId) {
+      message.error('请先添加一个主碑');
+      return;
+    }
+
+    onAddText({
+      ...textProperties,
+      monumentId: targetMonumentId
+    });
+
+    // 重置表单
     setTextProperties({
-      content: 'Sample Text',
+      content: '',
       font: 'Arial',
       size: 16,
-      color: '#000000',
-      alignment: 'left',
+      alignment: 'center',
       lineSpacing: 1.2,
       kerning: 0,
-     雕刻方式: 'engraved'
-    })
-  }
+      curveAmount: 0,
+      engraveType: 'vcut',
+      vcutColor: '#000000',
+      frostIntensity: 0.8,
+      polishBlend: 0.5,
+      thickness: 0.02
+    });
+  };
 
-  const alignmentOptions = [
-    { value: 'left', icon: <AlignLeftOutlined />, label: 'Left' },
-    { value: 'center', icon: <AlignCenterOutlined />, label: 'Center' },
-    { value: 'right', icon: <AlignRightOutlined />, label: 'Right' }
-  ]
+  const handleDeleteText = () => {
+    if (currentTextId) {
+      onDeleteText(currentTextId);
+    }
+  };
+
+  const renderEngraveTypeButton = (type, label, icon) => {
+    const isActive = engraveTypes[type];
+    return (
+      <Button
+        type={isActive ? "primary" : "default"}
+        icon={isActive ? <CheckOutlined /> : <PlusOutlined />}
+        onClick={() => handleEngraveTypeChange(type)}
+        style={{
+          marginBottom: 8,
+          backgroundColor: isActive ? '#1890ff' : undefined,
+          color: isActive ? 'white' : undefined
+        }}
+      >
+        {label}
+      </Button>
+    );
+  };
 
   return (
-    <div className="text-editor">
-      <div className="text-editor-header">
-        <h3>
-          <FontColorsOutlined /> Text Editor
-        </h3>
-        <p>Add and customize text for your monument</p>
-      </div>
-
-      <Form
-        form={form}
-        layout="vertical"
-        onValuesChange={handleFormChange}
-        initialValues={textProperties}
-        className="text-form"
-      >
-        <Form.Item
-          name="content"
-          label="Text Content"
-          rules={[{ required: true, message: 'Please enter text content' }]}
-        >
-          <TextArea
+    <div className="text-editor-panel">
+      <Card size="small" title="TestEditor" style={{ width: '100%' }}>
+        {/* 文字内容 */}
+        <div style={{ marginBottom: 16 }}>
+          <label>textcontent</label>
+          <Input.TextArea
+            value={textProperties.content}
+            onChange={(e) => handlePropertyChange('content', e.target.value)}
+            placeholder="输入文字内容"
             rows={3}
-            placeholder="Enter your text here..."
-            maxLength={500}
-            showCount
           />
-        </Form.Item>
-
-        <div className="form-row">
-          <Form.Item
-            name="font"
-            label="Font Family"
-            className="form-half"
-          >
-            <Select placeholder="Select font">
-              {fontOptions.map(font => (
-                <Option key={font} value={font}>
-                  <span style={{ fontFamily: font }}>{font}</span>
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="size"
-            label="Font Size"
-            className="form-half"
-          >
-            <InputNumber
-              min={8}
-              max={72}
-              placeholder="Size"
-              addonAfter="pt"
-              style={{ width: '100%' }}
-            />
-          </Form.Item>
         </div>
 
-        <Form.Item
-          name="color"
-          label="Text Color"
-        >
-          <Input type="color" style={{ width: '100%', height: '40px' }} />
-        </Form.Item>
+        {/* 字体和大小 */}
+        <Row gutter={8} style={{ marginBottom: 16 }}>
+          <Col span={12}>
+            <label>font</label>
+            <Select
+              value={textProperties.font}
+              onChange={(value) => handlePropertyChange('font', value)}
+              style={{ width: '100%' }}
+            >
+              {fontOptions.map(font => (
+                <Select.Option key={font.name} value={font.name}>
+                  {font.name}
+                </Select.Option>
+              ))}
+            </Select>
+          </Col>
+          <Col span={12}>
+            <label>size</label>
+            <Input
+              type="number"
+              value={textProperties.size}
+              onChange={(e) => handlePropertyChange('size', Number(e.target.value))}
+              min={1}
+              max={100}
+            />
+          </Col>
+        </Row>
 
-        <Form.Item
-          name="alignment"
-          label="Text Alignment"
-        >
-          <Radio.Group buttonStyle="solid" style={{ width: '100%' }}>
-            {alignmentOptions.map(option => (
-              <Radio.Button key={option.value} value={option.value} style={{ flex: 1, textAlign: 'center' }}>
-                {option.icon} {option.label}
-              </Radio.Button>
-            ))}
-          </Radio.Group>
-        </Form.Item>
+        {/* 对齐方式 */}
+        <div style={{ marginBottom: 16 }}>
+          <label></label>
+          <br />
+          <Space.Compact style={{ width: '100%' }}>
+            <Button
+              icon={<AlignLeftOutlined />}
+              type={textProperties.alignment === 'left' ? 'primary' : 'default'}
+              onClick={() => handlePropertyChange('alignment', 'left')}
+            >
+              left
+            </Button>
+            <Button
+              icon={<AlignCenterOutlined />}
+              type={textProperties.alignment === 'center' ? 'primary' : 'default'}
+              onClick={() => handlePropertyChange('alignment', 'center')}
+            >
+              center
+            </Button>
+            <Button
+              icon={<AlignRightOutlined />}
+              type={textProperties.alignment === 'right' ? 'primary' : 'default'}
+              onClick={() => handlePropertyChange('alignment', 'right')}
+            >
+              right
+            </Button>
+          </Space.Compact>
+        </div>
 
-        <Divider orientation="left" plain>Advanced Settings</Divider>
-
-        <div className="form-row">
-          <Form.Item
-            name="lineSpacing"
-            label="Line Spacing"
-            className="form-half"
-          >
+        {/* 间距控制 */}
+        <Row gutter={8} style={{ marginBottom: 16 }}>
+          <Col span={12}>
+            <label>kerning: {textProperties.kerning}</label>
             <Slider
-              min={0.8}
+              min={-10}
+              max={10}
+              value={textProperties.kerning}
+              onChange={(value) => handlePropertyChange('kerning', value)}
+            />
+          </Col>
+          <Col span={12}>
+            <label>lineSpacing: {textProperties.lineSpacing}</label>
+            <Slider
+              min={0.5}
               max={3}
               step={0.1}
               value={textProperties.lineSpacing}
-              onChange={value => handleFormChange({ lineSpacing: value })}
-              marks={{
-                0.8: '0.8',
-                1.5: '1.5',
-                2.2: '2.2',
-                3: '3.0'
-              }}
+              onChange={(value) => handlePropertyChange('lineSpacing', value)}
             />
-          </Form.Item>
+          </Col>
+        </Row>
 
-          <Form.Item
-            name="kerning"
-            label="Letter Spacing"
-            className="form-half"
-          >
-            <InputNumber
-              min={-5}
-              max={20}
-              placeholder="Spacing"
-              addonAfter="px"
-              style={{ width: '100%' }}
-            />
-          </Form.Item>
+        {/* 弯曲程度 */}
+        <div style={{ marginBottom: 16 }}>
+          <label>shape: {textProperties.curveAmount}</label>
+          <Slider
+            min={0}
+            max={100}
+            value={textProperties.curveAmount}
+            onChange={(value) => handlePropertyChange('curveAmount', value)}
+          />
         </div>
 
-        <Form.Item
-          name="雕刻方式"
-          label="Engraving Style"
-        >
-          <Select placeholder="Select engraving style">
-            <Option value="engraved">Engraved</Option>
-            <Option value="raised">Raised</Option>
-            <Option value="sandblasted">Sandblasted</Option>
-            <Option value="etched">Etched</Option>
-          </Select>
-        </Form.Item>
+        <Divider />
 
-        <Form.Item>
-          <Button 
-            type="primary" 
+        {/* 雕刻效果 */}
+        <div style={{ marginBottom: 16 }}>
+          <label>engraveType</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {renderEngraveTypeButton('vcut', 'V-Cut')}
+            {renderEngraveTypeButton('frost', 'Frost')}
+            {renderEngraveTypeButton('polish', 'Polish')}
+          </div>
+        </div>
+
+        {/* 效果参数 */}
+        {textProperties.engraveType === 'vcut' && (
+          <div style={{ marginBottom: 16 }}>
+            <label>V-Cut color</label>
+            <ColorPicker
+              value={textProperties.vcutColor}
+              onChange={(color) => handlePropertyChange('vcutColor', color.toHexString())}
+            />
+          </div>
+        )}
+
+        {textProperties.engraveType === 'frost' && (
+          <div style={{ marginBottom: 16 }}>
+            <label>frostIntensity: {textProperties.frostIntensity}</label>
+            <Slider
+              min={0.1}
+              max={1}
+              step={0.1}
+              value={textProperties.frostIntensity}
+              onChange={(value) => handlePropertyChange('frostIntensity', value)}
+            />
+          </div>
+        )}
+
+        {textProperties.engraveType === 'polish' && (
+          <div style={{ marginBottom: 16 }}>
+            <label>polishBlend: {textProperties.polishBlend}</label>
+            <Slider
+              min={0.1}
+              max={1}
+              step={0.1}
+              value={textProperties.polishBlend}
+              onChange={(value) => handlePropertyChange('polishBlend', value)}
+            />
+          </div>
+        )}
+
+        {/* 操作按钮 */}
+        <Space.Compact style={{ width: '100%' }}>
+          <Button
+            type="primary"
             onClick={handleAddText}
-            block
-            size="large"
+            disabled={!textProperties.content.trim()}
           >
-            Add Text to Monument
+            AddText
           </Button>
-        </Form.Item>
-      </Form>
-
-      <div className="text-preview">
-        <h4>Preview</h4>
-        <div 
-          className="preview-content"
-          style={{
-            fontFamily: textProperties.font,
-            fontSize: `${textProperties.size}px`,
-            color: textProperties.color,
-            textAlign: textProperties.alignment,
-            lineHeight: textProperties.lineSpacing,
-            letterSpacing: `${textProperties.kerning}px`,
-            padding: '16px',
-            border: '1px solid #d9d9d9',
-            borderRadius: '6px',
-            background: '#fafafa',
-            minHeight: '80px'
-          }}
-        >
-          {textProperties.content || 'Text preview will appear here...'}
-        </div>
-      </div>
+          <Button
+            danger
+            onClick={handleDeleteText}
+            disabled={!currentTextId}
+          >
+            DeleteText
+          </Button>
+        </Space.Compact>
+      </Card>
     </div>
-  )
-}
+  );
+};
 
-export default TextEditor
+export default TextEditor;
