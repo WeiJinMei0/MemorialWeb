@@ -472,11 +472,11 @@
 
 /* "Recently Saved" 和 "Art Options" 的容器样式 */
 .recently-saved-container,
-.art-options-placeholder {
+.art-options-container {
   display: flex;
   flex-direction: column;
   flex: 1; /* 分配 1 份空间 */
-  min-width: 200px; /* 设置最小宽度，决定了其“更小”的初始状态 */
+  min-width: 200px; /* 设置最小宽度，决定了其"更小"的初始状态 */
   max-width: 350px; /* 设置最大宽度，防止无限拉伸 */
   height: 100%;
   padding: 8px;
@@ -726,4 +726,148 @@
   background: #1890ff;
   color: white;
   border-color: #1890ff;
+}
+
+/* --- Art Options 拖拽保存功能样式 --- */
+
+/* Art Option 插槽样式 */
+.art-option-slot {
+  width: 100%;
+  height: 50px;
+  border-radius: 4px;
+  border: 2px dashed #d9d9d9;
+  background-color: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 空插槽样式 */
+.art-option-slot.empty {
+  background-color: #fafafa;
+  border-color: #d9d9d9;
+}
+
+.art-option-slot.empty:hover {
+  border-color: #1890ff;
+  background-color: #f0f8ff;
+}
+
+/* 拖拽悬停效果 */
+.art-option-slot.drag-over {
+  border-color: #52c41a !important;
+  background-color: #f6ffed !important;
+  box-shadow: 0 0 10px rgba(82, 196, 26, 0.3);
+  transform: scale(1.02);
+}
+
+/* 有艺术图案的插槽 */
+.art-option-slot.has-art {
+  border: 2px solid #1890ff;
+  background-color: #fff;
+  padding: 2px;
+}
+
+.art-option-slot.has-art:hover {
+  border-color: #40a9ff;
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.2);
+  transform: scale(1.05);
+}
+
+/* 保存的艺术图案缩略图 */
+.saved-art-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.saved-art-thumb:hover {
+  transform: scale(1.1);
+}
+
+/* 空插槽内容 */
+.empty-slot-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  font-size: 11px;
+  color: #8c8c8c;
+  padding: 4px;
+}
+
+/* 拖拽提示文字 */
+.drag-hint {
+  color: #8c8c8c;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.drop-hint {
+  color: #52c41a;
+  font-weight: 600;
+  line-height: 1.2;
+  animation: pulse 1s infinite;
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* 拖拽时的全局样式 */
+.art-option-slot.empty::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23d9d9d9" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>') no-repeat center;
+  background-size: contain;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+.art-option-slot.empty:hover::before {
+  opacity: 0.8;
+}
+
+.art-option-slot.drag-over::before {
+  display: none;
+}
+
+/* 确保拖拽提示在图标上方 */
+.empty-slot-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .art-option-slot {
+    height: 45px;
+  }
+  
+  .empty-slot-content {
+    font-size: 10px;
+  }
 }

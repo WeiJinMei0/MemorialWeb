@@ -432,11 +432,19 @@ export const useDesignState = () => {
       subclass: artData.subclass,
       color: designState.currentMaterial,
       imagePath: artData.imagePath, // 您的版本使用 imagePath
-      position: [0, 0, -0.205],
-      dimensions: { length: 0.2, width: 0.01, height: 0.2 },
-      scale: [0.2, 0.2, 1], // 您的版本使用 scale
-      rotation: [0, 0, 0],
-      weight: 0
+
+      // --- 修改开始 ---
+      // 检查 artData (来自保存的图案) 是否已有这些属性，如果有，则使用它；否则，使用默认值
+      position: artData.position || [0, 0, -0.205],
+      dimensions: artData.dimensions || { length: 0.2, width: 0.01, height: 0.2 },
+      scale: artData.scale || [0.2, 0.2, 1],
+      rotation: artData.rotation || [0, 0, 0],
+      weight: artData.weight || 0,
+      // --- 修改结束 ---
+
+      // 【关键修复】：将 artData 中的 modifiedImageData 和 properties 也复制过来
+      modifiedImageData: artData.modifiedImageData || null,
+      properties: artData.properties || {}
     };
 
     updateDesignState(prev => ({
