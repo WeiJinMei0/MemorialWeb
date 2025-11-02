@@ -76,7 +76,9 @@
     "summaryTablet": "碑:",
     "summaryBase": "底座",
     "summarySubBase": "副底座",
-    "summaryVase": "花瓶:"
+    "summaryVase": "花瓶:",
+    "summaryArt": "艺术图案:",
+    "summaryText": "文字:"
   },
   "modals": {
     "saveTitle": "保存您的设计",

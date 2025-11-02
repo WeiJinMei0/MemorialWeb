@@ -379,13 +379,13 @@
 
 /* From Text branch */
 .base-buttons-container {
-    display: flex;
-    justify-content: center;
-    padding-top: 8px;
-    border-top: 1px dashed #e8e8e8;
-    margin-top: 8px;
-    flex-shrink: 0;
-    height: 40px;
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+  border-top: 1px dashed #e8e8e8;
+  margin-top: 8px;
+  flex-shrink: 0;
+  height: 40px;
 }
 
 .fixed-size-button {
