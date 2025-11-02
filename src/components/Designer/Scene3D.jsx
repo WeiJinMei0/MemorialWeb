@@ -943,7 +943,8 @@ const MonumentScene = forwardRef(({
                                     onDeleteText,
                                     currentTextId,
                                     isTextEditing,
-                                    getFontPath
+                                    getFontPath,
+                                    onSceneDrop // <-- 在这里添加 onSceneDrop
                                   }, ref) => {
   const { gl, scene } = useThree();
   const sceneRef = useRef();
@@ -960,6 +961,26 @@ const MonumentScene = forwardRef(({
       }
     }
   };
+
+  // 处理拖拽到场景的逻辑
+  const handleSceneDrop = useCallback((e) => {
+    e.preventDefault();
+    
+    try {
+      const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
+      
+      if (dragData.type === 'saved-art-element' && dragData.data && onSceneDrop) {
+        onSceneDrop(e);
+      }
+    } catch (error) {
+      console.error('Scene drop failed:', error);
+    }
+  }, [onSceneDrop]);
+
+  const handleSceneDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
 
   // 您的 art plane 选中逻辑
   const handleSelectArtPlane = useCallback((artId) => {
@@ -1137,7 +1158,7 @@ const MonumentScene = forwardRef(({
   };
 
   // 在重新渲染时清除旧的 ref，防止内存泄漏
-  artPlaneRefs.current = {};
+  //artPlaneRefs.current = {};
 
   return (
     <group ref={sceneRef} onClick={handleSceneClick}>
@@ -1289,7 +1310,14 @@ const Scene3D = forwardRef(({
                               ...props
                             }, ref) => {
   return (
-    <div style={{ width: '100%', height: '100%' }}>
+    <div 
+      style={{ width: '100%', height: '100%' }}
+      onDrop={props.onSceneDrop}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      }}
+    >
       <Canvas
         camera={{
           // --- 合并点：使用同事的相机位置 ---

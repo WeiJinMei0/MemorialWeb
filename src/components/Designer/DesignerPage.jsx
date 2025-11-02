@@ -49,6 +49,11 @@ const DesignerPage = () => {
   const [fillColor, setFillColor] = useState('#4285F4');
   const [isFillModeActive, setIsFillModeActive] = useState(false);
 
+  // Art Options 拖拽保存状态
+  const [savedArtOptions, setSavedArtOptions] = useState([]);
+  const [draggedArt, setDraggedArt] = useState(null);
+  const [dragOverSlot, setDragOverSlot] = useState(null);
+
   // Text 和 Unit 状态
   const [selectedUnit, setSelectedUnit] = useState('feet');
   const [currentTextId, setCurrentTextId] = useState(null);
@@ -92,7 +97,7 @@ const DesignerPage = () => {
   } = useDesignState();
 
 
-  // 加载最近保存的设计
+  // 加载最近保存的设计和Art Options
   useEffect(() => {
     try {
       const allDesigns = JSON.parse(localStorage.getItem('savedDesigns') || '[]');
@@ -101,6 +106,11 @@ const DesignerPage = () => {
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
         .slice(0, MAX_RECENTLY_SAVED);
       setRecentlySaved(userDesigns);
+
+      // 加载保存的Art Options
+      const savedArtData = JSON.parse(localStorage.getItem('savedArtOptions') || '[]');
+      const userArtOptions = savedArtData.filter(art => art.userId === user?.id);
+      setSavedArtOptions(userArtOptions);
     } catch (error) {
       console.error("Failed to load recently saved designs:", error);
     }
@@ -355,6 +365,172 @@ const DesignerPage = () => {
     }
   }, [handleArtElementSelect, setTextSelected]);
 
+  // Art Options 拖拽处理函数
+  const handleArtDragStart = useCallback((e, artElement) => {
+    // 防止与点击选择冲突，只在拖拽时设置
+    e.dataTransfer.effectAllowed = 'copy';
+    setDraggedArt(artElement);
+    
+    // 设置拖拽数据
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'art-element',
+      data: artElement
+    }));
+  }, []);
+
+  // 从Art Options拖拽出来的处理函数
+  const handleSavedArtDragStart = useCallback((e, savedArt) => {
+    e.dataTransfer.effectAllowed = 'copy';
+    
+    // 设置拖拽数据，标记为来自Art Options
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'saved-art-element',
+      data: savedArt
+    }));
+  }, []);
+
+  // 处理拖拽到场景的逻辑
+  const handleSceneDrop = useCallback((e) => {
+    e.preventDefault();
+    
+    try {
+      const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
+      
+      if (dragData.type === 'saved-art-element' && dragData.data) {
+        // 从Art Options拖拽出来，添加到场景
+        const artToAdd = {
+          ...dragData.data,
+          id: `art-${Date.now()}`, // 生成新的ID
+          timestamp: new Date().toISOString()
+        };
+        
+        addArt(artToAdd);
+        message.success(`已从Art Options添加图案: ${dragData.data.name || dragData.data.subclass}`);
+      }
+    } catch (error) {
+      console.error('拖拽添加失败:', error);
+    }
+  }, [addArt]);
+
+  const handleArtOptionSlotDragOver = useCallback((e, slotIndex) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setDragOverSlot(slotIndex);
+  }, []);
+
+  const handleArtOptionSlotDragLeave = useCallback((e) => {
+    // 只有当鼠标真正离开元素时才清除
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverSlot(null);
+    }
+  }, []);
+
+  const handleArtOptionSlotDrop = useCallback(async (e, slotIndex) => {
+    e.preventDefault();
+    setDragOverSlot(null);
+
+    try {
+      const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
+      
+      if (dragData.type === 'art-element' && dragData.data) {
+        // 获取当前艺术图案的完整状态，包括修改后的canvas数据
+        const artCanvasData = await sceneRef.current?.getArtCanvasData?.();
+        const currentArt = designState.artElements.find(art => art.id === dragData.data.id);
+
+        const artToSave = {
+          ...currentArt, // 使用 designState 中最新的图案状态
+          id: `saved-art-${Date.now()}`, // 为保存的选项分配一个新的唯一ID
+          modifiedImageData: artCanvasData?.[currentArt.id] || null, // 附加修改后的画布数据
+          userId: user?.id,
+          timestamp: new Date().toISOString(),
+          slotIndex: slotIndex
+        };
+
+        // 更新保存的Art Options
+        setSavedArtOptions(prev => {
+          const newOptions = [...prev];
+          // 移除该slot位置的旧数据
+          const filteredOptions = newOptions.filter(art => art.slotIndex !== slotIndex);
+          // 添加新数据
+          filteredOptions.push(artToSave);
+          
+          // 保存到localStorage
+          const allSavedArt = JSON.parse(localStorage.getItem('savedArtOptions') || '[]');
+          const otherUsersArt = allSavedArt.filter(art => art.userId !== user?.id);
+          const updatedAllArt = [...otherUsersArt, ...filteredOptions];
+          localStorage.setItem('savedArtOptions', JSON.stringify(updatedAllArt));
+          
+          return filteredOptions;
+        });
+
+        message.success('艺术图案已保存到Art Options（包含所有修改）');
+      }
+    } catch (error) {
+      console.error('拖拽保存失败:', error);
+      message.error('保存失败');
+    }
+
+    setDraggedArt(null);
+  }, [user, designState.artElements]);
+
+  const handleSavedArtClick = useCallback((savedArt) => {
+    // 复用保存的艺术图案
+    const artToAdd = {
+      ...savedArt,
+      id: `art-${Date.now()}`, // 生成新的ID
+      timestamp: new Date().toISOString()
+    };
+    
+    addArt(artToAdd);
+    message.success(`已添加保存的图案: ${savedArt.name || savedArt.subclass}`);
+  }, [addArt]);
+
+  // 保存艺术图案到Art Options
+  const handleSaveArtToOptions = useCallback(async (artElement) => {
+    // 找到第一个空的slot
+    const usedSlots = savedArtOptions.map(art => art.slotIndex);
+    const emptySlot = Array.from({ length: MAX_RECENTLY_SAVED }, (_, i) => i)
+      .find(i => !usedSlots.includes(i));
+    
+    if (emptySlot === undefined) {
+      message.warning('Art Options已满，请先删除一些保存的图案');
+      return;
+    }
+
+    try {
+      // 获取当前艺术图案的完整状态，包括修改后的canvas数据
+      const artCanvasData = await sceneRef.current?.getArtCanvasData?.();
+      const currentArt = designState.artElements.find(art => art.id === artElement.id);
+
+      const artToSave = {
+        ...currentArt, // 使用 designState 中最新的图案状态
+        id: `saved-art-${Date.now()}`, // 为保存的选项分配一个新的唯一ID
+        modifiedImageData: artCanvasData?.[currentArt.id] || null, // 附加修改后的画布数据
+        userId: user?.id,
+        timestamp: new Date().toISOString(),
+        slotIndex: emptySlot
+      };
+
+      // 更新保存的Art Options
+      setSavedArtOptions(prev => {
+        const newOptions = [...prev, artToSave];
+        
+        // 保存到localStorage
+        const allSavedArt = JSON.parse(localStorage.getItem('savedArtOptions') || '[]');
+        const otherUsersArt = allSavedArt.filter(art => art.userId !== user?.id);
+        const updatedAllArt = [...otherUsersArt, ...newOptions];
+        localStorage.setItem('savedArtOptions', JSON.stringify(updatedAllArt));
+        
+        return newOptions;
+      });
+
+      message.success('艺术图案已保存到Art Options（包含所有修改）');
+    } catch (error) {
+      console.error('保存艺术图案失败:', error);
+      message.error('保存失败');
+    }
+  }, [savedArtOptions, user, designState.artElements]);
+
   // renderToolContent
   const renderToolContent = () => {
     switch (activeTool) {
@@ -511,6 +687,9 @@ const DesignerPage = () => {
                 currentTextId={currentTextId}
                 isTextEditing={isTextEditing}
                 getFontPath={getFontPath}
+
+                // Drag and Drop Props
+                onSceneDrop={handleSceneDrop}
               />
 
               {/* 工具面板 */}
@@ -535,6 +714,7 @@ const DesignerPage = () => {
                   onLineAlphaChange={handleLineAlphaChange}
                   isFillModeActive={isFillModeActive}
                   setIsFillModeActive={setIsFillModeActive}
+                  onSaveToArtOptions={handleSaveArtToOptions}
                 />
               )}
             </div>
@@ -594,14 +774,72 @@ const DesignerPage = () => {
               </div>
             </div>
 
-            {/* 3. 添加 Art Options (占位符) (作为 Flex 的右侧部分) */}
-            <div className="art-options-placeholder">
+            {/* 3. 添加 Art Options 拖拽保存功能 (作为 Flex 的右侧部分) */}
+            <div className="art-options-container">
               <h4 className="recently-saved-title">Art Options</h4>
               <div className="recent-designs-grid">
-                {/* 渲染占位符方框 */}
-                {Array.from({ length: MAX_RECENTLY_SAVED }).map((_, i) => (
-                  <div key={`art-placeholder-${i}`} className="recent-design-placeholder" />
-                ))}
+                {/* 渲染Art Options方框 */}
+                {Array.from({ length: MAX_RECENTLY_SAVED }).map((_, i) => {
+                  const savedArt = savedArtOptions.find(art => art.slotIndex === i);
+                  const isDropTarget = dragOverSlot === i;
+                  // --- 新增逻辑：为缩略图计算 CSS 翻转样式 ---
+                  let thumbStyle = {};
+                  if (savedArt && savedArt.scale) {
+                    // 仅使用 scale 的正负号来决定 CSS 的 scale(1) 或 scale(-1)
+                    // Math.sign 会返回 1, -1, 或 0
+                    const scaleX = Math.sign(savedArt.scale[0] || 1);
+                    const scaleY = Math.sign(savedArt.scale[1] || 1);
+
+                    // 如果 scale 是 0 (不太可能，但做个保护)，就用 1
+                    thumbStyle = {
+                      transform: `scale(${scaleX || 1}, ${scaleY || 1})`,
+                    };
+                  }
+                  // --- 结束新增逻辑 ---
+                  
+                  return (
+                    <div
+                      key={`art-slot-${i}`}
+                      className={`art-option-slot ${isDropTarget ? 'drag-over' : ''} ${savedArt ? 'has-art' : 'empty'}`}
+                      onDragOver={(e) => handleArtOptionSlotDragOver(e, i)}
+                      onDragLeave={handleArtOptionSlotDragLeave}
+                      onDrop={(e) => handleArtOptionSlotDrop(e, i)}
+                      title={savedArt ? `${savedArt.name || savedArt.subclass} - 点击复用` : 'Drag artwork here to save for later'}
+                    >
+                      {savedArt ? (
+                        <Popover
+                          placement="top"
+                          title={null}
+                          content={
+                            <div className="popover-preview-content">
+                              <img
+                                src={savedArt.modifiedImageData || savedArt.thumbnail || savedArt.imagePath || '/images/placeholder.png'}
+                                alt={savedArt.name || savedArt.subclass}
+                                className="popover-preview-img"
+                                style={thumbStyle}
+                              />
+                              <p className="popover-preview-name">{savedArt.name || savedArt.subclass}</p>
+                              <p className="popover-preview-hint">拖拽到场景或点击复用</p>
+                            </div>
+                          }
+                        >
+                          <img
+                            src={savedArt.modifiedImageData || savedArt.thumbnail || savedArt.imagePath || '/images/placeholder.png'}
+                            alt={savedArt.name || savedArt.subclass}
+                            className="saved-art-thumb"
+                            draggable={true}
+                            onDragStart={(e) => handleSavedArtDragStart(e, savedArt)}
+                            onClick={() => handleSavedArtClick(savedArt)}
+                            title="拖拽到场景或点击复用"
+                            style={thumbStyle} // <-- 在这里添加 style
+                          />
+                        </Popover>
+                      ) : (
+                        <div className="empty-slot-content"></div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

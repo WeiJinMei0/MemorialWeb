@@ -7,7 +7,8 @@ import {
   DragOutlined,
   ReloadOutlined,
   ExpandOutlined,
-  CloseOutlined
+  CloseOutlined,
+  SaveOutlined
 } from '@ant-design/icons';
 import './DesignerPage.css'; // 引入样式文件，以便使用定位类
 
@@ -40,6 +41,10 @@ const ArtEditorPanel = ({
   isFillModeActive,
   /** 设置填充模式激活状态 */
   setIsFillModeActive,
+
+  // --- 保存到Art Options ---
+  /** 保存艺术图案到Art Options */
+  onSaveToArtOptions,
 }) => {
   // 使用 App.useApp() 钩子获取 modal 实例
   const { modal } = App.useApp();
@@ -213,6 +218,15 @@ const ArtEditorPanel = ({
               style={{ width: '100%' }}
             >
               上下翻转
+            </Button>
+
+            <Button
+              icon={<SaveOutlined />}
+              onClick={() => onSaveToArtOptions && onSaveToArtOptions(art)}
+              type="primary"
+              style={{ width: '100%' }}
+            >
+              保存到Art Options
             </Button>
 
             <Button
