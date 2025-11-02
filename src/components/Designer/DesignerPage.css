@@ -377,6 +377,17 @@
   height: 40px; /* 固定按钮容器高度 */
 }
 
+/* From Text branch */
+.base-buttons-container {
+    display: flex;
+    justify-content: center;
+    padding-top: 8px;
+    border-top: 1px dashed #e8e8e8;
+    margin-top: 8px;
+    flex-shrink: 0;
+    height: 40px;
+}
+
 .fixed-size-button {
   height: 28px !important; /* 固定按钮高度 */
   min-width: 140px !important; /* 固定按钮最小宽度 */
@@ -539,4 +550,180 @@
   background-color: #f5f5f5;
   border: 1px dashed #d9d9d9;
   border-radius: 4px;
+}
+
+/* --- Styles from Text branch (DesignerPage.css) --- */
+
+/*下拉框*/
+/* User Dropdown Styles */
+.user-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 150px;
+  z-index: 1000;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+  font-size: 14px;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: #f5f5f5;
+}
+
+.dropdown-item.logout {
+  color: #ff4d4f;
+}
+
+.dropdown-item.logout:hover {
+  background: #fff2f0;
+}
+
+/* User Info Modal Styles */
+.user-info-content {
+  padding: 16px 0;
+}
+
+.user-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.user-info-item:last-child {
+  border-bottom: none;
+}
+
+.user-info-label {
+  font-weight: 500;
+  color: #666;
+  min-width: 100px;
+}
+
+.user-info-value {
+  color: #262626;
+  text-align: right;
+  font-weight: 400;
+}
+
+/* 确保下拉菜单样式正确 */
+.user-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 150px;
+  z-index: 1000;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+  font-size: 14px;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: #f5f5f5;
+}
+
+.dropdown-item.logout {
+  color: #ff4d4f;
+}
+
+.dropdown-item.logout:hover {
+  background: #fff2f0;
+}
+
+/*新增文字操作选项*/
+
+.text-controls-overlay {
+  position: relative;
+  pointer-events: none;
+}
+
+.control-buttons {
+  position: relative;
+}
+
+.control-button {
+  pointer-events: auto;
+  transition: all 0.2s ease;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.delete-button:hover {
+  background: #cc0000 !important;
+}
+
+.rotate-button:hover {
+  background: #096dd9 !important;
+}
+
+.text-editor-panel {
+  padding: 8px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* 雕刻效果按钮样式 */
+.engrave-button {
+  transition: all 0.3s ease;
+}
+
+.engrave-button.active {
+  background: #1890ff;
+  color: white;
+  border-color: #1890ff;
 }

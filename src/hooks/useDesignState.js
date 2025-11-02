@@ -50,9 +50,29 @@ const initialDesignState = {
   subBases: [],
   vases: [],
   artElements: [],
-  textElements: [],
+  textElements: [], // <-- 合并点：添加了 textElements
   currentMaterial: 'Black'
 };
+
+// --- 合并点：从同事的 useDesignState.js 添加了 FONT_OPTIONS ---
+const FONT_OPTIONS = [
+  { name: 'Helvetiker', path: '/fonts/helvetiker_regular.typeface.json' },
+  { name: 'Arial', path: '/fonts/Arial_Regular.json' },
+  { name: 'Arial Bold', path: '/fonts/Arial_Bold.json' },
+  { name: 'Arial Italic', path: '/fonts/Arial_Italic (1).json' },
+  { name: 'Roman', path: '/fonts/Adobe Myungjo Std M_Regular.json' },
+  { name: 'Times-Roman', path: '/fonts/Calisto MT_Regular.json' },
+  { name: 'Script MT Bold', path: '/fonts/AlgerianBasDEE_Regular.json' },
+  { name: 'EnglishScriptEF-BoldArbor', path: '/fonts/Arkipelago_Regular.json' },
+  { name: 'Gauranga', path: '/fonts/Adobe Gothic Std B_Bold.json' },
+  { name: 'FZLiShu', path: '/fonts/Arial Unicode MS_Regular.json' },
+  { name: 'Arkipelago', path: '/fonts/Arkipelago_Regular.json' },
+  { name: 'Calibri', path: '/fonts/Calibri_Regular.json' },
+  { name: 'Calibri Bold', path: '/fonts/Calibri_Bold.json' },
+  { name: 'Calibri Italic', path: '/fonts/Calibri_Italic.json' },
+  { name: 'Calibri Light', path: '/fonts/Calibri Light_Regular.json' },
+];
+
 
 export const useDesignState = () => {
   const [designState, setDesignState] = useState(initialDesignState)
@@ -74,10 +94,10 @@ export const useDesignState = () => {
     });
   }, [addHistory]);
 
+  // --- 这是您文件中的 loadDesign (现在它被正确包含了) ---
   const loadDesign = useCallback((designToLoad) => {
     const parsedDesign = JSON.parse(JSON.stringify(designToLoad));
     setDesignState(parsedDesign);
-    // 重置历史记录，将加载的设计作为起点
     historyRef.current = [parsedDesign];
     historyIndexRef.current = 0;
   }, []);
@@ -101,7 +121,7 @@ export const useDesignState = () => {
     }
   }, []);
 
-  // 默认加载monument(Tablet+Base)
+  // --- 这是您文件中的 loadDefaultTablet (现在它被正确包含了) ---
   const loadDefaultTablet = useCallback(() => {
     const family = 'Tablet';
     const productClass = 'Serp Top';
@@ -189,25 +209,36 @@ export const useDesignState = () => {
     });
   }, [designState, updateDesignState, buildModelPath, buildTexturePath]);
 
+  // --- 合并点：从同事的 DesignerPage.jsx 中添加 addTablet ---
+  const addTablet = useCallback(() => {
+    addProduct({
+      family: 'Tablet',
+      class: 'Serp Top',
+      polish: 'P5'
+    });
+  }, [addProduct]);
+
 
   const addBase = useCallback(() => {
-    const base = {
-      id: `base-${Date.now()}`,
-      type: 'base',
-      polish: 'P5',
-      color: designState.currentMaterial,
-      modelPath: buildModelPath('base', null, null, 'P5'),
-      texturePath: buildTexturePath('base', null, null, 'P5', designState.currentMaterial),
-      position: [designState.bases.length * 2, 0, 0],
-      dimensions: { length: 0, width: 0, height: 0 },
-      weight: 0
-    };
+    updateDesignState(prev => {
+      const base = {
+        id: `base-${Date.now()}`,
+        type: 'base',
+        polish: 'P5',
+        color: prev.currentMaterial,
+        modelPath: buildModelPath('base', null, null, 'P5'),
+        texturePath: buildTexturePath('base', null, null, 'P5', prev.currentMaterial),
+        position: [prev.bases.length * 2, 0, 0],
+        dimensions: { length: 0, width: 0, height: 0 },
+        weight: 0
+      };
 
-    updateDesignState(prev => ({
-      ...prev,
-      bases: [...prev.bases, base]
-    }));
-  }, [designState, updateDesignState, buildModelPath, buildTexturePath]);
+      return {
+        ...prev,
+        bases: [...prev.bases, base]
+      };
+    });
+  }, [updateDesignState, buildModelPath, buildTexturePath]);
 
   const removeBase = useCallback((baseId) => {
     updateDesignState(prev => ({
@@ -218,23 +249,25 @@ export const useDesignState = () => {
 
 
   const addSubBase = useCallback(() => {
-    const subBase = {
-      id: `subbase-${Date.now()}`,
-      type: 'subBase',
-      polish: 'P5',
-      color: designState.currentMaterial,
-      modelPath: buildModelPath('subBase', null, null, 'P5'),
-      texturePath: buildTexturePath('subBase', null, null, 'P5', designState.currentMaterial),
-      position: [designState.subBases.length * 2, 0, 0],
-      dimensions: { length: 0, width: 0, height: 0 },
-      weight: 0
-    };
+    updateDesignState(prev => {
+      const subBase = {
+        id: `subbase-${Date.now()}`,
+        type: 'subBase',
+        polish: 'P5',
+        color: prev.currentMaterial,
+        modelPath: buildModelPath('subBase', null, null, 'P5'),
+        texturePath: buildTexturePath('subBase', null, null, 'P5', prev.currentMaterial),
+        position: [prev.subBases.length * 2, 0, 0],
+        dimensions: { length: 0, width: 0, height: 0 },
+        weight: 0
+      };
 
-    updateDesignState(prev => ({
-      ...prev,
-      subBases: [...prev.subBases, subBase]
-    }));
-  }, [designState, updateDesignState, buildModelPath, buildTexturePath]);
+      return {
+        ...prev,
+        subBases: [...prev.subBases, subBase]
+      };
+    });
+  }, [updateDesignState, buildModelPath, buildTexturePath]);
 
   const removeSubBase = useCallback((subBaseId) => {
     updateDesignState(prev => ({
@@ -260,7 +293,6 @@ export const useDesignState = () => {
         bases: updateElementMaterial(prev.bases),
         subBases: updateElementMaterial(prev.subBases),
         vases: updateElementMaterial(prev.vases),
-        // artElements: updateElementMaterial(prev.artElements)
       };
     });
   }, [updateDesignState]);
@@ -355,8 +387,10 @@ export const useDesignState = () => {
           updatedState.vases = updateElement(prev.vases);
           break;
         case 'art':
-          // Dimensions for art elements are updated via updateArtElementState (scale property)
-          // This function is kept for generic dimension updates if needed, but not used by the new ArtPlane interaction.
+          // 您的代码 (src/hooks/useDesignState.js) 没有这个 case,
+          // 同事的 (useDesignState.js) 有。
+          // 您的 art (InteractiveArtPlane) 使用 updateArtElementState (scale)
+          // 所以这个 case 可能是旧的，但保留它以防万一
           updatedState.artElements = updateElement(prev.artElements);
           break;
         default:
@@ -378,7 +412,7 @@ export const useDesignState = () => {
       modelPath: `./models/Vases/${vaseData.class}/${vaseData.name}.glb`,
       texturePath: `./textures/Vases/${vaseData.class}/${vaseData.name}_${designState.currentMaterial}.jpg`,
       position: [0, 0, 0],
-      dimensions: { length: 0.5, width: 0.5, height: 0.5 },
+      dimensions: { length: 0.5, width: 0.5, height: 0.5 }, // 您的版本有默认尺寸
       weight: 0
     };
 
@@ -389,8 +423,7 @@ export const useDesignState = () => {
   }, [designState, updateDesignState]);
 
 
-  // useDesignState.js (addArt 函数)
-
+  // 这是您的 addArt (for InteractiveArtPlane)
   const addArt = useCallback((artData) => {
     const art = {
       id: `art-${Date.now()}`,
@@ -398,14 +431,11 @@ export const useDesignState = () => {
       class: artData.class,
       subclass: artData.subclass,
       color: designState.currentMaterial,
-      // 确保 imagePath 存在，以便 InteractiveArtPlane 可以找到纹理
-      imagePath: artData.imagePath,
-      //modelPath: `./models/Art/${artData.class}/${artData.subclass}/${artData.class}_${artData.subclass}.glb`,
+      imagePath: artData.imagePath, // 您的版本使用 imagePath
       position: [0, 0, -0.205],
-      dimensions: { length: 0.2, width: 0.01, height: 0.2 }, // 给予一个初始尺寸，width即深度
-      // 新增：默认的缩放和旋转状态，InteractiveArtPlane的TransformControls会直接修改
-      //scale: [0.2, 0.2, 1], // 初始缩放，用于控制尺寸（1x1的平面被缩放）
-      rotation: [0, 0, 0], // 初始旋转
+      dimensions: { length: 0.2, width: 0.01, height: 0.2 },
+      scale: [0.2, 0.2, 1], // 您的版本使用 scale
+      rotation: [0, 0, 0],
       weight: 0
     };
 
@@ -415,21 +445,15 @@ export const useDesignState = () => {
     }));
   }, [designState, updateDesignState]);
 
-  // 【修复】更新 ArtElement 状态
-  // 这个函数现在是通用的。它接受一个 updater (更新器)，
-  // updater 可以是一个对象（将被合并），
-  // 也可以是一个函数 (prevArt) => newPartialArt（用于防止竞态条件）。
+  // 这是您的 updateArtElementState
   const updateArtElementState = useCallback((artId, updater) => {
     updateDesignState(prev => ({
       ...prev,
       artElements: prev.artElements.map(art => {
         if (art.id === artId) {
-          // 检查 updater 是函数还是对象
           const newPartialState = typeof updater === 'function'
-            ? updater(art) // 如果是函数，传入旧 art 状态并获取新状态
-            : updater;     // 如果是对象，直接使用
-
-          // 将新状态与现有 art 对象合并
+            ? updater(art)
+            : updater;
           return { ...art, ...newPartialState };
         }
         return art;
@@ -465,7 +489,7 @@ export const useDesignState = () => {
         id: `${elementType}-${Date.now()}`,
         position: [
           elementToDuplicate.position[0] + 0.5,
-          elementToDuplicate.position[1] + 0.1, // 略微抬高/偏移，方便拖拽选中
+          elementToDuplicate.position[1] + 0.1, // 您的版本有 0.1Y 偏移
           elementToDuplicate.position[2]
         ]
       };
@@ -488,31 +512,24 @@ export const useDesignState = () => {
     });
   }, [updateDesignState]);
 
-  // 翻转元素
+  // 翻转元素 (您的版本)
   const flipElement = useCallback((elementId, axis, elementType) => {
-    // 使用 scale 来实现翻转
     updateDesignState(prev => {
       if (elementType === 'art') {
         return {
           ...prev,
           artElements: prev.artElements.map(art => {
             if (art.id === elementId) {
-              // 假设 scale 存储为 [x, y, z]
               const currentScale = art.scale || [1, 1, 1];
               let newScale = [...currentScale];
 
-              // --- 修正后的逻辑 ---
               if (axis === 'x') {
-                // 左右翻转: 反转 X 轴的 scale
                 newScale[0] *= -1;
               } else if (axis === 'y') {
-                // 上下翻转: 反转 Y 轴的 scale
                 newScale[1] *= -1;
               } else if (axis === 'z') {
-                // 前后翻转
                 newScale[2] *= -1;
               }
-              // --- 修正结束 ---
 
               return { ...art, scale: newScale };
             }
@@ -546,13 +563,98 @@ export const useDesignState = () => {
     }
   }, []);
 
-  // ***** 移除了导致无限循环的 useEffect *****
+  // --- 合并点：添加所有文本函数 (来自同事的 useDesignState.js) ---
+  const getFontPath = (nameOrPath) => {
+    if (!nameOrPath) return '/fonts/helvetiker_regular.typeface.json';
+    if (nameOrPath.startsWith('/fonts/') || nameOrPath.endsWith('.json')) return nameOrPath;
+    const font = FONT_OPTIONS.find(f => f.name === nameOrPath);
+    return font ? font.path : '/fonts/helvetiker_regular.typeface.json';
+  };
+
+  const addText = useCallback((textData) => {
+    const newText = {
+      id: `text-${Date.now()}`,
+      monumentId: textData.monumentId,
+      content: textData.content,
+      font: textData.font || 'Arial',
+      size: textData.size || 16,
+      color: textData.color || '#000000',
+      alignment: textData.alignment || 'center',
+      kerning: textData.kerning || 0,
+      lineSpacing: textData.lineSpacing || 1.2,
+      engraveType: textData.engraveType || 'vcut',
+      thickness: textData.thickness || 0.02,
+      curveAmount: textData.curveAmount || 0,
+      vcutColor: textData.vcutColor || '#000000',
+      frostIntensity: textData.frostIntensity || 0.8,
+      polishBlend: textData.polishBlend || 0.5,
+      isSelected: true,
+      isDragging: false,
+      position: [0, 0, 0], // 添加默认 position
+      rotation: [0, 0, 0]  // 添加默认 rotation
+    };
+    updateDesignState(prev => ({
+      ...prev,
+      textElements: [...prev.textElements, newText]
+    }));
+    return newText.id;
+  }, [updateDesignState]);
+
+  const updateText = useCallback((textId, updates) => {
+    updateDesignState(prev => ({
+      ...prev,
+      textElements: prev.textElements.map(text =>
+        text.id === textId ? { ...text, ...updates } : text
+      )
+    }));
+  }, [updateDesignState]);
+
+  const deleteText = useCallback((textId) => {
+    updateDesignState(prev => ({
+      ...prev,
+      textElements: prev.textElements.filter(text => text.id !== textId)
+    }));
+  }, [updateDesignState]);
+
+  const setTextSelected = useCallback((textId, isSelected) => {
+    updateDesignState(prev => ({
+      ...prev,
+      textElements: prev.textElements.map(text =>
+        // 如果我们正在选中这个 textId，把它设为 true
+        text.id === textId ? { ...text, isSelected: isSelected } :
+          // 否则 (如果我们正在选中另一个，或者 textId 为 null)，把其他所有都设为 false
+          { ...text, isSelected: false }
+      )
+    }));
+  }, [updateDesignState]);
+
+  const updateTextPosition = useCallback((textId, newPosition) => {
+    updateDesignState(prev => ({
+      ...prev,
+      textElements: prev.textElements.map(text =>
+        text.id === textId ? { ...text, position: newPosition } : text
+      )
+    }));
+  }, [updateDesignState]);
+
+  const updateTextRotation = useCallback((textId, newRotation) => {
+    updateDesignState(prev => ({
+      ...prev,
+      textElements: prev.textElements.map(text =>
+        text.id === textId ? { ...text, rotation: newRotation } : text
+      )
+    }));
+  }, [updateDesignState]);
+
+  // ---------------- 结束合并文本函数 ----------------
+
+  // ***** 移除了您文件中的 "无限循环" useEffect (您的原文件已经移除了它) *****
 
   return {
     designState,
     updateDesignState,
-    loadDesign,
-    loadDefaultTablet,
+    loadDesign, // <-- 修正：正确导出
+    loadDefaultTablet, // <-- 修正：正确导出
     updateDimensions,
     updatePolish,
     updateMaterial,
@@ -572,6 +674,21 @@ export const useDesignState = () => {
     canUndo: historyIndexRef.current > 0,
     canRedo: historyIndexRef.current < historyRef.current.length - 1,
     productFamilies: PRODUCT_FAMILIES,
-    basePolishOptions: BASE_POLISH_OPTIONS
+    basePolishOptions: BASE_POLISH_OPTIONS,
+
+    // --- 合并点：添加所有文本和同事的返回 ---
+    addTablet,
+    texts: designState.textElements,
+    addText,
+    updateText,
+    deleteText,
+    setTextSelected,
+    fontOptions: FONT_OPTIONS,
+    getFontPath,
+    updateTextPosition,
+    updateTextRotation,
+    // (来自同事 useDesignState.js 的额外函数，以防万一)
+    // transformText,
+    // updateTextRelativePosition
   };
 };
