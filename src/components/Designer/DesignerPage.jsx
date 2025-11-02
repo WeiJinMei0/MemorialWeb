@@ -1,17 +1,11 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-// --- 合并点：从同事代码中添加 Modal ---
-import { Layout, Button, message, Space, Select, InputNumber, App, Popover, Input, Dropdown, Modal } from 'antd';
+import { Layout, Button, message, Space, Select, InputNumber, App, Popover, Input, Modal } from 'antd';
 import {
   UndoOutlined,
   RedoOutlined,
   EnvironmentOutlined,
   SaveOutlined,
   FileTextOutlined,
-  // --- 合并点：从同事代码中添加 HomeOutlined, HistoryOutlined, LogoutOutlined, UserOutlined ---
-  HomeOutlined,
-  HistoryOutlined,
-  LogoutOutlined,
-  UserOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -25,9 +19,7 @@ import { useDesignState } from '../../hooks/useDesignState';
 import ArtEditorPanel from './ArtEditorPanel'
 import './DesignerPage.css';
 
-// --- 合并点：从同事代码中添加 Header, Sider, Footer ---
-const { Header, Sider, Content, Footer } = Layout;
-
+const { Sider, Content, Footer } = Layout;
 
 const BACKGROUND_OPTIONS = [
   { value: 'transparent', label: 'Transparent', url: null },
@@ -36,22 +28,14 @@ const BACKGROUND_OPTIONS = [
   { value: 'winter', label: 'Winter', url: './backgrounds/Winter.jpg' }
 ];
 
-// --- 合并点：从同事代码中添加 LANGUAGE_OPTIONS ---
-const LANGUAGE_OPTIONS = [
-  { code: 'en', name: 'English', nativeName: 'English' },
-  { code: 'zh', name: 'Chinese', nativeName: '中文' },
-  { code: 'fr', name: 'French', nativeName: 'Français' },
-];
-
-const MAX_RECENTLY_SAVED = 8; // (来自您的代码)
+const MAX_RECENTLY_SAVED = 8;
 
 const DesignerPage = () => {
-  const { t,i18n } = useTranslation();
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const sceneRef = useRef();
-  // --- 合并点：从同事代码中添加 user, logout ---
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { modal } = App.useApp();
 
   const [collapsed, setCollapsed] = useState(false);
@@ -59,18 +43,18 @@ const DesignerPage = () => {
   const [currentBackground, setCurrentBackground] = useState('transparent');
   const [recentlySaved, setRecentlySaved] = useState([]);
 
-  // 您的 Art 状态
+  // Art 状态
   const [selectedArtId, setSelectedArtId] = useState(null)
   const [transformMode, setTransformMode] = useState('translate')
   const [fillColor, setFillColor] = useState('#4285F4');
   const [isFillModeActive, setIsFillModeActive] = useState(false);
 
-  // --- 合并点：添加同事的 Text 和 Unit 状态 ---
-  const [selectedUnit, setSelectedUnit] = useState('feet'); // 默认 'feet'
+  // Text 和 Unit 状态
+  const [selectedUnit, setSelectedUnit] = useState('feet');
   const [currentTextId, setCurrentTextId] = useState(null);
   const [isTextEditing, setIsTextEditing] = useState(false);
 
-  // --- 合并点：合并 useDesignState 的解构 ---
+  // useDesignState 钩子
   const {
     designState,
     loadDesign,
@@ -95,13 +79,12 @@ const DesignerPage = () => {
     canRedo,
     productFamilies,
     basePolishOptions,
-    // (来自同事)
     addTablet,
     texts,
     addText,
     updateText,
     deleteText,
-    setTextSelected, // <-- 添加 setTextSelected
+    setTextSelected,
     fontOptions,
     getFontPath,
     updateTextPosition,
@@ -109,7 +92,7 @@ const DesignerPage = () => {
   } = useDesignState();
 
 
-  // 您的 useEffect (保持不变)
+  // 加载最近保存的设计
   useEffect(() => {
     try {
       const allDesigns = JSON.parse(localStorage.getItem('savedDesigns') || '[]');
@@ -123,23 +106,29 @@ const DesignerPage = () => {
     }
   }, [user]);
 
-  // 您的 useEffect (保持不变)
+  // --- 【关键修改】 ---
+  // 此 useEffect 负责在加载时设置设计状态
   useEffect(() => {
     if (location.state?.loadedDesign) {
       loadDesign(location.state.loadedDesign);
       message.success(`成功加载设计: ${location.state.loadedDesign.name}`);
+      // 使用 navigate 清除 state，防止刷新时重新加载
       navigate(location.pathname, { replace: true, state: {} });
     } else {
-      // 检查 loadDefaultTablet 是否存在
+      // 仅当 *当前* 状态为空时加载默认值
+      // (这个检查现在是安全的，因为它只会在 effect 运行时触发)
       if (designState.monuments.length === 0 && designState.bases.length === 0 && designState.subBases.length === 0 && loadDefaultTablet) {
         loadDefaultTablet();
       }
     }
+    // 【修复】: 移除了 'designState' 依赖，以防止无限循环
   }, [location, loadDesign, loadDefaultTablet, navigate]);
+  // --- 【关键修改结束】 ---
+
 
   const recentSlots = Array.from({ length: MAX_RECENTLY_SAVED });
 
-  // 您的 tools 数组 (保持不变)
+  // tools 数组
   const tools = [
     { key: 'art', label: t('designer.artPanels'), icon: '🎨' },
     { key: 'vases', label: t('designer.vases'), icon: '🏺' },
@@ -147,10 +136,8 @@ const DesignerPage = () => {
     { key: 'shapes', label: t('designer.shapes'), icon: '🔷' },
   ];
 
-  // --- 合并点：合并 handleArtElementSelect ---
-  // (添加了文本状态重置)
+  // handleArtElementSelect
   const handleArtElementSelect = useCallback((artId) => {
-    // 如果选中 art, 则取消选中 text
     if (artId !== null) {
       setIsTextEditing(false);
       setCurrentTextId(null);
@@ -162,31 +149,24 @@ const DesignerPage = () => {
     setSelectedArtId(artId);
   }, [setActiveTool, setTransformMode, setIsFillModeActive]);
 
-  // --- 合并点：合并 handleToolSelect ---
-  // (添加了艺术和文本状态的重置逻辑)
+  // handleToolSelect
   const handleToolSelect = (key) => {
-    // 1. Deselect Art (来自您的代码)
     handleArtElementSelect(null);
-
-    // 2. Manage Text Editing State (来自同事的代码)
     if (key === 'text') {
       setIsTextEditing(true);
     } else {
-      // 如果点击任何其他工具，关闭文本编辑
       setIsTextEditing(false);
       setCurrentTextId(null);
     }
-
-    // 3. Set active tool
     setActiveTool(activeTool === key ? null : key)
   }
 
-  // 您的 handleCloseArtEditor (保持不变)
+  // handleCloseArtEditor
   const handleCloseArtEditor = useCallback(() => {
     handleArtElementSelect(null);
   }, [handleArtElementSelect]);
 
-  // 您的 selectedArt (保持不变)
+  // selectedArt
   const selectedArt = useMemo(() => {
     const art = designState.artElements.find(art => art.id === selectedArtId);
     if (art) {
@@ -195,13 +175,13 @@ const DesignerPage = () => {
     return null;
   }, [designState, selectedArtId]);
 
-  // 您的 handleDeleteElement (保持不变)
+  // handleDeleteElement
   const handleDeleteElement = useCallback((elementId, elementType) => {
     deleteElement(elementId, elementType);
     handleArtElementSelect(null);
   }, [deleteElement, handleArtElementSelect]);
 
-  // 您的 Art 属性处理器 (保持不变)
+  // Art 属性处理器
   const handleLineColorChange = useCallback((artId, newColor) => {
     updateArtElementState(artId, (prevArt) => ({
       properties: { ...(prevArt.properties || {}), lineColor: newColor }
@@ -215,7 +195,7 @@ const DesignerPage = () => {
   }, [updateArtElementState]);
 
 
-  // 您的 handleSaveDesign (保持不变)
+  // handleSaveDesign (包含之前的修复)
   const handleSaveDesign = useCallback(() => {
     let designName = `${t('modals.saveDefaultName')}_${new Date().toLocaleDateString()}`;
     modal.confirm({
@@ -236,9 +216,25 @@ const DesignerPage = () => {
         }
         try {
           message.loading({ content: t('modals.saveMessageSaving'), key: 'saving' });
+
+          const artCanvasData = await sceneRef.current?.getArtCanvasData?.();
+          const stateToSave = JSON.parse(JSON.stringify(designState));
+
+          if (artCanvasData) {
+            stateToSave.artElements = stateToSave.artElements.map(art => {
+              if (artCanvasData[art.id]) {
+                return { ...art, modifiedImageData: artCanvasData[art.id] };
+              }
+              return art;
+            });
+          }
+
           const designData = {
-            ...designState, name: designName, thumbnail: await sceneRef.current?.captureThumbnail?.(),
-            userId: user?.id, timestamp: new Date().toISOString()
+            ...stateToSave,
+            name: designName,
+            thumbnail: await sceneRef.current?.captureThumbnail?.(),
+            userId: user?.id,
+            timestamp: new Date().toISOString()
           };
           const savedDesigns = JSON.parse(localStorage.getItem('savedDesigns') || '[]');
           savedDesigns.push(designData);
@@ -252,7 +248,7 @@ const DesignerPage = () => {
     });
   }, [designState, user, modal, t]);
 
-  // 您的 handleGenerateOrder (保持不变)
+  // handleGenerateOrder
   const handleGenerateOrder = useCallback(() => {
     modal.confirm({
       title: t('modals.orderTitle'),
@@ -281,54 +277,18 @@ const DesignerPage = () => {
     });
   }, [designState, user, modal, t]);
 
-  // --- 合并点：从同事代码中添加 UserDropdown 和相关处理器 ---
-  const handleLanguageChange = useCallback(({ key }) => {
-    i18n.changeLanguage(key)
-    message.success(`Language changed to ${LANGUAGE_OPTIONS.find(lang => lang.code === key)?.nativeName}`)
-  }, [i18n])
-
-  const handleNavigation = (path) => {
-    navigate(path)
-  }
-
-  const getCurrentLanguageName = () => {
-    const lang = LANGUAGE_OPTIONS.find(option => option.code === i18n.language)
-    return lang ? lang.nativeName : i18n.language.toUpperCase()
-  }
-
-  const languageMenu = {
-    items: LANGUAGE_OPTIONS.map(lang => ({
-      key: lang.code,
-      label: (
-        <div style={{ display: 'flex', justifyContent: 'space-between', minWidth: '140px' }}>
-          <span>{lang.nativeName}</span>
-        </div>
-      ),
-    })),
-    onClick: handleLanguageChange,
-  }
-
-  // (您的代码中没有 handleLogout, UserDropdown, 但同事的有, MainLayout 中也有。
-  // 我将假设 MainLayout 处理这些，但如果 DesignerPage 是一个独立页面，
-  // 那么同事的 UserDropdown 逻辑应该被添加。
-  // 鉴于您的 MainLayout.jsx，DesignerPage 不需要 Header。
-  // 但是，同事的 DesignerPage.jsx *有* Header。
-  // 我将遵循同事的 DesignerPage.jsx 结构，并将其与您的 DesignerPage.jsx (无 Header) 合并。
-  // 您的 DesignerPage.jsx 没有 Header，它依赖于 MainLayout。
-  // 同事的 DesignerPage.jsx 有一个完整的 Header。
-  // 这意味着我应该只合并 *内容*，而不是布局。
-  // 您的 DesignerPage.jsx 结构是正确的 (Layout > Sider > Layout > Content > Footer)。
-  // 我将把同事的功能合并到您现有的结构中。
-
+  // handleBackgroundChange
   const handleBackgroundChange = (value) => {
     setCurrentBackground(value)
   }
 
+  // getCurrentBackgroundUrl
   const getCurrentBackgroundUrl = () => {
     const bgOption = BACKGROUND_OPTIONS.find(bg => bg.value === currentBackground);
     return bgOption ? bgOption.url : null;
   };
 
+  // 模型选择处理器
   const handleProductSelect = (productData) => {
     addProduct(productData)
     setActiveTool(null)
@@ -347,7 +307,7 @@ const DesignerPage = () => {
     message.success(`Added ${artData.subclass}`)
   }
 
-  // --- 合并点：添加同事的文本处理器 ---
+  // 文本处理器
   const handleTextPositionChange = useCallback((textId, newPosition) => {
     updateTextPosition(textId, newPosition);
   }, [updateTextPosition]);
@@ -378,12 +338,8 @@ const DesignerPage = () => {
     message.success('文字已删除');
   }, [deleteText]);
 
-  // --- 合并点：合并 handleTextSelect (添加了 art deselect) ---
   const handleTextSelect = useCallback((textId) => {
-    // 1. Deselect Art
     handleArtElementSelect(null);
-
-    // 2. Select Text
     console.log('DesignerPage: 文字被选中', textId);
     setCurrentTextId(textId);
     setIsTextEditing(true);
@@ -392,7 +348,7 @@ const DesignerPage = () => {
     }
   }, [handleArtElementSelect, setTextSelected]);
 
-  // --- 合并点：替换 renderToolContent 的 'text' case ---
+  // renderToolContent
   const renderToolContent = () => {
     switch (activeTool) {
       case 'shapes':
@@ -417,7 +373,7 @@ const DesignerPage = () => {
             onSelect={handleArtSelect}
           />
         );
-      case 'text': // <-- 这是替换后的 case
+      case 'text':
         return (
           <TextEditor
             onAddText={handleTextAdd}
@@ -435,7 +391,7 @@ const DesignerPage = () => {
     }
   }
 
-  // --- 合并点：添加同事的 UnitSelector function ---
+  // UnitSelector
   const UnitSelector = (unit) => {
     switch (unit) {
       case 'feet':
@@ -443,12 +399,11 @@ const DesignerPage = () => {
       case 'inches':
         return 39.370
       default:
-        return 3.281; // 默认英尺
+        return 3.281;
     }
   }
 
-  // --- 合并点：替换 DimensionControl 以使用单位 ---
-  // (来自同事的 DimensionControl)
+  // DimensionControl
   const DimensionControl = ({ element, elementType, label }) => {
     const getPolishOptions = () => {
       switch (elementType) {
@@ -459,8 +414,6 @@ const DesignerPage = () => {
       }
     };
     const polishOptions = getPolishOptions();
-
-    // 计算当前单位的换算系数
     const unitMultiplier = UnitSelector(selectedUnit);
 
     return (
@@ -471,11 +424,11 @@ const DesignerPage = () => {
             <div key={dim} className="dimension-input">
               <InputNumber
                 size="small"
-                value={Math.round(element.dimensions[dim] * unitMultiplier * 10) / 10} // 转换为单位
+                value={Math.round(element.dimensions[dim] * unitMultiplier * 10) / 10}
                 min={0}
-                max={10 * unitMultiplier} // 最大值也转换
+                max={10 * unitMultiplier}
                 step={0.1}
-                onChange={(value) => updateDimensions(element.id, { ...element.dimensions, [dim]: value / unitMultiplier }, elementType)} // 转换回米
+                onChange={(value) => updateDimensions(element.id, { ...element.dimensions, [dim]: value / unitMultiplier }, elementType)}
                 style={{ width: '70px' }}
               />
             </div>
@@ -490,14 +443,13 @@ const DesignerPage = () => {
             </Select>
           </div>
         )}
-        {/* 转换为 LBS */}
         <div className="weight-display">{Math.round(element.weight * 2.2)} lbs</div>
       </div>
     );
   };
 
 
-  // --- 渲染 (基于您的布局结构) ---
+  // --- 渲染 ---
   return (
     <Layout className="main-content-layout">
       <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={280} className="toolbar-sider">
@@ -535,16 +487,16 @@ const DesignerPage = () => {
                 onDeleteElement={deleteElement}
                 onFlipElement={flipElement}
 
-                // 您的 Art Props
+                // Art Props
                 onArtElementSelect={handleArtElementSelect}
                 selectedElementId={selectedArtId}
                 transformMode={transformMode}
                 onUpdateArtElementState={updateArtElementState}
                 fillColor={fillColor}
                 isFillModeActive={isFillModeActive}
-                onModelFillClick={() => {}} // 您的代码有这个，但没有定义，我暂时保留
+                onModelFillClick={() => {}}
 
-                // --- 合并点：添加同事的 Text Props ---
+                // Text Props
                 onTextSelect={handleTextSelect}
                 onTextPositionChange={handleTextPositionChange}
                 onTextRotationChange={handleTextRotationChange}
@@ -554,14 +506,14 @@ const DesignerPage = () => {
                 getFontPath={getFontPath}
               />
 
-              {/* 您的工具面板逻辑 (保持不变) */}
+              {/* 工具面板 */}
               {activeTool && !selectedArt && (
                 <div className="tool-panel">
                   {renderToolContent()}
                 </div>
               )}
 
-              {/* 您的艺术图案编辑面板 (保持不变) */}
+              {/* 艺术图案编辑面板 */}
               {selectedArt && (
                 <ArtEditorPanel
                   art={selectedArt}
@@ -582,7 +534,6 @@ const DesignerPage = () => {
           </div>
         </Content>
         <Footer className="designer-footer">
-          {/* --- 合并点：使用同事的 Footer 布局 --- */}
           <div className="footer-controls">
             <div className="control-rows-container">
               {designState.monuments.map(monument => (
@@ -612,15 +563,11 @@ const DesignerPage = () => {
             </div>
             <div className="base-buttons-container">
               <Space>
-                {/* (来自同事) */}
                 <Button size="small" onClick={addTablet}>
                   {t('designer.addTablet')}
                 </Button>
-
                 <Button size="small" onClick={addBase}>{t('designer.addBase')}</Button>
                 <Button size="small" onClick={addSubBase}>{t('designer.addSubBase')}</Button>
-
-                {/* (来自同事) */}
                 <p> {t('designer.format')}</p>
                 <select
                   value={selectedUnit || 'feet'}

@@ -13,7 +13,7 @@ import { extend } from '@react-three/fiber';
 // --- 合并点：扩展 TextGeometry ---
 extend({ TextGeometry });
 
-// 您的 Flood Fill 算法 (保持不变)
+// --- 辅助函数： Flood Fill (保持不变) ---
 const floodFill = (context, canvas, originalImageData, canvasTexture, startX, startY, newColor) => {
   const { width, height } = canvas;
   const imageData = context.getImageData(0, 0, width, height);
@@ -341,13 +341,65 @@ const InteractiveArtPlane = forwardRef(({
     originalData: null
   });
 
+  // 【关键修改：新增】: 使用 useImperativeHandle 暴露一个方法来获取画布的 dataURL
+  useImperativeHandle(ref, () => ({
+    getCanvasDataURL: () => {
+      const { canvas } = artCanvasRef.current;
+      if (canvas) {
+        return canvas.toDataURL('image/png'); // 转换为 base64 字符串
+      }
+      return null;
+    }
+    // 依赖于画布是否已创建
+  }), [artCanvasRef.current?.canvas]);
+
+
   useEffect(() => {
     isInitialLoadRef.current = true;
   }, [art.id, art.imagePath]);
 
 
-  // 1. 加载纹理
+  // 1. 【关键修改】: 加载纹理
   useEffect(() => {
+    isInitialLoadRef.current = true;
+
+    // --- 【新增逻辑】: 检查是否存在已保存的修改后图像 ---
+    if (art.modifiedImageData) {
+      const img = new Image();
+      img.src = art.modifiedImageData; // 加载 base64 数据
+      img.onload = () => {
+        if (!img || img.naturalHeight === 0) return;
+        const aspect = img.naturalWidth / img.naturalHeight;
+        setAspectRatio(aspect);
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        context.drawImage(img, 0, 0); // 绘制已保存的图像
+
+        // 关键：我们仍需加载“原始”图像数据，以便 FloodFill 知道线条在哪里
+        const loader = new THREE.TextureLoader();
+        loader.load(art.imagePath, (originalTexture) => {
+          const originalImg = originalTexture.image;
+          const originalCanvas = document.createElement('canvas');
+          const originalContext = originalCanvas.getContext('2d', { willReadFrequently: true });
+          originalCanvas.width = originalImg.naturalWidth;
+          originalCanvas.height = originalImg.naturalHeight;
+          originalContext.drawImage(originalImg, 0, 0);
+          const originalData = originalContext.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
+
+          // 设置 ref：使用“修改后”的 canvas，但使用“原始”的 originalData
+          artCanvasRef.current = { canvas, context, originalData };
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.colorSpace = THREE.SRGBColorSpace;
+          setCanvasTexture(texture);
+        });
+      };
+      return; // 停止执行，因为我们已经从 dataURL 加载了
+    }
+    // --- 【结束新增逻辑】 ---
+
+    // 这是原始逻辑，用于处理没有 modifiedImageData 的情况
     if (!art.imagePath) {
       setCanvasTexture(null);
       artCanvasRef.current = { canvas: null, context: null, originalData: null };
@@ -380,7 +432,8 @@ const InteractiveArtPlane = forwardRef(({
       });
       artCanvasRef.current = { canvas: null, context: null, originalData: null };
     };
-  }, [art.imagePath]);
+    // --- 【关键修改】: 添加 art.modifiedImageData 作为依赖 ---
+  }, [art.imagePath, art.modifiedImageData]);
 
 
   // 2. 监听属性变化重绘画布
@@ -895,6 +948,7 @@ const MonumentScene = forwardRef(({
   const { gl, scene } = useThree();
   const sceneRef = useRef();
   const modelRefs = useRef({});
+  const artPlaneRefs = useRef({}); // <-- 【关键修改：新增】用于存储 Art-Plane 的 Ref
 
   // 您的点击场景逻辑
   const handleSceneClick = (e) => {
@@ -932,7 +986,7 @@ const MonumentScene = forwardRef(({
     }
   }, [background, scene]);
 
-  // 您的 useImperativeHandle
+  // 【关键修改】：MonumentScene 的 useImperativeHandle
   useImperativeHandle(ref, () => ({
     captureThumbnail: () => {
       return new Promise((resolve) => {
@@ -949,12 +1003,31 @@ const MonumentScene = forwardRef(({
           resolve(URL.createObjectURL(blob));
         }, 'image/png', 1.0);
       });
+    },
+    // --- 【新增方法】 ---
+    getArtCanvasData: () => {
+      const artData = {};
+      for (const artId in artPlaneRefs.current) {
+        const artRef = artPlaneRefs.current[artId];
+        // 调用我们之前在 InteractiveArtPlane 上暴露的方法
+        if (artRef && typeof artRef.getCanvasDataURL === 'function') {
+          const dataURL = artRef.getCanvasDataURL();
+          if (dataURL) {
+            artData[artId] = dataURL;
+          }
+        }
+      }
+      return artData;
     }
   }));
 
   // 您的 calculateModelPositions (使用useMemo优化)
   const positions = useMemo(() => {
     const positions = {};
+
+    // --- 【关键修改：开始】 ---
+    // 删除了所有 `modelRefs.current` 的测量逻辑。
+    // 唯一的“事实来源”现在是 `designState`。
     const getModelLength = (modelId) => {
       const mesh = modelRefs.current[modelId]?.getMesh();
       if (mesh) {
@@ -965,7 +1038,8 @@ const MonumentScene = forwardRef(({
       }
       const model = [...designState.subBases, ...designState.bases, ...designState.monuments]
         .find(m => m.id === modelId);
-      return model ? (model.dimensions.length || 1) : 1;
+      // 回退到 0 而不是 1
+      return model ? (model.dimensions.length || 0) : 0;
     };
     const getModelHeight = (modelId) => {
       const mesh = modelRefs.current[modelId]?.getMesh();
@@ -977,8 +1051,11 @@ const MonumentScene = forwardRef(({
       }
       const model = [...designState.subBases, ...designState.bases, ...designState.monuments]
         .find(m => m.id === modelId);
-      return model ? (model.dimensions.height || 1) : 1;
+      // 回退到 0 而不是 1
+      return model ? (model.dimensions.height || 0) : 0;
     };
+    // --- 【关键修改：结束】 ---
+
 
     let currentY_subBase = -0.5;
     let currentY_base = -0.3;
@@ -1058,6 +1135,9 @@ const MonumentScene = forwardRef(({
       onDimensionsChange(elementId, dimensions, elementType);
     }
   };
+
+  // 在重新渲染时清除旧的 ref，防止内存泄漏
+  artPlaneRefs.current = {};
 
   return (
     <group ref={sceneRef} onClick={handleSceneClick}>
@@ -1164,10 +1244,12 @@ const MonumentScene = forwardRef(({
         />
       ))}
 
-      {/* 您的 InteractiveArtPlane 渲染 (保持不变) */}
+      {/* 【关键修改】：InteractiveArtPlane 渲染 */}
       {designState.artElements.map(art => (
         <InteractiveArtPlane
           key={art.id}
+          // 【新增】: 将 ref 存储在 artPlaneRefs.current 中
+          ref={el => artPlaneRefs.current[art.id] = el}
           art={{ ...art, imagePath: art.imagePath }}
           isSelected={selectedElementId === art.id}
           onSelect={handleSelectArtPlane}
