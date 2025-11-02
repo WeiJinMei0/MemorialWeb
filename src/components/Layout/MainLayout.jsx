@@ -1,12 +1,13 @@
-import React from 'react';
-// 1. 从 antd 导入 App 和 message
-import { Layout, Button, Dropdown, Space, App, message } from 'antd';
+import React, { useState, useRef, useEffect } from 'react';
+// 1. 导入 App, message, Modal, 和 UserOutlined
+import { Layout, Button, Dropdown, Space, App, message, Modal } from 'antd';
 import {
   HomeOutlined,
   SaveOutlined,
   HistoryOutlined,
   LogoutOutlined,
   GlobalOutlined,
+  UserOutlined // 2. 已导入
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
@@ -26,7 +27,7 @@ const MainLayout = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth(); // 3. 从 useAuth 获取 user
   const currentPath = location.pathname;
 
   // 3. 使用 App.useApp() 钩子。这是让 message 等组件正常工作的关键
@@ -64,6 +65,66 @@ const MainLayout = () => {
     onClick: handleLanguageChange,
   };
 
+
+  const UserDropdown = () => {
+    const [dropdownVisible, setDropdownVisible] = useState(false);
+    const dropdownRef = useRef(null);
+    const [userInfoVisible, setUserInfoVisible] = useState(false);
+
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+          setDropdownVisible(false);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, []);
+
+    const showUserInfo = () => {
+      setUserInfoVisible(true);
+      setDropdownVisible(false);
+    };
+
+    const renderUserInfo = () => {
+      const userInfo = user || {};
+      return (
+        <div className="user-info-content">
+          <div className="user-info-item"> <span className="user-info-label">Username:</span> <span className="user-info-value">{userInfo.username || 'N/A'}</span> </div>
+          <div className="user-info-item"> <span className="user-info-label">Email:</span> <span className="user-info-value">{userInfo.email || 'N/A'}</span> </div>
+          <div className="user-info-item"> <span className="user-info-label">Phone:</span> <span className="user-info-value">{userInfo.phone || 'N/A'}</span> </div>
+          <div className="user-info-item"> <span className="user-info-label">User Type:</span> <span className="user-info-value">{userInfo.type || 'N/A'}</span> </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="user-dropdown" ref={dropdownRef}>
+        <Button icon={<UserOutlined />} onClick={() => setDropdownVisible(!dropdownVisible)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {user?.username || 'Account'}
+        </Button>
+        {dropdownVisible && (
+          <div className="dropdown-menu">
+            <div className="dropdown-item" onClick={showUserInfo}> <UserOutlined /> <span>Account</span> </div>
+            <div className="dropdown-item logout" onClick={handleLogout}> <LogoutOutlined /> <span>Logout</span> </div>
+          </div>
+        )}
+        <Modal
+          title="Account Information"
+          open={userInfoVisible}
+          onOk={() => setUserInfoVisible(false)}
+          onCancel={() => setUserInfoVisible(false)}
+          footer={[ <Button key="ok" type="primary" onClick={() => setUserInfoVisible(false)}> OK </Button> ]}
+          width={400}
+        >
+          {renderUserInfo()}
+        </Modal>
+      </div>
+    );
+  };
+
   return (
     <Layout className="designer-layout">
       <Header className="designer-header">
@@ -93,9 +154,8 @@ const MainLayout = () => {
                 <span>{getCurrentLanguageName()}</span>
               </Button>
             </Dropdown>
-            <Button icon={<LogoutOutlined />} onClick={handleLogout}>
-              {t('designer.logout')}
-            </Button>
+            {/* 5. 替换旧按钮为新组件 */}
+            <UserDropdown />
           </Space.Compact>
         </div>
       </Header>

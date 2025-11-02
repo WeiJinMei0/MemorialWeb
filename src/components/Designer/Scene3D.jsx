@@ -1,37 +1,40 @@
-import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, Suspense, useLayoutEffect, useCallback } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, Suspense, useLayoutEffect, useCallback, useMemo } from 'react';
+// --- 合并点：添加了 useFrame ---
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html, TransformControls } from '@react-three/drei';
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-// 移除了 DecalGeometry 导入
+// --- 合并点：添加了 Text3D, FontLoader, TextGeometry ---
+import { Text3D } from '@react-three/drei';
 import * as THREE from 'three';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry';
+import { extend } from '@react-three/fiber';
 
-// Flood Fill 算法
+// --- 合并点：扩展 TextGeometry ---
+extend({ TextGeometry });
+
+// 您的 Flood Fill 算法 (保持不变)
 const floodFill = (context, canvas, originalImageData, canvasTexture, startX, startY, newColor) => {
   const { width, height } = canvas;
-  // 获取 *当前* 画布数据
-  const imageData = context.getImageData(0, 0, width, height); //
+  const imageData = context.getImageData(0, 0, width, height);
   const data = imageData.data;
-  const originalData = originalImageData.data; // 原始 PNG 数据
+  const originalData = originalImageData.data;
 
-  const getPixelIndex = (x, y) => (y * width + x) * 4; //
+  const getPixelIndex = (x, y) => (y * width + x) * 4;
 
-  // --- 【新增】辅助函数，用于检查像素是否为“线条” ---
-  // 基于原始 PNG 图像数据
   const isPixelLine = (idx) => {
-    return originalData[idx] < 100 &&       // R
-      originalData[idx + 1] < 100 &&   // G
-      originalData[idx + 2] < 100 &&   // B
+    return originalData[idx] < 100 &&
+      originalData[idx + 1] < 100 &&
+      originalData[idx + 2] < 100 &&
       originalData[idx + 3] > 10;
   };
 
   const startIdx = getPixelIndex(startX, startY);
 
-  // 1. 检查是否点击了线条
   if (isPixelLine(startIdx)) {
-    return; // 不填充线条
+    return;
   }
 
-  // 2. 检查点击的区域是否已经是新颜色
   if (data[startIdx] === newColor[0] &&
     data[startIdx + 1] === newColor[1] &&
     data[startIdx + 2] === newColor[2] &&
@@ -39,45 +42,35 @@ const floodFill = (context, canvas, originalImageData, canvasTexture, startX, st
     return;
   }
 
-  // 3. 开始队列填充
-  const queue = [[startX, startY]]; //
+  const queue = [[startX, startY]];
   while (queue.length > 0) {
-    const [x, y] = queue.shift(); //
+    const [x, y] = queue.shift();
 
-    // 检查边界
-    if (x < 0 || x >= width || y < 0 || y >= height) continue; //
+    if (x < 0 || x >= width || y < 0 || y >= height) continue;
 
     const idx = getPixelIndex(x, y);
 
-    // --- 【核心逻辑修改】 ---
-
-    // A. 检查当前像素是否为线条边界
     if (isPixelLine(idx)) {
-      continue; // 碰到线条，停止这个方向的填充
+      continue;
     }
 
-    // B. 检查是否已填充为新颜色 (防止重复处理和无限循环)
     if (data[idx] === newColor[0] &&
       data[idx + 1] === newColor[1] &&
       data[idx + 2] === newColor[2] &&
       data[idx + 3] === 255) {
-      continue; // 已经填充过
+      continue;
     }
 
-    // C. 填充新颜色
-    data[idx] = newColor[0];     //
-    data[idx + 1] = newColor[1]; //
-    data[idx + 2] = newColor[2]; //
-    data[idx + 3] = 255;         //
+    data[idx] = newColor[0];
+    data[idx + 1] = newColor[1];
+    data[idx + 2] = newColor[2];
+    data[idx + 3] = 255;
 
-    // D. 将邻居添加到队列
-    queue.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]); //
+    queue.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
   }
 
-  // 4. 将修改后的数据写回画布
-  context.putImageData(imageData, 0, 0); //
-  // 5. 通知 Three.js 更新纹理
-  canvasTexture.needsUpdate = true; //
+  context.putImageData(imageData, 0, 0);
+  canvasTexture.needsUpdate = true;
 };
 
 const Loader = () => (
@@ -86,22 +79,25 @@ const Loader = () => (
   </Html>
 );
 
+// 您的 Model 组件 (已合并同事的 `isDraggable` 和您自己的 `isFillModeActive` 逻辑)
 const Model = forwardRef(({
-  modelPath,
-  texturePath,
-  position = [0, 0, 0],
-  dimensions = { length: 1, width: 1, height: 1 },
-  color = 'Black',
-  onLoad,
-  onDimensionsChange,
+                            modelPath,
+                            texturePath,
+                            position = [0, 0, 0],
+                            dimensions = { length: 1, width: 1, height: 1 },
+                            color = 'Black',
+                            onLoad,
+                            onDimensionsChange,
 
-  /** 填充模式是否激活 */
-  isFillModeActive,
-  /** 点击填充时的回调 */
-  onFillClick,
-  isDraggable = false
-}, ref) => {
+                            /** 填充模式是否激活 (来自您的代码) */
+                            isFillModeActive,
+                            /** 点击填充时的回调 (来自您的代码) */
+                            onFillClick,
+                            /** 是否可拖拽 (来自同事的代码) */
+                            isDraggable = false
+                          }, ref) => {
   const meshRef = useRef();
+  const sceneObjectRef = useRef(null); // 用于跟踪添加到场景的对象
   const { gl, scene } = useThree();
   const [model, setModel] = useState(null);
   const [error, setError] = useState(false);
@@ -113,17 +109,64 @@ const Model = forwardRef(({
     getDimensions: () => originalDimensions
   }));
 
+  const getColorValue = useCallback((color) => {
+    const colorMap = {
+      'Black': 0x333333,
+      'Red': 0x8B0000,
+      'Grey': 0x808080,
+      'Blue': 0x0000CD,
+      'Green': 0x006400
+    };
+    return colorMap[color] || 0x333333;
+  }, []);
 
   useEffect(() => {
+    let isMounted = true;
+    let currentSceneObject = null;
+
+    // 重置hasReportedDimensions当模型路径变化时
+    setHasReportedDimensions(false);
+
     const loadModel = async () => {
       try {
+        // 清理之前的模型
+        if (sceneObjectRef.current && scene) {
+          scene.remove(sceneObjectRef.current);
+          // 清理几何体和材质
+          sceneObjectRef.current.traverse((child) => {
+            if (child.isMesh) {
+              if (child.geometry) child.geometry.dispose();
+              if (child.material) {
+                if (Array.isArray(child.material)) {
+                  child.material.forEach(mat => {
+                    if (mat.map) mat.map.dispose();
+                    mat.dispose();
+                  });
+                } else {
+                  if (child.material.map) child.material.map.dispose();
+                  child.material.dispose();
+                }
+              }
+            }
+          });
+          sceneObjectRef.current = null;
+        }
+
         const loader = new GLTFLoader();
         const gltf = await loader.loadAsync(modelPath);
-        const clonedScene = gltf.scene;
-        // 设置位置
+        if (!isMounted) return;
+
+        const clonedScene = gltf.scene.clone();
         clonedScene.position.set(position[0], position[1], position[2]);
 
         scene.add(clonedScene);
+        sceneObjectRef.current = clonedScene;
+        currentSceneObject = clonedScene;
+
+        // 更新meshRef指向场景对象
+        if (meshRef.current !== clonedScene) {
+          meshRef.current = clonedScene;
+        }
 
         const box = new THREE.Box3().setFromObject(clonedScene);
         const size = new THREE.Vector3();
@@ -135,22 +178,21 @@ const Model = forwardRef(({
           height: size.z
         };
 
+        if (!isMounted) return;
         setOriginalDimensions(originalDims);
 
         if (onDimensionsChange && !hasReportedDimensions &&
-            (dimensions.length === 0 || dimensions.width === 0 || dimensions.height === 0)) {
+          (dimensions.length === 0 || dimensions.width === 0 || dimensions.height === 0)) {
           onDimensionsChange(originalDims);
           setHasReportedDimensions(true);
         }
 
         const textureLoader = new THREE.TextureLoader();
         clonedScene.traverse((child) => {
-
           if (child.isMesh) {
-
             textureLoader.load(texturePath, (texture) => {
+              if (!isMounted) return;
               texture.colorSpace = THREE.SRGBColorSpace;
-
               console.log(`Texture loaded: ${texturePath}`);
               child.material = new THREE.MeshStandardMaterial({
                 map: texture,
@@ -158,6 +200,7 @@ const Model = forwardRef(({
                 metalness: 0.1
               });
             }, undefined, () => {
+              if (!isMounted) return;
               child.material = new THREE.MeshStandardMaterial({
                 color: getColorValue(color),
                 roughness: 0.7,
@@ -167,40 +210,62 @@ const Model = forwardRef(({
           }
         });
 
+        if (!isMounted) return;
         setModel(clonedScene);
         if (onLoad) onLoad(clonedScene);
       } catch (err) {
         console.error(`Failed to load model: ${modelPath}`, err);
-        setError(true);
+        if (isMounted) setError(true);
       }
     };
 
-    const getColorValue = (color) => {
-      const colorMap = {
-        'Black': 0x333333,
-        'Red': 0x8B0000,
-        'Grey': 0x808080,
-        'Blue': 0x0000CD,
-        'Green': 0x006400
-      };
-      return colorMap[color] || 0x333333;
-    };
-
     loadModel();
-  }, [modelPath, color]);
+
+    // Cleanup函数
+    return () => {
+      isMounted = false;
+      if (currentSceneObject && scene) {
+        scene.remove(currentSceneObject);
+        currentSceneObject.traverse((child) => {
+          if (child.isMesh) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach(mat => {
+                  if (mat.map) mat.map.dispose();
+                  mat.dispose();
+                });
+              } else {
+                if (child.material.map) child.material.map.dispose();
+                child.material.dispose();
+              }
+            }
+          }
+        });
+      }
+      if (sceneObjectRef.current && scene) {
+        scene.remove(sceneObjectRef.current);
+        sceneObjectRef.current = null;
+      }
+    };
+  }, [modelPath, color, texturePath, scene, getColorValue]); // 移除position和onDimensionsChange等，避免不必要的重新加载
 
   useLayoutEffect(() => {
-    if (meshRef.current && position) {
-
-      meshRef.current.position.set(position[0], position[1], position[2]);
+    const currentModel = sceneObjectRef.current || model;
+    if (currentModel && position) {
+      currentModel.position.set(position[0], position[1], position[2]);
+      if (meshRef.current !== currentModel) {
+        meshRef.current = currentModel;
+      }
     }
-  });
+  }, [position, model]);
 
   useEffect(() => {
     if (meshRef.current && originalDimensions) {
-      const scaleX = dimensions.length / originalDimensions.length;
-      const scaleY = dimensions.height / originalDimensions.height;
-      const scaleZ = dimensions.width / originalDimensions.width;
+      // 检查0以避免NaN
+      const scaleX = originalDimensions.length === 0 ? 1 : dimensions.length / originalDimensions.length;
+      const scaleY = originalDimensions.height === 0 ? 1 : dimensions.height / originalDimensions.height;
+      const scaleZ = originalDimensions.width === 0 ? 1 : dimensions.width / originalDimensions.width;
       meshRef.current.scale.set(scaleX, scaleY, scaleZ);
     }
   }, [dimensions, originalDimensions]);
@@ -230,23 +295,19 @@ const Model = forwardRef(({
     <primitive
       ref={meshRef}
       object={model}
-      // --- 点击处理器，用于实现填充 ---
+      // --- 您的填充逻辑 (保持不变) ---
       onPointerDown={(e) => {
-        // 仅在填充模式激活时响应
         if (isFillModeActive) {
-
-          // 这能防止点击模型时，触发 MonumentScene 的背景点击事件（该事件会取消选中图案）。
           e.stopPropagation();
           if (onFillClick) {
             onFillClick();
           }
         }
-        // 如果不是填充模式，则不执行任何操作，事件会正常冒泡。
-        // 如果点击的是模型，事件冒泡后会被 MonumentScene 的背景点击捕获，从而取消选中图案。
       }}
     />
   );
 
+  // --- 合并：同时支持 isDraggable (来自同事) 和 ModelComponent (来自您) ---
   return isDraggable ? (
     <TransformControls object={meshRef} mode="translate">
       {ModelComponent}
@@ -256,23 +317,23 @@ const Model = forwardRef(({
 
 
 // -----------------------------------------------------
-// 【修改】交互式图案平面组件
+// 您的 InteractiveArtPlane 组件 (保持不变)
 // -----------------------------------------------------
 const InteractiveArtPlane = forwardRef(({
-  art,
-  isSelected,
-  onSelect,
-  onTransformEnd,
-  transformMode,
-  fillColor, // 【新增】接收填充颜色
-  isFillModeActive // 【新增】接收填充模式状态
-}, ref) => {
+                                          art,
+                                          isSelected,
+                                          onSelect,
+                                          onTransformEnd,
+                                          transformMode,
+                                          fillColor,
+                                          isFillModeActive
+                                        }, ref) => {
   const meshRef = useRef();
   const controlRef = useRef();
   const [canvasTexture, setCanvasTexture] = useState(null);
   const [aspectRatio, setAspectRatio] = useState(1);
   const lastScaleRef = useRef(null);
-  const isInitialLoadRef = useRef(true); // 【修改】用于跟踪初始加载
+  const isInitialLoadRef = useRef(true);
 
   const artCanvasRef = useRef({
     canvas: null,
@@ -280,10 +341,8 @@ const InteractiveArtPlane = forwardRef(({
     originalData: null
   });
 
-  // 【新增】当 art.id 或 imagePath 改变时，重置 "初始加载" 状态
   useEffect(() => {
     isInitialLoadRef.current = true;
-    // setAspectRatio(1); // 不必重置，加载纹理时会重置
   }, [art.id, art.imagePath]);
 
 
@@ -299,13 +358,13 @@ const InteractiveArtPlane = forwardRef(({
       const img = loadedTexture.image;
       if (!img || img.naturalHeight === 0) return;
       const aspect = img.naturalWidth / img.naturalHeight;
-      setAspectRatio(aspect); // <-- 触发 useLayoutEffect
+      setAspectRatio(aspect);
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d', { willReadFrequently: true });
       canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
       context.drawImage(img, 0, 0);
-      const originalData = context.getImageData(0, 0, canvas.width, canvas.height); //
+      const originalData = context.getImageData(0, 0, canvas.width, canvas.height);
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
       artCanvasRef.current = { canvas, context, originalData };
@@ -331,15 +390,15 @@ const InteractiveArtPlane = forwardRef(({
     const { context, originalData, canvas } = artCanvasRef.current;
     if (!context || !originalData || !canvasTexture) return;
 
-    const currentImageData = context.getImageData(0, 0, canvas.width, canvas.height); //
-    const newImageData = new ImageData(canvas.width, canvas.height); //
-    const newData = newImageData.data; //
-    const oldData = originalData.data; //
-    const currentData = currentImageData.data; //
+    const currentImageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const newImageData = new ImageData(canvas.width, canvas.height);
+    const newData = newImageData.data;
+    const oldData = originalData.data;
+    const currentData = currentImageData.data;
 
     let rgbColor = null;
     if (lineColor) {
-      rgbColor = new THREE.Color(lineColor).toArray().map(c => Math.round(c * 255)); //
+      rgbColor = new THREE.Color(lineColor).toArray().map(c => Math.round(c * 255));
     }
 
     for (let i = 0; i < oldData.length; i += 4) {
@@ -349,24 +408,24 @@ const InteractiveArtPlane = forwardRef(({
         && oldData[i + 3] > 10;
       if (isLine) {
         if (rgbColor) {
-          newData[i] = rgbColor[0];     //
-          newData[i + 1] = rgbColor[1]; //
-          newData[i + 2] = rgbColor[2]; //
+          newData[i] = rgbColor[0];
+          newData[i + 1] = rgbColor[1];
+          newData[i + 2] = rgbColor[2];
         } else {
           newData[i] = oldData[i];
           newData[i + 1] = oldData[i + 1];
           newData[i + 2] = oldData[i + 2];
         }
-        newData[i + 3] = oldData[i + 3] * safeLineAlpha; //
+        newData[i + 3] = oldData[i + 3] * safeLineAlpha;
       } else {
-        newData[i] = currentData[i];     //
-        newData[i + 1] = currentData[i + 1]; //
-        newData[i + 2] = currentData[i + 2]; //
-        newData[i + 3] = currentData[i + 3]; //
+        newData[i] = currentData[i];
+        newData[i + 1] = currentData[i + 1];
+        newData[i + 2] = currentData[i + 2];
+        newData[i + 3] = currentData[i + 3];
       }
     }
-    context.putImageData(newImageData, 0, 0); //
-    canvasTexture.needsUpdate = true; //
+    context.putImageData(newImageData, 0, 0);
+    canvasTexture.needsUpdate = true;
   }, [
     art.properties?.lineColor,
     art.properties?.lineAlpha,
@@ -374,7 +433,7 @@ const InteractiveArtPlane = forwardRef(({
   ]);
 
 
-  // 3. 初始位置、缩放和旋转设置 (【修改】)
+  // 3. 初始位置、缩放和旋转设置
   useLayoutEffect(() => {
     if (meshRef.current) {
       const position = art.position || [0, 0, 0];
@@ -384,46 +443,30 @@ const InteractiveArtPlane = forwardRef(({
       meshRef.current.position.set(position[0], position[1], position[2]);
       meshRef.current.rotation.set(rotation[0], rotation[1], rotation[2]);
 
-      // --- 【修正后的代码 V3】 ---
       if (isInitialLoadRef.current) {
-        // 标记为 "非初始加载"
         isInitialLoadRef.current = false;
-
-        // 仅在需要时应用长宽比
         if (aspectRatio > 0 && aspectRatio !== 1) {
-          const baseSize = Math.abs(scale[0]); // 使用 X 轴 scale 的绝对值
+          const baseSize = Math.abs(scale[0]);
           const newScaleY = baseSize / aspectRatio;
-          const signX = Math.sign(scale[0]); // 保留 X 轴可能的翻转
-
+          const signX = Math.sign(scale[0]);
           meshRef.current.scale.set(
             baseSize * signX,
-            newScaleY * signX, // Y 轴符号跟随 X 轴
+            newScaleY * signX,
             scale[2] || 1
           );
-
-          // 【关键新增】: 立即将这个新计算的 scale 保存回父 state
-          // 这样 flip 函数下次读取 art.scale 时，就会拿到这个 [0.2, 0.133, 1]
           onTransformEnd(art.id, {
             position: meshRef.current.position.toArray(),
             scale: meshRef.current.scale.toArray(),
             rotation: meshRef.current.rotation.toArray().slice(0, 3)
           });
-
         } else {
-          // 如果 aspectRatio === 1, 原始 scale [0.2, 0.2, 1] 是正确的
-          // 无需调用 onTransformEnd，因为它没有改变
           meshRef.current.scale.set(scale[0], scale[1], scale[2] || 1);
         }
       } else {
-        // 如果不是初始加载 (isInitialLoadRef.current === false)
-        // 则直接使用来自 prop 的 art.scale
-        // (这可能是用户拖动的结果，也可能是翻转的结果)
         meshRef.current.scale.set(scale[0], scale[1], scale[2] || 1);
       }
-      // --- 【修正结束】 ---
-
     }
-  }, [art.id, art.position, art.scale, art.rotation, aspectRatio, onTransformEnd]); // 依赖 aspectRatio 和 onTransformEnd
+  }, [art.id, art.position, art.scale, art.rotation, aspectRatio, onTransformEnd]);
 
 
   useEffect(() => {
@@ -472,26 +515,12 @@ const InteractiveArtPlane = forwardRef(({
         lastScaleRef.current = [...scale.toArray()];
         return;
       }
-      // --- 【修改】 移除了 X/Y 轴的等比缩放逻辑 ---
-      /*
-      const changeX = Math.abs(scale.x - lastScale[0]);
-      const changeY = Math.abs(scale.y - lastScale[1]);
-      if (changeX > changeY) {
-        scale.y = scale.x / aspectRatio;
-      } else {
-        scale.x = scale.y * aspectRatio;
-      }
-      */
-      // --- 结束修改 ---
-
-      // 【保留】 保持 Z 轴缩放不变 (它是一个平面)
       scale.z = lastScale[2] || 1;
-      //lastScaleRef.current = [scale.x, scale.y, scale.z];
     }
   };
 
 
-  // 6. 返回 JSX (【修改】onPointerDown)
+  // 6. 返回 JSX (您的 onPointerDown 逻辑)
   return (
     <group ref={ref}>
       {isSelected && (
@@ -506,27 +535,17 @@ const InteractiveArtPlane = forwardRef(({
       )}
       <mesh
         ref={meshRef}
-
         onPointerDown={(e) => {
           e.stopPropagation();
-
-          // 1. 检查是否启用了填充模式
           if (isSelected && isFillModeActive) {
-
-            // 仅在 e.uv 存在时执行填充 (确保点击在平面上)
             if (e.uv) {
               const { canvas, context, originalData } = artCanvasRef.current;
               if (canvas && context && originalData && canvasTexture) {
-                // 转换 UV 坐标为像素坐标
                 const pixelX = Math.floor(e.uv.x * canvas.width);
                 const pixelY = Math.floor((1 - e.uv.y) * canvas.height);
-
-                // 转换填充颜色
                 const rgbColor = new THREE.Color(fillColor || '#4285F4')
                   .toArray()
                   .map(c => Math.round(c * 255));
-
-                // 调用填充算法
                 floodFill(
                   context,
                   canvas,
@@ -538,19 +557,12 @@ const InteractiveArtPlane = forwardRef(({
                 );
               }
             }
-            // 填充后，不执行任何其他操作 (不取消选中，不开始拖动)
             return;
           }
-
-          // 2. 如果未启用填充模式，检查是否是“选中”操作
           if (!isSelected) {
             onSelect(art.id);
             return;
           }
-
-          // 3. 如果已选中且未启用填充模式
-          // 此事件将由 TransformControls 捕获以进行拖动/缩放/旋转。
-
         }}
       >
         <planeGeometry args={[1, 1]} />
@@ -566,63 +578,361 @@ const InteractiveArtPlane = forwardRef(({
 });
 
 
+// --- 合并点：从同事的 Scene3D.jsx 复制 EnhancedTextElement ---
+// (同事的 EnhancedTextElement)
+const EnhancedTextElement = ({
+                               text,
+                               monument,
+                               onTextPositionChange,
+                               onTextRotationChange,
+                               onTextSelect,
+                               onDeleteText,
+                               isSelected,
+                               isTextEditing,
+                               getFontPath, // 接收字体路径
+                               modelRefs // 接收模型引用
+                             }) => {
+  const textRef = useRef();
+  const transformControlsRef = useRef();
+  const groupRef = useRef();
+  const [isDragging, setIsDragging] = useState(false);
+  const { scene, controls } = useThree();
+  const [monumentMaterial, setMonumentMaterial] = useState(null);
+  const [dragEnabled, setDragEnabled] = useState(false);
+  const [hasInitPosition, setHasInitPosition] = useState(false);
+  const [transformMode, setTransformMode] = useState('translate');
+  const lineRefs = useRef([]);
+  const [lineOffsets, setLineOffsets] = useState([]);
+  const rafWriteRef = useRef(null);
+
+  const localGetFontPath = useCallback((nameOrPath) => {
+    if (getFontPath) {
+      return getFontPath(nameOrPath);
+    }
+    return nameOrPath || '/fonts/helvetiker_regular.typeface.json';
+  }, [getFontPath]);
+
+
+
+  const writeBackPoseToState = useCallback(() => {
+    if (!groupRef.current || !monument) return;
+    const monumentMesh = modelRefs.current[monument.id]?.getMesh();
+    if (!monumentMesh) return;
+    monumentMesh.updateWorldMatrix(true, false);
+
+    const worldPosition = new THREE.Vector3();
+    const worldQuaternion = new THREE.Quaternion();
+    const worldScale = new THREE.Vector3();
+    monumentMesh.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale);
+
+    const groupWorldPos = groupRef.current.getWorldPosition(new THREE.Vector3());
+    const localPos = groupWorldPos.clone().sub(worldPosition);
+    localPos.divide(worldScale);
+    localPos.applyQuaternion(worldQuaternion.clone().invert());
+
+    const groupWorldQuat = groupRef.current.getWorldQuaternion(new THREE.Quaternion());
+    const relativeQuat = worldQuaternion.clone().invert().multiply(groupWorldQuat);
+    const flipQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+    const localQuat = flipQuat.clone().invert().multiply(relativeQuat);
+    const euler = new THREE.Euler().setFromQuaternion(localQuat, 'XYZ');
+
+    const doWrite = () => {
+      onTextPositionChange && onTextPositionChange(text.id, [localPos.x, localPos.y, 0]);
+      onTextRotationChange && onTextRotationChange(text.id, [euler.x, euler.y, euler.z]);
+      rafWriteRef.current = null;
+    };
+    if (!rafWriteRef.current) rafWriteRef.current = requestAnimationFrame(doWrite);
+  }, [monument, text.id, onTextPositionChange, onTextRotationChange, modelRefs]);
+
+  useEffect(() => {
+    let rafId;
+    const trySetMaterial = () => {
+      if (!monument || text.engraveType !== 'polish') {
+        setMonumentMaterial(null);
+        return;
+      }
+      const monumentMesh = modelRefs.current[monument.id]?.getMesh();
+      if (!monumentMesh) {
+        rafId = requestAnimationFrame(trySetMaterial);
+        return;
+      }
+      let found = false;
+      monumentMesh.traverse((child) => {
+        if (found) return;
+        if (child.isMesh && child.material) {
+          const baseMat = child.material;
+          const cloned = baseMat.clone();
+          cloned.map = baseMat.map || cloned.map;
+          if (cloned.map) cloned.map.needsUpdate = true;
+          cloned.roughness = 0.1 + ((text.polishBlend || 0.5) * 0.4);
+          cloned.metalness = 0.5 - ((text.polishBlend || 0.5) * 0.2);
+          if (cloned.clearcoat !== undefined) {
+            cloned.clearcoat = 0.5;
+            cloned.clearcoatRoughness = 0.1 + ((text.polishBlend || 0.5) * 0.3);
+          }
+          cloned.transparent = true;
+          cloned.side = THREE.DoubleSide;
+          cloned.needsUpdate = true;
+          setMonumentMaterial(cloned);
+          found = true;
+        }
+      });
+      if (!found) rafId = requestAnimationFrame(trySetMaterial);
+    };
+    trySetMaterial();
+    return () => { if (rafId) cancelAnimationFrame(rafId); };
+  }, [monument, text.engraveType, text.polishBlend, modelRefs]);
+
+  useEffect(() => {
+    if (!isSelected || !isTextEditing) {
+      controls && (controls.enabled = true);
+      setIsDragging(false);
+      return;
+    }
+    const onKey = (e) => {
+      if (e.key === 't' || e.key === 'T') setTransformMode('translate');
+      if (e.key === 'r' || e.key === 'R') setTransformMode('rotate');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isSelected, isTextEditing, controls]);
+
+  const textMaterial = useMemo(() => {
+    if (text.engraveType === 'polish' && monumentMaterial) {
+      return monumentMaterial;
+    }
+    try {
+      const materialProps = { transparent: true, side: THREE.DoubleSide };
+      switch (text.engraveType) {
+        case 'vcut':
+          return new THREE.MeshPhysicalMaterial({ ...materialProps, color: text.vcutColor || '#5D4037', roughness: 0.9, metalness: 0.05, clearcoat: 0.1, clearcoatRoughness: 0.2, opacity: 0.95 });
+        case 'frost':
+          return new THREE.MeshPhysicalMaterial({ ...materialProps, color: 0xF8F8F8, roughness: Math.max(0.6, text.frostIntensity || 0.8), metalness: 0.02, transmission: 0.1, thickness: 0.01, opacity: 0.85 - ((text.frostIntensity || 0.8) * 0.2) });
+        case 'polish':
+          return new THREE.MeshPhysicalMaterial({ ...materialProps, color: 0x7A7A7A, roughness: 0.1 + ((text.polishBlend || 0.5) * 0.4), metalness: 0.5 - ((text.polishBlend || 0.5) * 0.2), clearcoat: 0.5, clearcoatRoughness: 0.1 + ((text.polishBlend || 0.5) * 0.3), opacity: 0.98 });
+        default:
+          return new THREE.MeshStandardMaterial({ ...materialProps, color: 0x333333, roughness: 0.7, metalness: 0.3 });
+      }
+    } catch (error) {
+      console.error('Error creating material, using fallback:', error);
+      return new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    }
+  }, [monumentMaterial, text.engraveType, text.vcutColor, text.frostIntensity, text.polishBlend]);
+
+  useEffect(() => {
+    const refs = lineRefs.current;
+    if (!refs || refs.length === 0) return;
+    const metrics = refs.map((mesh) => {
+      if (!mesh || !mesh.geometry) return { width: 0, centerX: 0 };
+      mesh.geometry.computeBoundingBox();
+      const bb = mesh.geometry.boundingBox;
+      if (!bb) return { width: 0, centerX: 0 };
+      return { width: bb.max.x - bb.min.x, centerX: (bb.max.x + bb.min.x) / 2 };
+    });
+    const maxWidth = metrics.reduce((m, v) => Math.max(m, v.width), 0);
+    const newOffsets = metrics.map((m) => {
+      let desiredCenter = 0;
+      if (text.alignment === 'left') desiredCenter = -maxWidth / 2 + m.width / 2;
+      else if (text.alignment === 'right') desiredCenter = maxWidth / 2 - m.width / 2;
+      else desiredCenter = 0; // center
+      const x = desiredCenter - m.centerX;
+      return { x };
+    });
+    setLineOffsets(newOffsets);
+  }, [text.content, text.size, text.kerning, text.lineSpacing, text.alignment]);
+
+  const handleClick = useCallback((event) => {
+    event.stopPropagation();
+    console.log('文字被点击:', text.id, isTextEditing);
+    if (!isTextEditing) return;
+    if (onTextSelect) {
+      onTextSelect(text.id);
+    }
+  }, [text.id, onTextSelect, isTextEditing]);
+
+  const renderCurvedText = () => {
+    if (!text.content) return null;
+    const characters = text.content.split('');
+    const fontSize = text.size * 0.01;
+    const kerningUnit = (text.kerning || 0) * 0.001;
+    const curveAmount = Math.max(0, text.curveAmount || 0) / 100;
+    const minArcAngle = Math.PI * 0.3;
+    const maxArcAngle = Math.PI * 0.8;
+    const arcAngle = curveAmount === 0 ? 0 : (minArcAngle + (maxArcAngle - minArcAngle) * curveAmount);
+    const avgCharWidth = 0.6 * fontSize;
+    const spacingPerGap = fontSize * kerningUnit;
+    const totalArcLength = characters.length * avgCharWidth + Math.max(0, characters.length - 1) * spacingPerGap;
+    const radius = arcAngle > 1e-6 ? Math.max(1e-4, totalArcLength / arcAngle) : 1e6;
+    const n = characters.length;
+    return characters.map((char, index) => {
+      const centerIndex = (n - 1) / 2;
+      const step = n > 1 ? arcAngle / (n - 1) : 0;
+      let angle = (index - centerIndex) * step;
+      const xOffset = Math.sin(angle) * radius;
+      const yOffset = Math.cos(angle) * radius - radius;
+      const rotationZ = -angle;
+      return (
+        <group key={index} position={[xOffset, yOffset, 0]} rotation={[0, 0, rotationZ]} >
+          <Text3D
+            font={localGetFontPath(text.font)}
+            size={fontSize}
+            height={text.thickness || 0.02}
+            letterSpacing={kerningUnit}
+            lineHeight={text.lineSpacing}
+            curveSegments={8}
+            bevelEnabled={true}
+            bevelThickness={0.002}
+            bevelSize={0.002}
+            bevelOffset={0}
+            bevelSegments={3}
+            material={textMaterial}
+          >
+            {char}
+          </Text3D>
+        </group>
+      );
+    });
+  };
+
+  const renderNormalText = () => {
+    const content = text.content || 'Text';
+    const lines = content.split('\n');
+    const fontSize = text.size * 0.01;
+    const lineGap = fontSize * (text.lineSpacing || 1.2);
+    return (
+      <group>
+        {lines.map((ln, idx) => (
+          <Text3D
+            key={idx}
+            ref={(el) => (lineRefs.current[idx] = el)}
+            font={localGetFontPath(text.font)}
+            size={fontSize}
+            letterSpacing={text.kerning * 0.001}
+            height={text.thickness || 0.02}
+            curveSegments={8}
+            bevelEnabled={true}
+            bevelThickness={0.002}
+            bevelSize={0.002}
+            bevelOffset={0}
+            bevelSegments={3}
+            material={textMaterial}
+            position={[
+              lineOffsets[idx]?.x || 0,
+              -idx * lineGap + ((lines.length - 1) * lineGap) / 2,
+              0
+            ]}
+          >
+            {ln || ' '}
+          </Text3D>
+        ))}
+      </group>
+    );
+  };
+
+  const renderTextContent = () => {
+    if (text.curveAmount && text.curveAmount > 0) {
+      return renderCurvedText();
+    } else {
+      return renderNormalText();
+    }
+  };
+
+  return (
+    <>
+      <group
+        ref={groupRef}
+        onClick={handleClick}
+        userData={{ isTextElement: true, textId: text.id }}
+      >
+        {renderTextContent()}
+      </group>
+
+      {isSelected && isTextEditing && groupRef.current && (
+        <TransformControls
+          object={groupRef.current}
+          mode={transformMode}
+          space="local"
+          showX={transformMode === 'translate'}
+          showY={transformMode === 'translate'}
+          showZ={transformMode === 'rotate'}
+          onMouseDown={() => { controls && (controls.enabled = false); setIsDragging(true); }}
+          onObjectChange={writeBackPoseToState}
+          onMouseUp={() => { writeBackPoseToState(); controls && (controls.enabled = true); setIsDragging(false); }}
+        />
+      )}
+    </>
+  );
+};
+// ---------------- 结束 EnhancedTextElement ----------------
+
+
 // 主场景组件
 const MonumentScene = forwardRef(({
-  // ... (MonumentScene component props)
-  designState,
-  onDimensionsChange,
-  onDuplicateElement,
-  onDeleteElement,
-  onFlipElement,
-  background = null,
-  onUpdateArtElementState, // 【从 props 接收】用于更新 ArtElement P, R, S 的回调
-  // 从 props 接收选中状态和变换模式
-  selectedElementId,
-  transformMode,
-  onArtElementSelect, //用于报告选中 ID 的回调
-  // 接收填充相关 props ---
-  isFillModeActive,
-  fillColor,
-  onModelFillClick,
-}, ref) => {
+                                    // 您的 Art props
+                                    designState,
+                                    onDimensionsChange,
+                                    onDuplicateElement,
+                                    onDeleteElement,
+                                    onFlipElement,
+                                    background = null,
+                                    onUpdateArtElementState,
+                                    selectedElementId,
+                                    transformMode,
+                                    onArtElementSelect,
+                                    isFillModeActive,
+                                    fillColor,
+                                    onModelFillClick,
+
+                                    // --- 合并点：添加同事的 Text props ---
+                                    onTextPositionChange,
+                                    onTextRotationChange,
+                                    onTextSelect,
+                                    onDeleteText,
+                                    currentTextId,
+                                    isTextEditing,
+                                    getFontPath
+                                  }, ref) => {
   const { gl, scene } = useThree();
   const sceneRef = useRef();
   const modelRefs = useRef({});
 
-  // 清除选中状态（点击场景空白处）
+  // 您的点击场景逻辑
   const handleSceneClick = (e) => {
-    // 阻止点击场景内部元素时触发取消选中
-    // 也阻止在填充模式下取消选中 (e.event.target.tagName 检查确保是 R3F 画布的空白处)
     if (e.event.target.tagName === 'CANVAS' && !isFillModeActive) {
-      onArtElementSelect(null); //
+      onArtElementSelect(null);
+      // --- 合并点：添加文字取消选中 ---
+      if (isTextEditing && onTextSelect) {
+        onTextSelect(null);
+      }
     }
   };
 
-  // 处理平面选中
+  // 您的 art plane 选中逻辑
   const handleSelectArtPlane = useCallback((artId) => {
-    onArtElementSelect(artId); //上报选中 ID
-  }, [onArtElementSelect]);
+    onArtElementSelect(artId);
+    // --- 合并点：取消选中文字 ---
+    if (artId && isTextEditing && onTextSelect) {
+      onTextSelect(null);
+    }
+  }, [onArtElementSelect, isTextEditing, onTextSelect]);
 
-  // 处理背景图片
+  // 您的背景逻辑
   useEffect(() => {
     if (background) {
       const textureLoader = new THREE.TextureLoader();
       textureLoader.load(background, (texture) => {
-        // 设置场景背景
         scene.background = texture;
-
         texture.mapping = THREE.EquirectangularReflectionMapping;
       }, undefined, (error) => {
         console.error('Failed to load background texture:', error);
-        scene.background = null; // 加载失败时清除背景
+        scene.background = null;
       });
     } else {
-      // 如果没有背景或背景为透明，清除背景
       scene.background = null;
     }
   }, [background, scene]);
 
-  // useImperativeHandle
+  // 您的 useImperativeHandle
   useImperativeHandle(ref, () => ({
     captureThumbnail: () => {
       return new Promise((resolve) => {
@@ -642,11 +952,9 @@ const MonumentScene = forwardRef(({
     }
   }));
 
-  // calculateModelPositions
-  const calculateModelPositions = () => {
+  // 您的 calculateModelPositions (使用useMemo优化)
+  const positions = useMemo(() => {
     const positions = {};
-
-    // 获取模型的长度（X轴方向尺寸）
     const getModelLength = (modelId) => {
       const mesh = modelRefs.current[modelId]?.getMesh();
       if (mesh) {
@@ -655,13 +963,10 @@ const MonumentScene = forwardRef(({
         box.getSize(size);
         return size.x;
       }
-      // 回退到配置的长度
       const model = [...designState.subBases, ...designState.bases, ...designState.monuments]
         .find(m => m.id === modelId);
       return model ? (model.dimensions.length || 1) : 1;
     };
-
-    // 获取模型的高度（Y轴方向尺寸）
     const getModelHeight = (modelId) => {
       const mesh = modelRefs.current[modelId]?.getMesh();
       if (mesh) {
@@ -670,13 +975,11 @@ const MonumentScene = forwardRef(({
         box.getSize(size);
         return size.y;
       }
-      // 回退到配置的高度
       const model = [...designState.subBases, ...designState.bases, ...designState.monuments]
         .find(m => m.id === modelId);
       return model ? (model.dimensions.height || 1) : 1;
     };
 
-    // 计算Y轴堆叠
     let currentY_subBase = -0.5;
     let currentY_base = -0.3;
     let currentY_Tablet = -0.1;
@@ -685,116 +988,70 @@ const MonumentScene = forwardRef(({
     let currentX_base = -0.381;
     let currentX_Tablet = -0.304;
 
-    // 如果有次底座，将次底座放在最下面，Y坐标设置为0
     if (designState.subBases.length > 0) {
-      const totalSubBaseLength = designState.subBases.reduce((sum, subBase) => {
-        return sum + getModelLength(subBase.id);
-      }, 0) + (designState.subBases.length - 1) * 0.2; // 添加间隔
-
-      if (totalSubBaseLength>0){
-        currentX_subBase = -totalSubBaseLength / 2; // 从左侧开始
-      }
-
+      const totalSubBaseLength = designState.subBases.reduce((sum, subBase) => sum + getModelLength(subBase.id), 0) + (designState.subBases.length - 1) * 0.2;
+      if (totalSubBaseLength>0) currentX_subBase = -totalSubBaseLength / 2;
       designState.subBases.forEach((subBase, index) => {
         const height = getModelHeight(subBase.id);
         const length = getModelLength(subBase.id);
-
-        // 设置位置，Y坐标为当前堆叠高度
         positions[subBase.id] = [currentX_subBase, currentY_subBase, 0];
-
-        // 计算X轴偏移，基于次底座的长度
-        // const xOffset = currentX_subBase;
         currentX_subBase += length + 0.2;
-
-        // 只有第一个次底座参与Y轴堆叠计算
-        if (index === 0){
-          if(height > 0){
-            currentY_Top = currentY_subBase;
-            currentY_Top += height;
-            currentY_base = currentY_Top;
-          }
-          }
-        });
-    }
-
-    // 如果有底座，放在次底座上面
-    if (designState.bases.length > 0) {
-      // 如果没有次底座，将底座的Y坐标设置为0
-      if (designState.subBases.length === 0) {
-          currentY_base = -0.5;
-          currentY_Tablet = -0.3;
-          currentY_Top = -0.3;
-      }
-
-      // 计算所有底座的总长度
-      const totalBaseLength = designState.bases.reduce((sum, base) => {
-        return sum + getModelLength(base.id);
-      }, 0) + (designState.bases.length - 1) * 0.2; // 添加间隔
-
-      if (totalBaseLength > 0){
-        currentX_base = -totalBaseLength / 2; // 从左侧开始
-      }
-
-      designState.bases.forEach((base, index) => {
-        const height = getModelHeight(base.id);
-        const length = getModelLength(base.id);
-
-        // 设置位置，Y坐标为当前堆叠高度
-        positions[base.id] = [currentX_base, currentY_base, 0];
-
-        // 计算X轴偏移，基于底座的长度
-        // const xOffset = currentX_base;
-        currentX_base += length + 0.2;
-
-        // 只有第一个底座参与Y轴堆叠计算
-        if (index === 0){
-          if (height > 0){
-            currentY_Top = currentY_base;
-            currentY_Top += height
-            currentY_Tablet = currentY_Top;
-          }
+        if (index === 0 && height > 0){
+          currentY_Top = currentY_subBase;
+          currentY_Top += height;
+          currentY_base = currentY_Top;
         }
       });
     }
 
-    // 如果有碑，放在底座上面
+    if (designState.bases.length > 0) {
+      if (designState.subBases.length === 0) {
+        currentY_base = -0.5;
+        currentY_Tablet = -0.3;
+        currentY_Top = -0.3;
+      }
+      // 计算所有bases的最大长度用于居中
+      const maxBaseLength = Math.max(...designState.bases.map(base => getModelLength(base.id)));
+      if (maxBaseLength > 0) currentX_base = -maxBaseLength / 2;
+
+      // Bases垂直堆叠，而不是水平排列
+      let baseYPosition = currentY_base;
+      designState.bases.forEach((base, index) => {
+        const height = getModelHeight(base.id);
+        const length = getModelLength(base.id);
+        // 所有bases使用相同的X位置（居中），但在Y方向堆叠
+        positions[base.id] = [currentX_base, baseYPosition, 0];
+
+        // 下一个base放在当前base的顶部
+        if (height > 0) {
+          baseYPosition += height;
+        }
+
+        // 更新monuments应该放置的位置（所有bases的顶部）
+        if (index === designState.bases.length - 1 && height > 0) {
+          currentY_Top = baseYPosition;
+          currentY_Tablet = baseYPosition;
+        }
+      });
+    }
+
     if (designState.monuments.length > 0) {
-      // 如果没有次底座和底座，将碑的Y坐标设置为0
       if (designState.subBases.length === 0 && designState.bases.length === 0) {
         currentY_Tablet = -0.5;
         currentY_Top = -0.5;
       }
-
-      // 计算所有纪念碑的总长度
-      const totalMonumentLength = designState.monuments.reduce((sum, monument) => {
-        return sum + getModelLength(monument.id);
-      }, 0) + (designState.monuments.length - 1) * 0.2; // 添加间隔
-
-      if (totalMonumentLength > 0){
-        currentX_Tablet = -totalMonumentLength / 2; // 从左侧开始
-      }
-
+      const totalMonumentLength = designState.monuments.reduce((sum, monument) => sum + getModelLength(monument.id), 0) + (designState.monuments.length - 1) * 0.2;
+      if (totalMonumentLength > 0) currentX_Tablet = -totalMonumentLength / 2;
       designState.monuments.forEach((monument, index) => {
         const height = getModelHeight(monument.id);
         const length = getModelLength(monument.id);
-
-        // 设置位置，Y坐标为当前堆叠高度
         positions[monument.id] = [currentX_Tablet, currentY_Tablet, 0];
-
-        // 计算X轴偏移，基于纪念碑的长度
-        // const xOffset = currentX_Tablet;
         currentX_Tablet += length + 0.2;
-
-        // 只有第一个碑参与Y轴堆叠计算
-        if (index === 0){
-          currentY_Top += height;
-        }
+        if (index === 0) currentY_Top += height;
       });
     }
     return positions;
-  };
-
-  const positions = calculateModelPositions();
+  }, [designState.subBases, designState.bases, designState.monuments]);
 
   const handleModelLoad = (elementId, elementType, dimensions) => {
     if (onDimensionsChange) {
@@ -803,13 +1060,11 @@ const MonumentScene = forwardRef(({
   };
 
   return (
-    // 添加 onClick 事件以处理点击空白处取消选中
-    // 注意：这里的 onClick 是 R3F 事件，而不是 DOM 事件
     <group ref={sceneRef} onClick={handleSceneClick}>
-      {/* 阻止 OrbitControls 影响 TransformControls */}
+
+      {/* --- 合并点：更新 OrbitControls enabled 逻辑 --- */}
       <OrbitControls
-        // 【关键修改】在填充模式或选中元素时禁用 OrbitControls
-        enabled={selectedElementId === null && !isFillModeActive}
+        enabled={selectedElementId === null && currentTextId === null && !isFillModeActive}
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
@@ -819,7 +1074,7 @@ const MonumentScene = forwardRef(({
         maxPolarAngle={Math.PI / 2}
       />
 
-
+      {/* 您的 SubBases 渲染 (保持不变) */}
       {designState.subBases.map(subBase => (
         <Model
           key={subBase.id}
@@ -830,12 +1085,12 @@ const MonumentScene = forwardRef(({
           dimensions={subBase.dimensions}
           color={subBase.color}
           onDimensionsChange={(dims) => handleModelLoad(subBase.id, 'subBase', dims)}
-          // --- 【新增】传递填充 props ---
           isFillModeActive={isFillModeActive}
           onFillClick={() => onModelFillClick(subBase.id, 'subBase')}
         />
       ))}
 
+      {/* 您的 Bases 渲染 (保持不变) */}
       {designState.bases.map(base => (
         <Model
           key={base.id}
@@ -846,28 +1101,53 @@ const MonumentScene = forwardRef(({
           dimensions={base.dimensions}
           color={base.color}
           onDimensionsChange={(dims) => handleModelLoad(base.id, 'base', dims)}
-          // --- 【新增】传递填充 props ---
           isFillModeActive={isFillModeActive}
           onFillClick={() => onModelFillClick(base.id, 'base')}
         />
       ))}
 
-      {designState.monuments.map(monument => (
-        <Model
-          key={monument.id}
-          ref={el => modelRefs.current[monument.id] = el}
-          modelPath={monument.modelPath}
-          texturePath={monument.texturePath}
-          position={positions[monument.id] || [0, 0, 0]}
-          dimensions={monument.dimensions}
-          color={monument.color}
-          onDimensionsChange={(dims) => handleModelLoad(monument.id, 'monument', dims)}
-          // --- 【新增】传递填充 props ---
-          isFillModeActive={isFillModeActive}
-          onFillClick={() => onModelFillClick(monument.id, 'monument')}
-        />
-      ))}
+      {/* --- 合并点：修改 Monuments 渲染以包含文本 --- */}
+      {designState.monuments.map(monument => {
+        // (来自同事的代码)
+        const monumentTexts = designState.textElements.filter(text => text.monumentId === monument.id);
 
+        return (
+          <React.Fragment key={`monument-${monument.id}`}>
+            {/* 您的 Monument Model 渲染 */}
+            <Model
+              key={monument.id}
+              ref={el => modelRefs.current[monument.id] = el}
+              modelPath={monument.modelPath}
+              texturePath={monument.texturePath}
+              position={positions[monument.id] || [0, 0, 0]}
+              dimensions={monument.dimensions}
+              color={monument.color}
+              onDimensionsChange={(dims) => handleModelLoad(monument.id, 'monument', dims)}
+              isFillModeActive={isFillModeActive}
+              onFillClick={() => onModelFillClick(monument.id, 'monument')}
+            />
+
+            {/* 合并点：添加 EnhancedTextElement 渲染 (来自同事的代码) */}
+            {monumentTexts.map(text => (
+              <EnhancedTextElement
+                key={text.id}
+                text={text}
+                monument={monument}
+                isSelected={currentTextId === text.id}
+                isTextEditing={isTextEditing}
+                onTextSelect={onTextSelect}
+                onDeleteText={onDeleteText}
+                onTextPositionChange={onTextPositionChange}
+                onTextRotationChange={onTextRotationChange}
+                getFontPath={getFontPath} // 传递 getFontPath
+                modelRefs={modelRefs} // 传递 modelRefs
+              />
+            ))}
+          </React.Fragment>
+        );
+      })}
+
+      {/* 您的 Vases 渲染 (isDraggable 已合并) */}
       {designState.vases.map(vase => (
         <Model
           key={vase.id}
@@ -877,30 +1157,24 @@ const MonumentScene = forwardRef(({
           position={vase.position}
           dimensions={vase.dimensions}
           color={vase.color}
-          isDraggable={true}
+          isDraggable={true} // <-- 合并点：来自同事
           onDimensionsChange={(dims) => handleModelLoad(vase.id, 'vase', dims)}
-          // --- 【新增】花瓶也可以被填充？如果不想让花瓶被填充，移除下面2行 ---
           isFillModeActive={isFillModeActive}
           onFillClick={() => onModelFillClick(vase.id, 'vase')}
         />
       ))}
 
-      {/* 【替换】使用 InteractiveArtPlane 替换 ArtDecal */}
+      {/* 您的 InteractiveArtPlane 渲染 (保持不变) */}
       {designState.artElements.map(art => (
         <InteractiveArtPlane
           key={art.id}
-          art={{
-            ...art,
-            // 确保组件能拿到图片路径
-            imagePath: art.imagePath
-          }}
-          isSelected={selectedElementId === art.id} // 【更新】使用 props 传入的 ID
-          onSelect={handleSelectArtPlane} // 【更新】使用上报回调
+          art={{ ...art, imagePath: art.imagePath }}
+          isSelected={selectedElementId === art.id}
+          onSelect={handleSelectArtPlane}
           onTransformEnd={onUpdateArtElementState}
-          // 移除了 onDragChange 属性
-          transformMode={transformMode} // 【更新】使用 props 传入的 mode
-          fillColor={fillColor} // 【新增】将填充颜色传递下去
-          isFillModeActive={isFillModeActive} // <-- 【新增】传递模式状态
+          transformMode={transformMode}
+          fillColor={fillColor}
+          isFillModeActive={isFillModeActive}
         />
       ))}
 
@@ -908,33 +1182,37 @@ const MonumentScene = forwardRef(({
       <directionalLight position={[10, 10, 5]} intensity={1} />
       <axesHelper args={[5]} />
 
-      {/* 移除场景内的 HTML 变换模式 UI，现在由 ArtEditorPanel 处理 */}
-      {/* {selectedElementId && selectedElementType === 'art' && ( ... )} */}
-
-      {/* 注意：OrbitControls 已经被移到 group 内部，并且通过 enabled 属性控制是否禁用 */}
     </group>
   );
 });
 
-// 主场景包装器
+// 主场景包装器 (保持不变)
 const Scene3D = forwardRef(({
-  background,
-  onUpdateArtElementState,
-  onArtElementSelect,
-  selectedElementId,
-  transformMode,
-  // 接收填充 props ---
-  isFillModeActive,
-  fillColor,
-  onModelFillClick,
-  ...props
-}, ref) => {
+                              background,
+                              onUpdateArtElementState,
+                              onArtElementSelect,
+                              selectedElementId,
+                              transformMode,
+                              isFillModeActive,
+                              fillColor,
+                              onModelFillClick,
+                              // --- 合并点：添加文本 props ---
+                              onTextPositionChange,
+                              onTextRotationChange,
+                              onTextSelect,
+                              onDeleteText,
+                              currentTextId,
+                              isTextEditing,
+                              getFontPath,
+                              ...props
+                            }, ref) => {
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <Canvas
         camera={{
-          position: [0, 2, 4],
-          fov: 50,
+          // --- 合并点：使用同事的相机位置 ---
+          position: [0, 3, 1], //
+          fov: 25, //
           near: 0.1,
           far: 1000
         }}
@@ -952,13 +1230,20 @@ const Scene3D = forwardRef(({
             ref={ref}
             background={background}
             onUpdateArtElementState={onUpdateArtElementState}
-            onArtElementSelect={onArtElementSelect} // 传递给 MonumentScene
-            selectedElementId={selectedElementId} //传递给 MonumentScene
-            transformMode={transformMode} // 传递给 MonumentScene
-            // 传递填充 props ---
+            onArtElementSelect={onArtElementSelect}
+            selectedElementId={selectedElementId}
+            transformMode={transformMode}
             isFillModeActive={isFillModeActive}
             fillColor={fillColor}
             onModelFillClick={onModelFillClick}
+            // --- 合并点：传递文本 props ---
+            onTextPositionChange={onTextPositionChange}
+            onTextRotationChange={onTextRotationChange}
+            onTextSelect={onTextSelect}
+            onDeleteText={onDeleteText}
+            currentTextId={currentTextId}
+            isTextEditing={isTextEditing}
+            getFontPath={getFontPath}
             {...props}
           />
         </Suspense>
