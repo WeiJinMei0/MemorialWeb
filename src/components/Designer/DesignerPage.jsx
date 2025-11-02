@@ -125,6 +125,13 @@ const DesignerPage = () => {
   }, [location, loadDesign, loadDefaultTablet, navigate]);
   // --- 【关键修改结束】 ---
 
+  // 【新功能】：添加 handleLoadDesign 函数
+  const handleLoadDesign = (designToLoad) => {
+    if (designToLoad) {
+      loadDesign(designToLoad); // 使用 useDesignState 中的 loadDesign 函数
+      message.success(`成功加载设计: ${designToLoad.name}`);
+    }
+  };
 
   const recentSlots = Array.from({ length: MAX_RECENTLY_SAVED });
 
@@ -533,52 +540,107 @@ const DesignerPage = () => {
             </div>
           </div>
         </Content>
+
+        {/* 【已修改】：更新 Footer 结构 */}
         <Footer className="designer-footer">
-          <div className="footer-controls">
-            <div className="control-rows-container">
-              {designState.monuments.map(monument => (
-                <DimensionControl
-                  key={monument.id}
-                  element={monument}
-                  elementType="monument"
-                  label={t('designer.tablet')}
-                />
-              ))}
-              {designState.bases.map(base => (
-                <DimensionControl
-                  key={base.id}
-                  element={base}
-                  elementType="base"
-                  label={t('designer.base')}
-                />
-              ))}
-              {designState.subBases.map(subBase => (
-                <DimensionControl
-                  key={subBase.id}
-                  element={subBase}
-                  elementType="subBase"
-                  label={t('designer.subBase')}
-                />
-              ))}
+          {/* 1. 添加新的 footer-content-wrapper 以启用 flex 布局 */}
+          <div className="footer-content-wrapper">
+
+            {/* 2. 将现有的控件包裹在 footer-controls div 中 (作为 Flex 的左侧部分) */}
+            <div className="footer-controls">
+              <div className="control-rows-container">
+                {designState.monuments.map(monument => (
+                  <DimensionControl
+                    key={monument.id}
+                    element={monument}
+                    elementType="monument"
+                    label={t('designer.tablet')}
+                  />
+                ))}
+                {designState.bases.map(base => (
+                  <DimensionControl
+                    key={base.id}
+                    element={base}
+                    elementType="base"
+                    label={t('designer.base')}
+                  />
+                ))}
+                {designState.subBases.map(subBase => (
+                  <DimensionControl
+                    key={subBase.id}
+                    element={subBase}
+                    elementType="subBase"
+                    label={t('designer.subBase')}
+                  />
+                ))}
+              </div>
+              <div className="base-buttons-container">
+                <Space>
+                  <Button size="small" onClick={addTablet}>
+                    {t('designer.addTablet')}
+                  </Button>
+                  <Button size="small" onClick={addBase}>{t('designer.addBase')}</Button>
+                  <Button size="small" onClick={addSubBase}>{t('designer.addSubBase')}</Button>
+                  <p> {t('designer.format')}</p>
+                  <select
+                    value={selectedUnit || 'feet'}
+                    onChange={(e) => setSelectedUnit(e.target.value)}
+                    id="size-selection"
+                  >
+                    <option value="feet">{t('designer.Feet')}</option>
+                    <option value="inches">{t('designer.Inches')}</option>
+                  </select>
+                </Space>
+              </div>
             </div>
-            <div className="base-buttons-container">
-              <Space>
-                <Button size="small" onClick={addTablet}>
-                  {t('designer.addTablet')}
-                </Button>
-                <Button size="small" onClick={addBase}>{t('designer.addBase')}</Button>
-                <Button size="small" onClick={addSubBase}>{t('designer.addSubBase')}</Button>
-                <p> {t('designer.format')}</p>
-                <select
-                  value={selectedUnit || 'feet'}
-                  onChange={(e) => setSelectedUnit(e.target.value)}
-                  id="size-selection"
-                >
-                  <option value="feet">{t('designer.Feet')}</option>
-                  <option value="inches">{t('designer.Inches')}</option>
-                </select>
-              </Space>
+
+            {/* 3. 添加 Art Options (占位符) (作为 Flex 的右侧部分) */}
+            <div className="art-options-placeholder">
+              <h4 className="recently-saved-title">Art Options</h4>
+              <div className="recent-designs-grid">
+                {/* 渲染占位符方框 */}
+                {Array.from({ length: MAX_RECENTLY_SAVED }).map((_, i) => (
+                  <div key={`art-placeholder-${i}`} className="recent-design-placeholder" />
+                ))}
+              </div>
             </div>
+
+            {/* 4. 添加 Recently Saved (新功能) (作为 Flex 的右侧部分) */}
+            <div className="recently-saved-container">
+              <h4 className="recently-saved-title">Recently Saved</h4>
+              <div className="recent-designs-grid">
+                {/* 渲染已保存的设计 */}
+                {recentlySaved.map(design => (
+                  <Popover
+                    key={design.timestamp}
+                    placement="top"
+                    title={null} // 移除默认标题
+                    content={
+                      <div className="popover-preview-content">
+                        <img
+                          src={design.thumbnail || '/images/placeholder.png'}
+                          alt={design.name}
+                          className="popover-preview-img"
+                        />
+                        <p className="popover-preview-name">{design.name}</p>
+                      </div>
+                    }
+                  >
+                    <img
+                      src={design.thumbnail || '/images/placeholder.png'}
+                      alt={design.name}
+                      className="recent-design-thumb"
+                      onClick={() => handleLoadDesign(design)}
+                    />
+                  </Popover>
+                ))}
+                {/* 渲染剩余的占位符方框 */}
+                {recentSlots.slice(recentlySaved.length).map((_, index) => (
+                  <div key={`placeholder-${index}`} className="recent-design-placeholder" />
+                ))}
+              </div>
+            </div>
+
           </div>
         </Footer>
       </Layout>
