@@ -76,7 +76,9 @@
     "summaryTablet": "Tablet:",
     "summaryBase": "Base",
     "summarySubBase": "Sub-Base",
-    "summaryVase": "Vase:"
+    "summaryVase": "Vase:",
+    "summaryArt": "Art:",
+    "summaryText": "Text:"
   },
   "modals": {
     "saveTitle": "Save Your Design",

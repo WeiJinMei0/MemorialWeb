@@ -76,7 +76,9 @@
     "summaryTablet": "Tablette :",
     "summaryBase": "Base",
     "summarySubBase": "Sous-base",
-    "summaryVase": "Vase :"
+    "summaryVase": "Vase :",
+    "summaryArt": "Motif:",
+    "summaryText": "Texte:"
   },
   "modals": {
     "saveTitle": "Sauvegarder votre conception",
