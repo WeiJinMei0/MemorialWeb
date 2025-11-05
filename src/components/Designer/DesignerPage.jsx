@@ -156,8 +156,8 @@ const DesignerPage = () => {
   // handleArtElementSelect
   const handleArtElementSelect = useCallback((artId) => {
     if (artId !== null) {
-      setIsTextEditing(false);
-      setCurrentTextId(null);
+      // setIsTextEditing(false);
+      //setCurrentTextId(null);
       setActiveTool(null);
       setTransformMode('translate');
     } else {
@@ -169,12 +169,17 @@ const DesignerPage = () => {
   // handleToolSelect
   const handleToolSelect = (key) => {
     handleArtElementSelect(null);
-    if (key === 'text') {
-      setIsTextEditing(true);
-    } else {
+    if (activeTool === key) {
       setIsTextEditing(false);
       setCurrentTextId(null);
+      // 清除所有文字的选中状态
+      designState.textElements.forEach(text => {
+        setTextSelected(text.id, false);
+      });
+    } else {
+      setIsTextEditing(true);
     }
+
     setActiveTool(activeTool === key ? null : key)
   }
 
@@ -370,7 +375,7 @@ const DesignerPage = () => {
     // 防止与点击选择冲突，只在拖拽时设置
     e.dataTransfer.effectAllowed = 'copy';
     setDraggedArt(artElement);
-    
+
     // 设置拖拽数据
     e.dataTransfer.setData('application/json', JSON.stringify({
       type: 'art-element',
@@ -381,7 +386,7 @@ const DesignerPage = () => {
   // 从Art Options拖拽出来的处理函数
   const handleSavedArtDragStart = useCallback((e, savedArt) => {
     e.dataTransfer.effectAllowed = 'copy';
-    
+
     // 设置拖拽数据，标记为来自Art Options
     e.dataTransfer.setData('application/json', JSON.stringify({
       type: 'saved-art-element',
@@ -392,10 +397,10 @@ const DesignerPage = () => {
   // 处理拖拽到场景的逻辑
   const handleSceneDrop = useCallback((e) => {
     e.preventDefault();
-    
+
     try {
       const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
-      
+
       if (dragData.type === 'saved-art-element' && dragData.data) {
         // 从Art Options拖拽出来，添加到场景
         const artToAdd = {
@@ -403,7 +408,7 @@ const DesignerPage = () => {
           id: `art-${Date.now()}`, // 生成新的ID
           timestamp: new Date().toISOString()
         };
-        
+
         addArt(artToAdd);
         message.success(`已从Art Options添加图案: ${dragData.data.name || dragData.data.subclass}`);
       }
@@ -431,7 +436,7 @@ const DesignerPage = () => {
 
     try {
       const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
-      
+
       if (dragData.type === 'art-element' && dragData.data) {
         // 获取当前艺术图案的完整状态，包括修改后的canvas数据
         const artCanvasData = await sceneRef.current?.getArtCanvasData?.();
@@ -453,13 +458,13 @@ const DesignerPage = () => {
           const filteredOptions = newOptions.filter(art => art.slotIndex !== slotIndex);
           // 添加新数据
           filteredOptions.push(artToSave);
-          
+
           // 保存到localStorage
           const allSavedArt = JSON.parse(localStorage.getItem('savedArtOptions') || '[]');
           const otherUsersArt = allSavedArt.filter(art => art.userId !== user?.id);
           const updatedAllArt = [...otherUsersArt, ...filteredOptions];
           localStorage.setItem('savedArtOptions', JSON.stringify(updatedAllArt));
-          
+
           return filteredOptions;
         });
 
@@ -480,7 +485,7 @@ const DesignerPage = () => {
       id: `art-${Date.now()}`, // 生成新的ID
       timestamp: new Date().toISOString()
     };
-    
+
     addArt(artToAdd);
     message.success(`已添加保存的图案: ${savedArt.name || savedArt.subclass}`);
   }, [addArt]);
@@ -491,7 +496,7 @@ const DesignerPage = () => {
     const usedSlots = savedArtOptions.map(art => art.slotIndex);
     const emptySlot = Array.from({ length: MAX_RECENTLY_SAVED }, (_, i) => i)
       .find(i => !usedSlots.includes(i));
-    
+
     if (emptySlot === undefined) {
       message.warning('Art Options已满，请先删除一些保存的图案');
       return;
@@ -514,13 +519,13 @@ const DesignerPage = () => {
       // 更新保存的Art Options
       setSavedArtOptions(prev => {
         const newOptions = [...prev, artToSave];
-        
+
         // 保存到localStorage
         const allSavedArt = JSON.parse(localStorage.getItem('savedArtOptions') || '[]');
         const otherUsersArt = allSavedArt.filter(art => art.userId !== user?.id);
         const updatedAllArt = [...otherUsersArt, ...newOptions];
         localStorage.setItem('savedArtOptions', JSON.stringify(updatedAllArt));
-        
+
         return newOptions;
       });
 
@@ -586,6 +591,7 @@ const DesignerPage = () => {
     }
   }
 
+
   // DimensionControl
   const DimensionControl = ({ element, elementType, label }) => {
     const getPolishOptions = () => {
@@ -626,7 +632,7 @@ const DesignerPage = () => {
             </Select>
           </div>
         )}
-        <div className="weight-display">{Math.round(element.weight * 2.2)} lbs</div>
+        <div className="weight-display">{Math.round(element.weight)} lbs</div>
       </div>
     );
   };
@@ -677,7 +683,7 @@ const DesignerPage = () => {
                 onUpdateArtElementState={updateArtElementState}
                 fillColor={fillColor}
                 isFillModeActive={isFillModeActive}
-                onModelFillClick={() => {}}
+                onModelFillClick={() => { }}
 
                 // Text Props
                 onTextSelect={handleTextSelect}
@@ -796,7 +802,7 @@ const DesignerPage = () => {
                     };
                   }
                   // --- 结束新增逻辑 ---
-                  
+
                   return (
                     <div
                       key={`art-slot-${i}`}

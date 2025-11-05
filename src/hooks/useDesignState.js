@@ -23,7 +23,7 @@ const PRODUCT_FAMILIES = {
   'Pedestal': {
     needsBase: false,
     defaultPolish: 'P5',
-    polishOptions: [ 'P5'],
+    polishOptions: ['P5'],
     defaultClass: 'Cremation Pedestal'
   },
   'Columbarium': {
@@ -46,7 +46,7 @@ const MATERIAL_DENSITY = {
 
 const initialDesignState = {
   monuments: [],
-  bases:[],
+  bases: [],
   subBases: [],
   vases: [],
   artElements: [],
@@ -56,21 +56,93 @@ const initialDesignState = {
 
 // --- 合并点：从同事的 useDesignState.js 添加了 FONT_OPTIONS ---
 const FONT_OPTIONS = [
-  { name: 'Helvetiker', path: '/fonts/helvetiker_regular.typeface.json' },
-  { name: 'Arial', path: '/fonts/Arial_Regular.json' },
-  { name: 'Arial Bold', path: '/fonts/Arial_Bold.json' },
-  { name: 'Arial Italic', path: '/fonts/Arial_Italic (1).json' },
-  { name: 'Roman', path: '/fonts/Adobe Myungjo Std M_Regular.json' },
-  { name: 'Times-Roman', path: '/fonts/Calisto MT_Regular.json' },
-  { name: 'Script MT Bold', path: '/fonts/AlgerianBasDEE_Regular.json' },
-  { name: 'EnglishScriptEF-BoldArbor', path: '/fonts/Arkipelago_Regular.json' },
-  { name: 'Gauranga', path: '/fonts/Adobe Gothic Std B_Bold.json' },
-  { name: 'FZLiShu', path: '/fonts/Arial Unicode MS_Regular.json' },
-  { name: 'Arkipelago', path: '/fonts/Arkipelago_Regular.json' },
-  { name: 'Calibri', path: '/fonts/Calibri_Regular.json' },
-  { name: 'Calibri Bold', path: '/fonts/Calibri_Bold.json' },
-  { name: 'Calibri Italic', path: '/fonts/Calibri_Italic.json' },
-  { name: 'Calibri Light', path: '/fonts/Calibri Light_Regular.json' },
+  { name: 'Helvetiker', path: '/fonts/helvetiker_regular.typeface.json', cssFamily: 'Helvetica, Arial, sans-serif' },
+
+  // 自动收集于 public/fonts（文件名 → 友好显示名）
+  { name: '(한)고인돌B Regular', path: '/fonts/(한)고인돌B_Regular.json' },
+  { name: '(한)볼펜체C Regular', path: '/fonts/(한)볼펜체C_Regular.json' },
+  { name: '(한)판화체B Regular', path: '/fonts/(한)판화체B_Regular.json' },
+  { name: '(환)가을잎체(굵은) Regular', path: '/fonts/(환)가을잎체(굵은)_Regular.json' },
+  { name: 'Adobe Gothic Std B Bold', path: '/fonts/Adobe Gothic Std B_Bold.json', cssFamily: 'sans-serif' },
+  { name: 'AlgerianBasDEE Regular', path: '/fonts/AlgerianBasDEE_Regular.json', cssFamily: 'serif' },
+  { name: 'Arial Bold Italic', path: '/fonts/Arial_Bold Italic.json', cssFamily: 'Arial, Helvetica, sans-serif' },
+  { name: 'Arial Bold', path: '/fonts/Arial_Bold.json', cssFamily: 'Arial, Helvetica, sans-serif' },
+  { name: 'Arial Italic', path: '/fonts/Arial_Italic.json', cssFamily: 'Arial, Helvetica, sans-serif' },
+  { name: 'Arial Regular', path: '/fonts/Arial_Regular.json', cssFamily: 'Arial, Helvetica, sans-serif' },
+  { name: 'Bookman Old Style Bold Italic', path: '/fonts/Bookman Old Style_Bold Italic.json', cssFamily: 'serif' },
+  { name: 'Bookman Old Style Bold', path: '/fonts/Bookman Old Style_Bold.json', cssFamily: 'serif' },
+  { name: 'Bookman Old Style Italic', path: '/fonts/Bookman Old Style_Italic.json', cssFamily: 'serif' },
+  { name: 'Bookman Old Style Regular', path: '/fonts/Bookman Old Style_Regular.json', cssFamily: 'serif' },
+  { name: 'Bookman Profi Regular', path: '/fonts/Bookman Profi_Regular.json', cssFamily: 'serif' },
+  { name: 'Calibri Light Italic', path: '/fonts/Calibri Light_Italic.json', cssFamily: 'Calibri, Arial, sans-serif' },
+  { name: 'Calibri Light Regular', path: '/fonts/Calibri Light_Regular.json', cssFamily: 'Calibri, Arial, sans-serif' },
+  { name: 'Calibri Bold Italic', path: '/fonts/Calibri_Bold Italic.json', cssFamily: 'Calibri, Arial, sans-serif' },
+  { name: 'Calibri Bold', path: '/fonts/Calibri_Bold.json', cssFamily: 'Calibri, Arial, sans-serif' },
+  { name: 'Calibri Italic', path: '/fonts/Calibri_Italic.json', cssFamily: 'Calibri, Arial, sans-serif' },
+  { name: 'Calibri Regular', path: '/fonts/Calibri_Regular.json', cssFamily: 'Calibri, Arial, sans-serif' },
+  { name: 'CheltenhamW01-BoldCondensed Regular', path: '/fonts/CheltenhamW01-BoldCondensed_Regular.json', cssFamily: 'serif' },
+  { name: 'CityDEEMed Regular', path: '/fonts/CityDEEMed_Regular.json', cssFamily: 'sans-serif' },
+  { name: 'Colonna MT Regular', path: '/fonts/Colonna MT_Regular.json', cssFamily: 'serif' },
+  { name: 'Comic Sans MS Regular', path: '/fonts/Comic Sans MS_Regular.json', cssFamily: 'Comic Sans MS, cursive' },
+  { name: 'Copperplate Gothic Bold Regular', path: '/fonts/Copperplate Gothic Bold_Regular.json', cssFamily: 'serif' },
+  { name: 'Copperplate Gothic Light Regular', path: '/fonts/Copperplate Gothic Light_Regular.json', cssFamily: 'serif' },
+  { name: 'DRome Regular', path: '/fonts/DRome_Regular.json' },
+  { name: 'Dusha V5 Regular', path: '/fonts/Dusha V5_Regular.json' },
+  { name: 'EnglishScriptEF Regular', path: '/fonts/EnglishScriptEF_Regular.json', cssFamily: 'cursive' },
+  { name: 'FZCuKaiS-R-GB Regular', path: '/fonts/FZCuKaiS-R-GB_Regular.json' },
+  { name: 'FZKai-Z03S Regular', path: '/fonts/FZKai-Z03S_Regular.json' },
+  { name: 'FZLiShu II-S06T Regular', path: '/fonts/FZLiShu II-S06T_Regular.json' },
+  { name: 'Gauranga Normal', path: '/fonts/Gauranga_Normal.json', cssFamily: 'serif' },
+  { name: 'GeèzEdit Amharic P Regular', path: '/fonts/GeèzEdit Amharic P_Regular.json' },
+  { name: 'Grantham Roman', path: '/fonts/Grantham_Roman.json', cssFamily: 'serif' },
+  { name: 'Helvetica Medium Regular', path: '/fonts/Helvetica Medium_Regular.json', cssFamily: 'Helvetica, Arial, sans-serif' },
+  { name: 'Lucida Calligraphy Italic', path: '/fonts/Lucida Calligraphy_Italic.json', cssFamily: '"Lucida Calligraphy", cursive' },
+  { name: 'Lucida Handwriting Italic', path: '/fonts/Lucida Handwriting_Italic.json', cssFamily: '"Lucida Handwriting", cursive' },
+  { name: 'Lynda Cursive Bold', path: '/fonts/Lynda Cursive_Bold.json', cssFamily: 'cursive' },
+  { name: 'Lynda Cursive Normal', path: '/fonts/Lynda Cursive_Normal.json', cssFamily: 'cursive' },
+  { name: 'Madina Regular', path: '/fonts/Madina_Regular.json', cssFamily: 'cursive' },
+  { name: 'Magnolia Script Regular', path: '/fonts/Magnolia Script_Regular.json', cssFamily: 'cursive' },
+  { name: 'MDSol Regular', path: '/fonts/MDSol_Regular.json' },
+  { name: 'MLC Common Gothic SKS Regular', path: '/fonts/MLC Common Gothic SKS_Regular.json', cssFamily: 'sans-serif' },
+  { name: 'MLC Condensed Roman SKS .75in-1.25in Regular', path: '/fonts/MLC Condensed Roman SKS .75in-1.25in_Regular.json', cssFamily: 'serif' },
+  { name: 'MLC Government SKS Extended Regular', path: '/fonts/MLC Government SKS Extended_Regular.json', cssFamily: 'sans-serif' },
+  { name: 'MLC Government SKS Regulation Regular', path: '/fonts/MLC Government SKS Regulation_Regular.json', cssFamily: 'sans-serif' },
+  { name: 'MLC Modified Roman Raised CR Regular', path: '/fonts/MLC Modified Roman Raised CR_Regular.json', cssFamily: 'serif' },
+  { name: 'MLC Raised Modified Roman SKS Regular', path: '/fonts/MLC Raised Modified Roman SKS_Regular.json', cssFamily: 'serif' },
+  { name: 'MLC Vermarco PC Regular', path: '/fonts/MLC Vermarco PC_Regular.json', cssFamily: 'sans-serif' },
+  { name: 'MuseumClassic Bold Regular', path: '/fonts/MuseumClassic Bold_Regular.json', cssFamily: 'serif' },
+  { name: 'MythicaW01-Medium Regular', path: '/fonts/MythicaW01-Medium_Regular.json', cssFamily: 'serif' },
+  { name: 'Nyala Regular', path: '/fonts/Nyala_Regular.json' },
+  { name: 'Old English Text MT Regular', path: '/fonts/Old English Text MT_Regular.json', cssFamily: 'serif' },
+  { name: 'Old-English Normal', path: '/fonts/Old-English_Normal.json', cssFamily: 'serif' },
+  { name: 'OldEnglishD Regular', path: '/fonts/OldEnglishD_Regular.json', cssFamily: 'serif' },
+  { name: 'OldeWorld-Bold Regular', path: '/fonts/OldeWorld-Bold_Regular.json', cssFamily: 'serif' },
+  { name: 'Palatino Linotype Bold Italic', path: '/fonts/Palatino Linotype_Bold Italic.json', cssFamily: 'Palatino, serif' },
+  { name: 'Palatino Linotype Bold', path: '/fonts/Palatino Linotype_Bold.json', cssFamily: 'Palatino, serif' },
+  { name: 'Palatino Linotype Italic', path: '/fonts/Palatino Linotype_Italic.json', cssFamily: 'Palatino, serif' },
+  { name: 'Palatino Linotype Regular', path: '/fonts/Palatino Linotype_Regular.json', cssFamily: 'Palatino, serif' },
+  { name: 'Roman Regular', path: '/fonts/Roman_Regular.json', cssFamily: 'serif' },
+  { name: 'Script MT Bold Regular', path: '/fonts/Script MT Bold_Regular.json', cssFamily: 'cursive' },
+  { name: 'SimHei Regular', path: '/fonts/SimHei_Regular.json' },
+  { name: 'SnellRoundhand Script Regular', path: '/fonts/SnellRoundhand Script_Regular.json', cssFamily: 'cursive' },
+  { name: 'Spring Beauty Regular', path: '/fonts/Spring Beauty_Regular.json', cssFamily: 'cursive' },
+  { name: 'Square721 BT Bold', path: '/fonts/Square721 BT_Bold.json', cssFamily: 'sans-serif' },
+  { name: 'Square721 BT Roman', path: '/fonts/Square721 BT_Roman.json', cssFamily: 'sans-serif' },
+  { name: 'STLiti Regular', path: '/fonts/STLiti_Regular.json' },
+  { name: 'STZhongsong Bold', path: '/fonts/STZhongsong_Bold.json' },
+  { name: 'STZhongsong Regular', path: '/fonts/STZhongsong_Regular.json' },
+  { name: 'SWItalc Regular', path: '/fonts/SWItalc_Regular.json' },
+  { name: 'Times New Roman Bold Italic', path: '/fonts/Times New Roman_Bold Italic.json', cssFamily: 'Times New Roman, Times, serif' },
+  { name: 'Times New Roman Bold', path: '/fonts/Times New Roman_Bold.json', cssFamily: 'Times New Roman, Times, serif' },
+  { name: 'Times New Roman Italic', path: '/fonts/Times New Roman_Italic.json', cssFamily: 'Times New Roman, Times, serif' },
+  { name: 'Times New Roman Regular', path: '/fonts/Times New Roman_Regular.json', cssFamily: 'Times New Roman, Times, serif' },
+  { name: 'Times-Roman Regular', path: '/fonts/Times-Roman_Regular.json', cssFamily: 'Times, serif' },
+  { name: 'TR Comic Sans MS Regular', path: '/fonts/TR Comic Sans MS_Regular.json', cssFamily: 'Comic Sans MS, cursive' },
+  { name: 'undefined Regular', path: '/fonts/undefined_Regular.json' },
+  { name: 'Zapf Chancery BT Medium Italic', path: '/fonts/Zapf Chancery BT_Medium Italic.json', cssFamily: 'serif' },
+  { name: 'ZapfChan Dm BT Demi', path: '/fonts/ZapfChan Dm BT_Demi.json', cssFamily: 'serif' },
+  { name: 'ZapfChancery-MediumItalic Ex Regular', path: '/fonts/ZapfChancery-MediumItalic Ex_Regular.json', cssFamily: 'serif' },
+  { name: 'zktskt Regular', path: '/fonts/zktskt_Regular.json' },
 ];
 
 
@@ -341,7 +413,7 @@ export const useDesignState = () => {
 
       return updatedState;
     });
-  },[updateDesignState, buildModelPath, buildTexturePath]);
+  }, [updateDesignState, buildModelPath, buildTexturePath]);
 
 
   const updateDimensions = useCallback((elementId, newDimensions, elementType) => {
@@ -551,9 +623,9 @@ export const useDesignState = () => {
 
   // 计算重量
   const calculateWeight = (dimensions, material) => {
-    const volume = (dimensions.length * dimensions.width * dimensions.height) ;
-    const density = MATERIAL_DENSITY[material] || 2700;
-    return Math.round(volume * density * 100) / 100;
+    const volume = (dimensions.length * dimensions.width * dimensions.height * 39.37 * 39.37 * 39.37 * 0.000589934 * 85 * 2.2);
+    //const density = MATERIAL_DENSITY[material] || 2700;
+    return Math.round(volume * 100) / 100;
   };
 
   // 撤销/重做

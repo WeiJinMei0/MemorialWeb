@@ -268,7 +268,7 @@ const DesignerPage = () => {
 
   // 计算重量（任务9，更新密度映射函数（产品、款式、加工、石种等因素）
   const calculateWeight = (dimensions, material = 'granite') => {
-    const volume = (dimensions.length * dimensions.width * dimensions.height) / 1000000 // 转换为立方米
+    const volume = (dimensions.length * dimensions.width * dimensions.height*0.000589934*85*2.2) / 1000000 // 转换为立方米
     const density = MATERIAL_DENSITY[material] || 2650
     return Math.round(volume * density)
   }

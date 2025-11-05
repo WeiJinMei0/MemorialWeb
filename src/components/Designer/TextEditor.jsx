@@ -34,7 +34,7 @@ const TextEditor = ({
   const { t } = useTranslation();
   const [textProperties, setTextProperties] = useState({
     content: '',
-    font: 'Arial',
+    font: 'helvetiker_regular.typeface',
     size: 16,
     alignment: 'center',
     lineSpacing: 1.2,
@@ -191,7 +191,9 @@ const TextEditor = ({
             >
               {fontOptions.map(font => (
                 <Select.Option key={font.name} value={font.name}>
-                  {font.name}
+                  <span style={{ fontFamily: font.cssFamily || 'inherit' }}>
+                    {font.name}
+                  </span>
                 </Select.Option>
               ))}
             </Select>
@@ -241,22 +243,26 @@ const TextEditor = ({
         <Row gutter={8} style={{ marginBottom: 16 }}>
           <Col span={12}>
             <label>kerning: {textProperties.kerning}</label>
-            <Slider
-              min={-10}
-              max={10}
-              value={textProperties.kerning}
-              onChange={(value) => handlePropertyChange('kerning', value)}
-            />
+            <Input
+      type="number"
+      value={textProperties.kerning}
+      onChange={(e) => handlePropertyChange('kerning', Number(e.target.value))}
+      min={-10}
+      max={10}
+      style={{ width: '100%' }}
+    />
           </Col>
           <Col span={12}>
             <label>lineSpacing: {textProperties.lineSpacing}</label>
-            <Slider
-              min={0.5}
-              max={3}
-              step={0.1}
-              value={textProperties.lineSpacing}
-              onChange={(value) => handlePropertyChange('lineSpacing', value)}
-            />
+            <Input
+      type="number"
+      value={textProperties.lineSpacing}
+      onChange={(e) => handlePropertyChange('lineSpacing', Number(e.target.value))}
+      min={0.5}
+      max={3}
+      step={0.1}
+      style={{ width: '100%' }}
+    />
           </Col>
         </Row>
 
@@ -320,23 +326,29 @@ const TextEditor = ({
           </div>
         )}
 
-        {/* 操作按钮 */}
-        <Space.Compact style={{ width: '100%' }}>
-          <Button
-            type="primary"
-            onClick={handleAddText}
-            disabled={!textProperties.content.trim()}
-          >
-            AddText
-          </Button>
-          <Button
-            danger
-            onClick={handleDeleteText}
-            disabled={!currentTextId}
-          >
-            DeleteText
-          </Button>
-        </Space.Compact>
+     {/* 操作按钮 */}
+<Row gutter={8} style={{ width: '100%' }}>
+  <Col span={12}>
+    <Button
+      type="primary"
+      onClick={handleAddText}
+      disabled={!textProperties.content.trim()}
+      style={{ width: '100%' }}
+    >
+      AddText
+    </Button>
+  </Col>
+  <Col span={12}>
+    <Button
+      danger
+      onClick={handleDeleteText}
+      disabled={!currentTextId}
+      style={{ width: '100%' }}
+    >
+      DeleteText
+    </Button>
+  </Col>
+</Row>
       </Card>
     </div>
   );

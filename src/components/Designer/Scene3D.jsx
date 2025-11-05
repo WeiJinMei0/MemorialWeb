@@ -81,21 +81,21 @@ const Loader = () => (
 
 // 您的 Model 组件 (已合并同事的 `isDraggable` 和您自己的 `isFillModeActive` 逻辑)
 const Model = forwardRef(({
-                            modelPath,
-                            texturePath,
-                            position = [0, 0, 0],
-                            dimensions = { length: 1, width: 1, height: 1 },
-                            color = 'Black',
-                            onLoad,
-                            onDimensionsChange,
+  modelPath,
+  texturePath,
+  position = [0, 0, 0],
+  dimensions = { length: 1, width: 1, height: 1 },
+  color = 'Black',
+  onLoad,
+  onDimensionsChange,
 
-                            /** 填充模式是否激活 (来自您的代码) */
-                            isFillModeActive,
-                            /** 点击填充时的回调 (来自您的代码) */
-                            onFillClick,
-                            /** 是否可拖拽 (来自同事的代码) */
-                            isDraggable = false
-                          }, ref) => {
+  /** 填充模式是否激活 (来自您的代码) */
+  isFillModeActive,
+  /** 点击填充时的回调 (来自您的代码) */
+  onFillClick,
+  /** 是否可拖拽 (来自同事的代码) */
+  isDraggable = false
+}, ref) => {
   const meshRef = useRef();
   const sceneObjectRef = useRef(null); // 用于跟踪添加到场景的对象
   const { gl, scene } = useThree();
@@ -320,14 +320,14 @@ const Model = forwardRef(({
 // 您的 InteractiveArtPlane 组件 (保持不变)
 // -----------------------------------------------------
 const InteractiveArtPlane = forwardRef(({
-                                          art,
-                                          isSelected,
-                                          onSelect,
-                                          onTransformEnd,
-                                          transformMode,
-                                          fillColor,
-                                          isFillModeActive
-                                        }, ref) => {
+  art,
+  isSelected,
+  onSelect,
+  onTransformEnd,
+  transformMode,
+  fillColor,
+  isFillModeActive
+}, ref) => {
   const meshRef = useRef();
   const controlRef = useRef();
   const [canvasTexture, setCanvasTexture] = useState(null);
@@ -634,17 +634,17 @@ const InteractiveArtPlane = forwardRef(({
 // --- 合并点：从同事的 Scene3D.jsx 复制 EnhancedTextElement ---
 // (同事的 EnhancedTextElement)
 const EnhancedTextElement = ({
-                               text,
-                               monument,
-                               onTextPositionChange,
-                               onTextRotationChange,
-                               onTextSelect,
-                               onDeleteText,
-                               isSelected,
-                               isTextEditing,
-                               getFontPath, // 接收字体路径
-                               modelRefs // 接收模型引用
-                             }) => {
+  text,
+  monument,
+  onTextPositionChange,
+  onTextRotationChange,
+  onTextSelect,
+  onDeleteText,
+  isSelected,
+  isTextEditing,
+  getFontPath, // 接收字体路径
+  modelRefs // 接收模型引用
+}) => {
   const textRef = useRef();
   const transformControlsRef = useRef();
   const groupRef = useRef();
@@ -664,6 +664,14 @@ const EnhancedTextElement = ({
     }
     return nameOrPath || '/fonts/helvetiker_regular.typeface.json';
   }, [getFontPath]);
+
+  // 计算文字应贴附的表面 Z（局部坐标，正面与图片同面）
+  const computeSurfaceZ = useCallback((sizeZ, engraveType) => {
+    // 目标平面：局部 z = -sizeZ，再根据雕刻方式作正向偏移
+    if (engraveType === 'vcut' || engraveType === 'frost') return -sizeZ + 0.021;
+    if (engraveType === 'polish') return -sizeZ + 0.01;
+    return -sizeZ + 0.002; // 默认轻微偏移
+  }, []);
 
 
 
@@ -690,12 +698,98 @@ const EnhancedTextElement = ({
     const euler = new THREE.Euler().setFromQuaternion(localQuat, 'XYZ');
 
     const doWrite = () => {
-      onTextPositionChange && onTextPositionChange(text.id, [localPos.x, localPos.y, 0]);
+      // 保留 z（局部坐标），避免被强制写 0
+      onTextPositionChange && onTextPositionChange(text.id, [localPos.x, localPos.y, localPos.z]);
       onTextRotationChange && onTextRotationChange(text.id, [euler.x, euler.y, euler.z]);
       rafWriteRef.current = null;
     };
     if (!rafWriteRef.current) rafWriteRef.current = requestAnimationFrame(doWrite);
   }, [monument, text.id, onTextPositionChange, onTextRotationChange, modelRefs]);
+
+  // 将 text.position/rotation 应用到 group（根据碑体世界变换转换为世界位姿）
+  useEffect(() => {
+    if (!groupRef.current || !monument) return;
+    const monumentMesh = modelRefs.current[monument.id]?.getMesh();
+    if (!monumentMesh) return;
+
+    monumentMesh.updateWorldMatrix(true, false);
+    const worldPosition = new THREE.Vector3();
+    const worldQuaternion = new THREE.Quaternion();
+    const worldScale = new THREE.Vector3();
+    monumentMesh.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale);
+
+    const xLocal = Array.isArray(text.position) ? (text.position[0] || 0) : 0;
+    const yLocal = Array.isArray(text.position) ? (text.position[1] || 0.3) : 0.3;
+    const zLocal = Array.isArray(text.position) ? (text.position[2] || 0) : 0;
+
+    const localPoint = new THREE.Vector3(xLocal, yLocal, zLocal);
+    const worldPoint = localPoint.clone()
+      .multiply(worldScale)
+      .applyQuaternion(worldQuaternion)
+      .add(worldPosition);
+
+    const flipQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+    const localEuler = new THREE.Euler(...(text.rotation || [0, 0, 0]), 'XYZ');
+    const localQuat = new THREE.Quaternion().setFromEuler(localEuler);
+    const worldQuat = worldQuaternion.clone().multiply(flipQuat).multiply(localQuat);
+
+    if (!isDragging) {
+      groupRef.current.position.copy(worldPoint);
+      groupRef.current.quaternion.copy(worldQuat);
+    }
+  }, [monument, text.position, text.rotation, modelRefs, isDragging]);
+
+  // 首次创建：将文字放到“正面”平面（与图片同面）：局部 z = 基准(-size.z) + offset
+  useEffect(() => {
+    const isDefault = Array.isArray(text.position)
+      ? (text.position[0] === 0 && text.position[1] === 0 && text.position[2] === 0)
+      : true;
+    if (!monument || !isDefault || hasInitPosition) return;
+
+    let rafId;
+    const tryInit = () => {
+      const monumentMesh = modelRefs.current[monument.id]?.getMesh();
+      if (!monumentMesh) { rafId = requestAnimationFrame(tryInit); return; }
+      monumentMesh.updateWorldMatrix(true, false);
+      const box = new THREE.Box3().setFromObject(monumentMesh);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      if (size.z <= 0) { rafId = requestAnimationFrame(tryInit); return; }
+      const surfaceZ = computeSurfaceZ(size.z, text.engraveType);
+      const xLocal = 0;
+      const yLocal = 0.3;
+      if (onTextPositionChange) {
+        onTextPositionChange(text.id, [xLocal, yLocal, surfaceZ]);
+        setHasInitPosition(true);
+      }
+    };
+    tryInit();
+    return () => { if (rafId) cancelAnimationFrame(rafId); };
+  }, [monument, text.id, text.position, text.engraveType, onTextPositionChange, modelRefs, computeSurfaceZ, hasInitPosition]);
+
+  // 当雕刻方式变化时，更新贴附 Z（保留当前 X/Y）
+  useEffect(() => {
+    if (!monument) return;
+    let rafId;
+    const applyZ = () => {
+      const monumentMesh = modelRefs.current[monument.id]?.getMesh();
+      if (!monumentMesh) { rafId = requestAnimationFrame(applyZ); return; }
+      monumentMesh.updateWorldMatrix(true, false);
+      const box = new THREE.Box3().setFromObject(monumentMesh);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      if (size.z <= 0) { rafId = requestAnimationFrame(applyZ); return; }
+      const targetZ = computeSurfaceZ(size.z, text.engraveType);
+      const current = Array.isArray(text.position) ? text.position : [0, 0, 0];
+      // 仅当当前 z 与目标 z 显著不同时才更新，避免无限循环
+      const currZ = Number(current[2] || 0);
+      if (Math.abs(currZ - targetZ) > 1e-6 && onTextPositionChange) {
+        onTextPositionChange(text.id, [current[0] || 0, current[1] || 0, targetZ]);
+      }
+    };
+    applyZ();
+    return () => { if (rafId) cancelAnimationFrame(rafId); };
+  }, [monument, text.id, text.position, text.engraveType, onTextPositionChange, modelRefs, computeSurfaceZ]);
 
   useEffect(() => {
     let rafId;
@@ -751,6 +845,7 @@ const EnhancedTextElement = ({
   }, [isSelected, isTextEditing, controls]);
 
   const textMaterial = useMemo(() => {
+
     if (text.engraveType === 'polish' && monumentMaterial) {
       return monumentMaterial;
     }
@@ -796,12 +891,11 @@ const EnhancedTextElement = ({
 
   const handleClick = useCallback((event) => {
     event.stopPropagation();
-    console.log('文字被点击:', text.id, isTextEditing);
-    if (!isTextEditing) return;
+    // 始终允许切换选中字，即使面板已打开
     if (onTextSelect) {
       onTextSelect(text.id);
     }
-  }, [text.id, onTextSelect, isTextEditing]);
+  }, [text.id, onTextSelect]);
 
   const renderCurvedText = () => {
     if (!text.content) return null;
@@ -894,7 +988,7 @@ const EnhancedTextElement = ({
     <>
       <group
         ref={groupRef}
-        onClick={handleClick}
+        onPointerDown={handleClick}
         userData={{ isTextElement: true, textId: text.id }}
       >
         {renderTextContent()}
@@ -921,31 +1015,31 @@ const EnhancedTextElement = ({
 
 // 主场景组件
 const MonumentScene = forwardRef(({
-                                    // 您的 Art props
-                                    designState,
-                                    onDimensionsChange,
-                                    onDuplicateElement,
-                                    onDeleteElement,
-                                    onFlipElement,
-                                    background = null,
-                                    onUpdateArtElementState,
-                                    selectedElementId,
-                                    transformMode,
-                                    onArtElementSelect,
-                                    isFillModeActive,
-                                    fillColor,
-                                    onModelFillClick,
+  // 您的 Art props
+  designState,
+  onDimensionsChange,
+  onDuplicateElement,
+  onDeleteElement,
+  onFlipElement,
+  background = null,
+  onUpdateArtElementState,
+  selectedElementId,
+  transformMode,
+  onArtElementSelect,
+  isFillModeActive,
+  fillColor,
+  onModelFillClick,
 
-                                    // --- 合并点：添加同事的 Text props ---
-                                    onTextPositionChange,
-                                    onTextRotationChange,
-                                    onTextSelect,
-                                    onDeleteText,
-                                    currentTextId,
-                                    isTextEditing,
-                                    getFontPath,
-                                    onSceneDrop // <-- 在这里添加 onSceneDrop
-                                  }, ref) => {
+  // --- 合并点：添加同事的 Text props ---
+  onTextPositionChange,
+  onTextRotationChange,
+  onTextSelect,
+  onDeleteText,
+  currentTextId,
+  isTextEditing,
+  getFontPath,
+  onSceneDrop // <-- 在这里添加 onSceneDrop
+}, ref) => {
   const { gl, scene } = useThree();
   const sceneRef = useRef();
   const modelRefs = useRef({});
@@ -965,10 +1059,10 @@ const MonumentScene = forwardRef(({
   // 处理拖拽到场景的逻辑
   const handleSceneDrop = useCallback((e) => {
     e.preventDefault();
-    
+
     try {
       const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
-      
+
       if (dragData.type === 'saved-art-element' && dragData.data && onSceneDrop) {
         onSceneDrop(e);
       }
@@ -986,9 +1080,9 @@ const MonumentScene = forwardRef(({
   const handleSelectArtPlane = useCallback((artId) => {
     onArtElementSelect(artId);
     // --- 合并点：取消选中文字 ---
-    if (artId && isTextEditing && onTextSelect) {
-      onTextSelect(null);
-    }
+    // if (artId && isTextEditing && onTextSelect) {
+    // onTextSelect(null);
+    //}
   }, [onArtElementSelect, isTextEditing, onTextSelect]);
 
   // 您的背景逻辑
@@ -1088,13 +1182,13 @@ const MonumentScene = forwardRef(({
 
     if (designState.subBases.length > 0) {
       const totalSubBaseLength = designState.subBases.reduce((sum, subBase) => sum + getModelLength(subBase.id), 0) + (designState.subBases.length - 1) * 0.2;
-      if (totalSubBaseLength>0) currentX_subBase = -totalSubBaseLength / 2;
+      if (totalSubBaseLength > 0) currentX_subBase = -totalSubBaseLength / 2;
       designState.subBases.forEach((subBase, index) => {
         const height = getModelHeight(subBase.id);
         const length = getModelLength(subBase.id);
         positions[subBase.id] = [currentX_subBase, currentY_subBase, 0];
         currentX_subBase += length + 0.2;
-        if (index === 0 && height > 0){
+        if (index === 0 && height > 0) {
           currentY_Top = currentY_subBase;
           currentY_Top += height;
           currentY_base = currentY_Top;
@@ -1291,26 +1385,26 @@ const MonumentScene = forwardRef(({
 
 // 主场景包装器 (保持不变)
 const Scene3D = forwardRef(({
-                              background,
-                              onUpdateArtElementState,
-                              onArtElementSelect,
-                              selectedElementId,
-                              transformMode,
-                              isFillModeActive,
-                              fillColor,
-                              onModelFillClick,
-                              // --- 合并点：添加文本 props ---
-                              onTextPositionChange,
-                              onTextRotationChange,
-                              onTextSelect,
-                              onDeleteText,
-                              currentTextId,
-                              isTextEditing,
-                              getFontPath,
-                              ...props
-                            }, ref) => {
+  background,
+  onUpdateArtElementState,
+  onArtElementSelect,
+  selectedElementId,
+  transformMode,
+  isFillModeActive,
+  fillColor,
+  onModelFillClick,
+  // --- 合并点：添加文本 props ---
+  onTextPositionChange,
+  onTextRotationChange,
+  onTextSelect,
+  onDeleteText,
+  currentTextId,
+  isTextEditing,
+  getFontPath,
+  ...props
+}, ref) => {
   return (
-    <div 
+    <div
       style={{ width: '100%', height: '100%' }}
       onDrop={props.onSceneDrop}
       onDragOver={(e) => {
