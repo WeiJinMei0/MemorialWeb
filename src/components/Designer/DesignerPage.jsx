@@ -593,6 +593,7 @@ const DesignerPage = () => {
 
 
   // DimensionControl
+  // DimensionControl 组件 - 支持分数输入（修复版）
   const DimensionControl = ({ element, elementType, label }) => {
     const getPolishOptions = () => {
       switch (elementType) {
@@ -602,8 +603,109 @@ const DesignerPage = () => {
         default: return [];
       }
     };
+
     const polishOptions = getPolishOptions();
     const unitMultiplier = UnitSelector(selectedUnit);
+
+    // 解析分数输入
+    const parseFractionInput = (input) => {
+      if (!input || input.trim() === '') return 0;
+
+      const str = input.trim();
+
+      // 匹配带分数格式 (如 "2 1/2")
+      const mixedFractionRegex = /^(\d+)\s+(\d+)\/(\d+)$/;
+      const mixedMatch = str.match(mixedFractionRegex);
+      if (mixedMatch) {
+        const integer = parseInt(mixedMatch[1]);
+        const numerator = parseInt(mixedMatch[2]);
+        const denominator = parseInt(mixedMatch[3]);
+        if (denominator === 0) return NaN;
+        return integer + (numerator / denominator);
+      }
+
+      // 匹配分数格式 (如 "3/4")
+      const fractionRegex = /^(\d+)\/(\d+)$/;
+      const fractionMatch = str.match(fractionRegex);
+      if (fractionMatch) {
+        const numerator = parseInt(fractionMatch[1]);
+        const denominator = parseInt(fractionMatch[2]);
+        if (denominator === 0) return NaN;
+        return numerator / denominator;
+      }
+
+      // 匹配小数或整数
+      const number = parseFloat(str);
+      if (!isNaN(number)) {
+        return number;
+      }
+
+      return NaN;
+    };
+
+    // 将数值转换为分数显示格式
+    const formatValueAsFraction = (value) => {
+      // 如果是整数，直接显示
+      if (Number.isInteger(value)) {
+        return value.toString();
+      }
+
+      // 尝试转换为分数
+      const tolerance = 1.0E-6;
+      let h1 = 1, h2 = 0;
+      let k1 = 0, k2 = 1;
+      let b = value;
+
+      do {
+        const a = Math.floor(b);
+        let aux = h1;
+        h1 = a * h1 + h2;
+        h2 = aux;
+        aux = k1;
+        k1 = a * k1 + k2;
+        k2 = aux;
+        b = 1 / (b - a);
+      } while (Math.abs(value - h1 / k1) > value * tolerance);
+
+      // 如果分母为1，显示为整数
+      if (k1 === 1) {
+        return h1.toString();
+      }
+
+      // 如果分子大于分母，转换为带分数
+      if (h1 > k1) {
+        const whole = Math.floor(h1 / k1);
+        const remainder = h1 % k1;
+        if (remainder === 0) {
+          return whole.toString();
+        }
+        return `${whole} ${remainder}/${k1}`;
+      }
+
+      return `${h1}/${k1}`;
+    };
+
+    // 处理尺寸输入变化
+    const handleDimensionChange = (dim, value) => {
+      const parsedValue = parseFractionInput(value);
+
+      if (isNaN(parsedValue) || parsedValue < 0) {
+        message.error('请输入有效的尺寸值（如：1/2、3/4、2 1/2）');
+        return;
+      }
+
+      // 转换为米并更新
+      updateDimensions(element.id, {
+        ...element.dimensions,
+        [dim]: parsedValue / unitMultiplier
+      }, elementType);
+    };
+
+    // 获取当前显示值（转换为当前单位并格式化为分数）
+    const getDisplayValue = (dim) => {
+      const value = element.dimensions[dim] * unitMultiplier;
+      return formatValueAsFraction(Math.round(value * 16) / 16); // 四舍五入到最接近的1/16
+    };
 
     return (
       <div className="dimension-control">
@@ -611,21 +713,28 @@ const DesignerPage = () => {
         <div className="dimension-inputs">
           {['length', 'width', 'height'].map((dim) => (
             <div key={dim} className="dimension-input">
-              <InputNumber
+              <Input
                 size="small"
-                value={Math.round(element.dimensions[dim] * unitMultiplier * 10) / 10}
-                min={0}
-                max={10 * unitMultiplier}
-                step={0.1}
-                onChange={(value) => updateDimensions(element.id, { ...element.dimensions, [dim]: value / unitMultiplier }, elementType)}
-                style={{ width: '70px' }}
+                defaultValue={getDisplayValue(dim)}
+                placeholder="如: 1/2"
+                onBlur={(e) => handleDimensionChange(dim, e.target.value)}
+                onPressEnter={(e) => {
+                  handleDimensionChange(dim, e.target.value);
+                }}
+                style={{ width: '80px' }}
+                className="fraction-input"
               />
             </div>
           ))}
         </div>
         {element.polish && polishOptions.length > 0 && (
           <div className="polish-control">
-            <Select value={element.polish} size="small" style={{ width: 80 }} onChange={(value) => updatePolish(element.id, value, elementType)}>
+            <Select
+              value={element.polish}
+              size="small"
+              style={{ width: 80 }}
+              onChange={(value) => updatePolish(element.id, value, elementType)}
+            >
               {polishOptions.map(polish => (
                 <Select.Option key={polish} value={polish}>{polish}</Select.Option>
               ))}

@@ -899,39 +899,106 @@ const EnhancedTextElement = ({
 
   const renderCurvedText = () => {
     if (!text.content) return null;
+    
     const characters = text.content.split('');
     const fontSize = text.size * 0.01;
     const kerningUnit = (text.kerning || 0) * 0.001;
-    const curveAmount = Math.max(0, text.curveAmount || 0) / 100;
-    const minArcAngle = Math.PI * 0.3;
-    const maxArcAngle = Math.PI * 0.8;
-    const arcAngle = curveAmount === 0 ? 0 : (minArcAngle + (maxArcAngle - minArcAngle) * curveAmount);
-    const avgCharWidth = 0.6 * fontSize;
-    const spacingPerGap = fontSize * kerningUnit;
-    const totalArcLength = characters.length * avgCharWidth + Math.max(0, characters.length - 1) * spacingPerGap;
-    const radius = arcAngle > 1e-6 ? Math.max(1e-4, totalArcLength / arcAngle) : 1e6;
-    const n = characters.length;
+    
+    // 获取弯曲方向和强度
+    const curveAmount = text.curveAmount || 0;
+    const curveDirection = curveAmount >= 0 ? 1 : -1; // 正数向上，负数向下
+    const curveIntensity = Math.min(Math.abs(curveAmount) / 100, 0.8);
+  
+    // 计算字符的实际宽度（更精确的测量）
+    const calculateCharacterWidth = (char) => {
+      const widthMap = {
+        'i': 0.3, 'l': 0.3, 'I': 0.4, '1': 0.4, '!': 0.3, '.': 0.2, ',': 0.2,
+        't': 0.4, 'f': 0.4, 'r': 0.5, 'j': 0.3,
+        'm': 0.9, 'w': 0.9, 'M': 1.0, 'W': 1.0,
+        ' ': 0.4
+      };
+      return widthMap[char] || 0.7;
+    };
+  
+    // 计算字符的底部偏移（确保所有字母底部对齐）
+    const calculateCharacterBottomOffset = (char) => {
+      // 对于有小写下伸部分的字符（g, j, p, q, y），需要额外调整
+      const descenderMap = {
+        'g': 0.15, 'j': 0.2, 'p': 0.15, 'q': 0.15, 'y': 0.15
+      };
+      return descenderMap[char] || 0;
+    };
+  
+    // 计算总弧长
+    let totalArcLength = 0;
+    const charWidths = characters.map(char => {
+      const width = calculateCharacterWidth(char) * fontSize;
+      totalArcLength += width;
+      return width;
+    });
+    
+    totalArcLength += Math.max(0, characters.length - 1) * fontSize * kerningUnit;
+  
+    // 计算弯曲参数
+    const minArcAngle = Math.PI * 0.2;
+    const maxArcAngle = Math.PI * 1.2;
+    const arcAngle = curveIntensity > 0 ? 
+      (minArcAngle + (maxArcAngle - minArcAngle) * curveIntensity) : 0;
+    
+    const radius = arcAngle > 1e-6 ? 
+      Math.max(totalArcLength / arcAngle, totalArcLength * 0.5) : 
+      1e6;
+  
+    // 渲染每个字符
+    let currentAngle = -arcAngle / 2;
+    const baseOffsetY = -fontSize * 0.5; // 基础偏移，让所有字母底部对齐
+  
     return characters.map((char, index) => {
-      const centerIndex = (n - 1) / 2;
-      const step = n > 1 ? arcAngle / (n - 1) : 0;
-      let angle = (index - centerIndex) * step;
-      const xOffset = Math.sin(angle) * radius;
-      const yOffset = Math.cos(angle) * radius - radius;
-      const rotationZ = -angle;
+      if (char === ' ') {
+        const charWidth = charWidths[index];
+        const charAngleIncrement = (charWidth + fontSize * kerningUnit) / radius;
+        currentAngle += charAngleIncrement;
+        return null;
+      }
+  
+      // 计算字符在弧上的位置
+      const charRadius = radius;
+      const baseX = Math.sin(currentAngle) * charRadius;
+      const baseY = (Math.cos(currentAngle) - 1) * charRadius * curveDirection;
+      
+      // 关键修改：所有字母使用相同的Y位置计算，确保底部对齐
+      const x = baseX;
+      const y = baseY + baseOffsetY; // 统一应用基础偏移
+      
+      // 计算字符旋转（使其始终朝向圆心）
+      const rotationZ = -currentAngle * curveDirection;
+  
+      // 计算下伸字符的额外偏移
+      const descenderOffset = calculateCharacterBottomOffset(char) * fontSize;
+      const finalY = y - descenderOffset; // 下伸字符需要额外向下偏移
+  
+      // 推进到下一个字符的角度位置
+      const charWidth = charWidths[index];
+      const charAngleIncrement = (charWidth + fontSize * kerningUnit) / radius;
+      currentAngle += charAngleIncrement;
+  
       return (
-        <group key={index} position={[xOffset, yOffset, 0]} rotation={[0, 0, rotationZ]} >
+        <group 
+          key={index} 
+          position={[x, finalY, 0]} 
+          rotation={[0, 0, rotationZ]}
+        >
           <Text3D
             font={localGetFontPath(text.font)}
             size={fontSize}
             height={text.thickness || 0.02}
-            letterSpacing={kerningUnit}
-            lineHeight={text.lineSpacing}
-            curveSegments={8}
+            letterSpacing={0}
+            curveSegments={16} // 进一步增加曲线段数使更平滑
             bevelEnabled={true}
             bevelThickness={0.002}
             bevelSize={0.002}
             bevelOffset={0}
-            bevelSegments={3}
+            bevelSegments={5}
             material={textMaterial}
           >
             {char}

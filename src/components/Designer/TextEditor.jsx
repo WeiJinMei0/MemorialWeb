@@ -270,8 +270,8 @@ const TextEditor = ({
         <div style={{ marginBottom: 16 }}>
           <label>shape: {textProperties.curveAmount}</label>
           <Slider
-            min={0}
-            max={100}
+            min={-45}
+            max={45}
             value={textProperties.curveAmount}
             onChange={(value) => handlePropertyChange('curveAmount', value)}
           />

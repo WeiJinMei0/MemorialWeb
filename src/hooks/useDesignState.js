@@ -95,7 +95,7 @@ const FONT_OPTIONS = [
   { name: 'Gauranga Normal', path: '/fonts/Gauranga_Normal.json', cssFamily: 'serif' },
   { name: 'GeèzEdit Amharic P Regular', path: '/fonts/GeèzEdit Amharic P_Regular.json' },
   { name: 'Grantham Roman', path: '/fonts/Grantham_Roman.json', cssFamily: 'serif' },
-  { name: 'Helvetica Medium Regular', path: '/fonts/Helvetica Medium_Regular.json', cssFamily: 'Helvetica, Arial, sans-serif' },
+ // { name: 'Helvetica Medium Regular', path: '/fonts/Helvetica Medium_Regular.json', cssFamily: 'Helvetica, Arial, sans-serif' },
   { name: 'Lucida Calligraphy Italic', path: '/fonts/Lucida Calligraphy_Italic.json', cssFamily: '"Lucida Calligraphy", cursive' },
   { name: 'Lucida Handwriting Italic', path: '/fonts/Lucida Handwriting_Italic.json', cssFamily: '"Lucida Handwriting", cursive' },
   { name: 'Lynda Cursive Bold', path: '/fonts/Lynda Cursive_Bold.json', cssFamily: 'cursive' },
