@@ -86,23 +86,35 @@ const Model = forwardRef(({
   position = [0, 0, 0],
   dimensions = { length: 1, width: 1, height: 1 },
   color = 'Black',
+  polish, // <-- 1. 添加 polish prop
+  isMultiTextureBase = false, // <-- 2. 添加新 prop 以激活新逻辑
   onLoad,
   onDimensionsChange,
-
-  /** 填充模式是否激活 (来自您的代码) */
   isFillModeActive,
-  /** 点击填充时的回调 (来自您的代码) */
   onFillClick,
-  /** 是否可拖拽 (来自同事的代码) */
   isDraggable = false
 }, ref) => {
   const meshRef = useRef();
-  const sceneObjectRef = useRef(null); // 用于跟踪添加到场景的对象
-  const { gl, scene } = useThree();
+  const sceneObjectRef = useRef(null);
+  const { scene } = useThree();
   const [model, setModel] = useState(null);
   const [error, setError] = useState(false);
   const [originalDimensions, setOriginalDimensions] = useState(null);
   const [hasReportedDimensions, setHasReportedDimensions] = useState(false);
+
+  // --- 3. 为9-mesh底座添加的状态 ---
+  const [multiTextureParts, setMultiTextureParts] = useState({
+    surfaceA: null,
+    surfaceB_meshes: [],
+    surfaceC_meshes: []
+  });
+  const [baseTextures, setBaseTextures] = useState({
+    polished: null,
+    sandblasted: null,
+    natural: null
+  });
+  // 使用 ref 避免在每次渲染时都创建新的 Loader
+  const textureLoaderRef = useRef(new THREE.TextureLoader());
 
   useImperativeHandle(ref, () => ({
     getMesh: () => meshRef.current,
@@ -120,19 +132,76 @@ const Model = forwardRef(({
     return colorMap[color] || 0x333333;
   }, []);
 
+
+
+
+  // --- 4. 新增：加载底座所需的三种贴图 ---
+  useEffect(() => {
+    if (!isMultiTextureBase) return;
+
+    // 根据 'color' prop 映射到你的贴图文件夹名称
+    // 你提到了 'Blue', 'Red', 'Grey', 'Rustic'
+    // 我假设 'Black' 颜色对应 'Rustic' 文件夹
+    const colorFolderMap = {
+      'Black': 'Black',
+      'Grey': 'Rustic',
+      'Red': 'Red',
+      'Blue': 'Blue',
+      // ... 为 'Green' 和 'White' 添加映射 (如果它们也有文件夹)
+      'Green': 'Rustic', // 假设回退
+      'White': 'Grey'  // 假设回退
+    };
+    const colorFolder = colorFolderMap[color] || 'Rustic'; // 默认回退到 Rustic
+
+    const loadTexture = (name) => {
+      const tex = textureLoaderRef.current.load(
+        `/textures/Bases/${colorFolder}/${name}.jpg`,
+        (t) => {
+          t.flipY = false;
+          // t.encoding = THREE.sRGBEncoding; // 在较新r3f版本中，让r3f自动处理
+          t.wrapS = THREE.RepeatWrapping; // 关键：允许重复
+          t.wrapT = THREE.RepeatWrapping; // 关键：允许重复
+        }
+      );
+      return tex;
+    };
+
+    // 加载你提到的三种贴图文件
+    setBaseTextures({
+      polished: loadTexture('磨光'),
+      sandblasted: loadTexture('扫砂'),
+      natural: loadTexture('自然')
+    });
+
+    // 清理函数：当 color 改变时，释放旧的贴图
+    return () => {
+      setBaseTextures(prev => {
+        Object.values(prev).forEach(t => t?.dispose());
+        return { polished: null, sandblasted: null, natural: null };
+      });
+    };
+  }, [isMultiTextureBase, color]); // 当 color 改变时重新加载
+
+
+
+
+
+
+
+
+
+
+  // --- 5. 修改：模型加载与部件分离 ---
   useEffect(() => {
     let isMounted = true;
     let currentSceneObject = null;
-
-    // 重置hasReportedDimensions当模型路径变化时
     setHasReportedDimensions(false);
 
     const loadModel = async () => {
       try {
-        // 清理之前的模型
+        // ... (清理旧模型 ... 保持不变)
         if (sceneObjectRef.current && scene) {
           scene.remove(sceneObjectRef.current);
-          // 清理几何体和材质
           sceneObjectRef.current.traverse((child) => {
             if (child.isMesh) {
               if (child.geometry) child.geometry.dispose();
@@ -163,7 +232,6 @@ const Model = forwardRef(({
         sceneObjectRef.current = clonedScene;
         currentSceneObject = clonedScene;
 
-        // 更新meshRef指向场景对象
         if (meshRef.current !== clonedScene) {
           meshRef.current = clonedScene;
         }
@@ -171,13 +239,7 @@ const Model = forwardRef(({
         const box = new THREE.Box3().setFromObject(clonedScene);
         const size = new THREE.Vector3();
         box.getSize(size);
-
-        const originalDims = {
-          length: size.x,
-          width: size.y,
-          height: size.z
-        };
-
+        const originalDims = { length: size.x, width: size.y, height: size.z };
         if (!isMounted) return;
         setOriginalDimensions(originalDims);
 
@@ -187,28 +249,54 @@ const Model = forwardRef(({
           setHasReportedDimensions(true);
         }
 
-        const textureLoader = new THREE.TextureLoader();
-        clonedScene.traverse((child) => {
-          if (child.isMesh) {
-            textureLoader.load(texturePath, (texture) => {
-              if (!isMounted) return;
-              texture.colorSpace = THREE.SRGBColorSpace;
-              console.log(`Texture loaded: ${texturePath}`);
-              child.material = new THREE.MeshStandardMaterial({
-                map: texture,
-                roughness: 0.7,
-                metalness: 0.1
+        // --- 关键修改：应用贴图的逻辑 ---
+        if (isMultiTextureBase) {
+          // **新逻辑：分离部件**
+          const parts = { surfaceA: null, surfaceB_meshes: [], surfaceC_meshes: [] };
+          clonedScene.traverse((child) => {
+            if (child.isMesh) {
+              // 必须克隆材质，否则所有部件都会共享同一个材质实例
+              child.material = child.material.clone();
+              child.material.roughness = 0.1;
+              child.material.metalness = 0.0;
+              child.material.needsUpdate = true;
+
+              const name = child.name;
+              if (name === 'surfaceA') {
+                parts.surfaceA = child;
+              } else if (name.startsWith('surfaceB_')) {
+                parts.surfaceB_meshes.push(child);
+              } else if (name.startsWith('surfaceC_')) {
+                parts.surfaceC_meshes.push(child);
+              }
+            }
+          });
+          if (isMounted) setMultiTextureParts(parts);
+        } else {
+          // **旧逻辑：应用单个贴图** (用于碑、花瓶等)
+          const textureLoader = new THREE.TextureLoader();
+          clonedScene.traverse((child) => {
+            if (child.isMesh) {
+              textureLoader.load(texturePath, (texture) => {
+                if (!isMounted) return;
+                texture.colorSpace = THREE.SRGBColorSpace;
+                child.material = new THREE.MeshStandardMaterial({
+                  map: texture,
+                  roughness: 0.7,
+                  metalness: 0.1
+                });
+              }, undefined, () => {
+                if (!isMounted) return;
+                child.material = new THREE.MeshStandardMaterial({
+                  color: getColorValue(color),
+                  roughness: 0.7,
+                  metalness: 0.1
+                });
               });
-            }, undefined, () => {
-              if (!isMounted) return;
-              child.material = new THREE.MeshStandardMaterial({
-                color: getColorValue(color),
-                roughness: 0.7,
-                metalness: 0.1
-              });
-            });
-          }
-        });
+            }
+          });
+        }
+        // --- 结束修改 ---
 
         if (!isMounted) return;
         setModel(clonedScene);
@@ -250,7 +338,50 @@ const Model = forwardRef(({
     };
   }, [modelPath, color, texturePath, scene, getColorValue]); // 移除position和onDimensionsChange等，避免不必要的重新加载
 
+
+
+  // --- 6. 新增：应用动态贴图 ---
+  useEffect(() => {
+    // 仅当是底座、加工方式已定义、贴图已加载、部件已分离时运行
+    if (!isMultiTextureBase || !polish || !baseTextures.polished || !multiTextureParts.surfaceA) {
+      return;
+    }
+
+    const { surfaceA, surfaceB_meshes, surfaceC_meshes } = multiTextureParts;
+    const { polished, sandblasted, natural } = baseTextures;
+
+    // 映射逻辑：'PT' 用 扫砂，其他 ('P5', 'PM2' 等) 用 磨光
+    // 顶面 (A) 总是 磨光 (pg)
+    const texA = polished;
+    // 上侧面 (B) 根据加工方式变化
+    const texB_group = (polish === 'PT') ? natural : polished;
+    // 下侧面 (C) 总是 自然 (zr)
+    const texC_group = (polish === 'P5') ? polished : natural;
+
+    // 应用贴图 (必须克隆，防止共享)
+    if (surfaceA) {
+      surfaceA.material.map = texA.clone();
+      surfaceA.material.map.needsUpdate = true;
+      surfaceA.material.needsUpdate = true;
+    }
+    surfaceB_meshes.forEach(mesh => {
+      mesh.material.map = texB_group.clone();
+      mesh.material.map.needsUpdate = true;
+      mesh.material.needsUpdate = true;
+    });
+    surfaceC_meshes.forEach(mesh => {
+      mesh.material.map = texC_group.clone();
+      mesh.material.map.needsUpdate = true;
+      mesh.material.needsUpdate = true;
+    });
+
+  }, [isMultiTextureBase, polish, baseTextures, multiTextureParts]); // 依赖加工方式、贴图和部件
+
+
+
+  // --- 7. 修改：应用缩放 (Dimensions) ---
   useLayoutEffect(() => {
+    // ... (此函数保持不变)
     const currentModel = sceneObjectRef.current || model;
     if (currentModel && position) {
       currentModel.position.set(position[0], position[1], position[2]);
@@ -269,6 +400,63 @@ const Model = forwardRef(({
       meshRef.current.scale.set(scaleX, scaleY, scaleZ);
     }
   }, [dimensions, originalDimensions]);
+
+
+
+
+  // --- 8. 新增：防拉伸 (Anti-Stretch) 逻辑 ---
+  useFrame(() => {
+    // 仅为底座执行此逻辑
+    if (!isMultiTextureBase || !meshRef.current || !multiTextureParts.surfaceA) {
+      return;
+    }
+
+    const { surfaceA, surfaceB_meshes, surfaceC_meshes } = multiTextureParts;
+    const scale = meshRef.current.scale;
+    const sx = scale.x; // 对应 4.html 的 sx
+    const sy = scale.y; // 对应 4.html 的 sy (高度)
+    const sz = scale.z; // 对应 4.html 的 sz
+
+    // 辅助函数，来自 4.html
+    const applyScale = (mesh) => {
+      if (!mesh || !mesh.material.map) return;
+      const map = mesh.material.map;
+      const name = mesh.name;
+
+      // (Three.js Y-up 坐标系)
+      // 名字包含 'front' 或 'back' 的面 (X-Y 平面) -> 贴图重复 sx, sy
+      if (name.includes('_front') || name.includes('_back')) {
+        map.repeat.set(sx, sy);
+        map.offset.set((1 - sx) / 2, (1 - sy) / 2);
+      }
+      // 名字包含 'left' 或 'right' 的面 (Y-Z 平面) -> 贴图重复 sz, sy
+      else if (name.includes('_left') || name.includes('_right')) {
+        map.repeat.set(sz, sy);
+        map.offset.set((1 - sz) / 2, (1 - sy) / 2);
+      }
+      // map.needsUpdate = true; // 在 r3f 中，修改 .repeat 和 .offset 会自动标记更新
+    };
+
+    // --- A (顶面) ---
+    if (surfaceA && surfaceA.material.map) {
+      const mapA = surfaceA.material.map;
+      // 顶面 (X-Z 平面) -> 贴图重复 sx, sz
+      mapA.repeat.set(sx, sz);
+      mapA.offset.set((1 - sx) / 2, (1 - sz) / 2);
+      // mapA.needsUpdate = true;
+    }
+
+    // --- B (上侧面) 组 ---
+    surfaceB_meshes.forEach(applyScale);
+
+    // --- C (下侧面) 组 ---
+    surfaceC_meshes.forEach(applyScale);
+  });
+
+
+
+
+
 
   if (error) {
     return (
@@ -899,16 +1087,16 @@ const EnhancedTextElement = ({
 
   const renderCurvedText = () => {
     if (!text.content) return null;
-    
+
     const characters = text.content.split('');
     const fontSize = text.size * 0.01;
     const kerningUnit = (text.kerning || 0) * 0.001;
-    
+
     // 获取弯曲方向和强度
     const curveAmount = text.curveAmount || 0;
     const curveDirection = curveAmount >= 0 ? 1 : -1; // 正数向上，负数向下
     const curveIntensity = Math.min(Math.abs(curveAmount) / 100, 0.8);
-  
+
     // 计算字符的实际宽度（更精确的测量）
     const calculateCharacterWidth = (char) => {
       const widthMap = {
@@ -919,7 +1107,7 @@ const EnhancedTextElement = ({
       };
       return widthMap[char] || 0.7;
     };
-  
+
     // 计算字符的底部偏移（确保所有字母底部对齐）
     const calculateCharacterBottomOffset = (char) => {
       // 对于有小写下伸部分的字符（g, j, p, q, y），需要额外调整
@@ -928,7 +1116,7 @@ const EnhancedTextElement = ({
       };
       return descenderMap[char] || 0;
     };
-  
+
     // 计算总弧长
     let totalArcLength = 0;
     const charWidths = characters.map(char => {
@@ -936,23 +1124,23 @@ const EnhancedTextElement = ({
       totalArcLength += width;
       return width;
     });
-    
+
     totalArcLength += Math.max(0, characters.length - 1) * fontSize * kerningUnit;
-  
+
     // 计算弯曲参数
     const minArcAngle = Math.PI * 0.2;
     const maxArcAngle = Math.PI * 1.2;
-    const arcAngle = curveIntensity > 0 ? 
+    const arcAngle = curveIntensity > 0 ?
       (minArcAngle + (maxArcAngle - minArcAngle) * curveIntensity) : 0;
-    
-    const radius = arcAngle > 1e-6 ? 
-      Math.max(totalArcLength / arcAngle, totalArcLength * 0.5) : 
+
+    const radius = arcAngle > 1e-6 ?
+      Math.max(totalArcLength / arcAngle, totalArcLength * 0.5) :
       1e6;
-  
+
     // 渲染每个字符
     let currentAngle = -arcAngle / 2;
     const baseOffsetY = -fontSize * 0.5; // 基础偏移，让所有字母底部对齐
-  
+
     return characters.map((char, index) => {
       if (char === ' ') {
         const charWidth = charWidths[index];
@@ -960,32 +1148,32 @@ const EnhancedTextElement = ({
         currentAngle += charAngleIncrement;
         return null;
       }
-  
+
       // 计算字符在弧上的位置
       const charRadius = radius;
       const baseX = Math.sin(currentAngle) * charRadius;
       const baseY = (Math.cos(currentAngle) - 1) * charRadius * curveDirection;
-      
+
       // 关键修改：所有字母使用相同的Y位置计算，确保底部对齐
       const x = baseX;
       const y = baseY + baseOffsetY; // 统一应用基础偏移
-      
+
       // 计算字符旋转（使其始终朝向圆心）
       const rotationZ = -currentAngle * curveDirection;
-  
+
       // 计算下伸字符的额外偏移
       const descenderOffset = calculateCharacterBottomOffset(char) * fontSize;
       const finalY = y - descenderOffset; // 下伸字符需要额外向下偏移
-  
+
       // 推进到下一个字符的角度位置
       const charWidth = charWidths[index];
       const charAngleIncrement = (charWidth + fontSize * kerningUnit) / radius;
       currentAngle += charAngleIncrement;
-  
+
       return (
-        <group 
-          key={index} 
-          position={[x, finalY, 0]} 
+        <group
+          key={index}
+          position={[x, finalY, 0]}
           rotation={[0, 0, rotationZ]}
         >
           <Text3D
@@ -1279,7 +1467,7 @@ const MonumentScene = forwardRef(({
         const height = getModelHeight(base.id);
         const length = getModelLength(base.id);
         // 所有bases使用相同的X位置（居中），但在Y方向堆叠
-        positions[base.id] = [currentX_base, baseYPosition, 0];
+        positions[base.id] = [0, baseYPosition, -0.183];
 
         // 下一个base放在当前base的顶部
         if (height > 0) {
@@ -1304,7 +1492,7 @@ const MonumentScene = forwardRef(({
       designState.monuments.forEach((monument, index) => {
         const height = getModelHeight(monument.id);
         const length = getModelLength(monument.id);
-        positions[monument.id] = [currentX_Tablet, currentY_Tablet, 0];
+        positions[monument.id] = [0, currentY_Tablet, -0.103];
         currentX_Tablet += length + 0.2;
         if (index === 0) currentY_Top += height;
       });
@@ -1336,32 +1524,44 @@ const MonumentScene = forwardRef(({
         maxPolarAngle={Math.PI / 2}
       />
 
-      {/* 您的 SubBases 渲染 (保持不变) */}
+      {/* --- 9. 关键修改：渲染 SubBases --- */}
       {designState.subBases.map(subBase => (
         <Model
           key={subBase.id}
           ref={el => modelRefs.current[subBase.id] = el}
-          modelPath={subBase.modelPath}
-          texturePath={subBase.texturePath}
+
+          // --- 开始修改 ---
+          modelPath="/models/Bases/Base.glb"      // 1. 使用你指定的统一模型
+          isMultiTextureBase={true}                // 2. 激活9-mesh逻辑
+          polish={subBase.polish}                  // 3. 传递 polish 决定B面贴图
+          // texturePath={subBase.texturePath}    // 4. (不再需要)
+          // --- 结束修改 ---
+
           position={positions[subBase.id] || [0, 0, 0]}
           dimensions={subBase.dimensions}
-          color={subBase.color}
+          color={subBase.color} // color 决定使用哪个贴图文件夹 (Blue, Red, Rustic...)
           onDimensionsChange={(dims) => handleModelLoad(subBase.id, 'subBase', dims)}
           isFillModeActive={isFillModeActive}
           onFillClick={() => onModelFillClick(subBase.id, 'subBase')}
         />
       ))}
 
-      {/* 您的 Bases 渲染 (保持不变) */}
+      {/* --- 10. 关键修改：渲染 Bases --- */}
       {designState.bases.map(base => (
         <Model
           key={base.id}
           ref={el => modelRefs.current[base.id] = el}
-          modelPath={base.modelPath}
-          texturePath={base.texturePath}
+
+          // --- 开始修改 ---
+          modelPath="/models/Bases/Base.glb"      // 1. 使用你指定的统一模型
+          isMultiTextureBase={true}                // 2. 激活9-mesh逻辑
+          polish={base.polish}                     // 3. 传递 polish 决定B面贴图
+          // texturePath={base.texturePath}       // 4. (不再需要)
+          // --- 结束修改 ---
+
           position={positions[base.id] || [0, 0, 0]}
           dimensions={base.dimensions}
-          color={base.color}
+          color={base.color} // color 决定使用哪个贴图文件夹
           onDimensionsChange={(dims) => handleModelLoad(base.id, 'base', dims)}
           isFillModeActive={isFillModeActive}
           onFillClick={() => onModelFillClick(base.id, 'base')}
