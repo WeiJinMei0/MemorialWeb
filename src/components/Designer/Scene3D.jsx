@@ -1556,7 +1556,7 @@ const MonumentScene = forwardRef(({
       designState.monuments.forEach((monument, index) => {
         const height = getModelHeight(monument.id);
         const length = getModelLength(monument.id);
-        positions[monument.id] = [0, currentY_Tablet, -0.103];
+        positions[monument.id] = [0, currentY_Tablet - 0.01, -0.103];
         currentX_Tablet += length + 0.2;
         if (index === 0) currentY_Top += height;
       });

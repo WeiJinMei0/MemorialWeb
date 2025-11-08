@@ -224,12 +224,13 @@ export const useDesignState = () => {
   }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
   const addProduct = useCallback((productData) => {
-    const { family, class: productClass, polish = 'P5' } = productData;
-    const color = designState.currentMaterial;
-    const familyConfig = PRODUCT_FAMILIES[family];
+    const { family, class: productClass, polish = 'P5' } = productData; //
+    const color = designState.currentMaterial; //
+    const familyConfig = PRODUCT_FAMILIES[family]; //
 
-    if (!familyConfig) return;
+    if (!familyConfig) return; //
 
+    // 1. 创建新的碑体
     const monument = {
       id: `monument-${Date.now()}`,
       type: 'monument',
@@ -237,39 +238,44 @@ export const useDesignState = () => {
       class: productClass,
       polish,
       color,
-      // 【V_MODIFICATION】: 直接使用 ModelLibrary 提供的 modelPath
-      modelPath: productData.modelPath,
-      texturePath: "", // 不再需要，由 Scene3D.jsx 处理
-      position: [designState.monuments.length * 2, 0, 0],
+      modelPath: productData.modelPath, // (来自 ModelLibrary.jsx)
+      texturePath: "", //
+      position: [0, 0, 0], // 重置位置
       dimensions: { length: 0, width: 0, height: 0 },
       weight: 0
     };
 
     updateDesignState(prev => {
-      const newState = { ...prev, monuments: [...prev.monuments, monument] };
+      // 2. 从现有 state 开始 (保留 vases, art, text, subBases 等)
+      const newState = { ...prev };
 
-      if (familyConfig.needsBase) {
+      // 3. 【V_MODIFICATION】: 替换碑体数组
+      newState.monuments = [monument];
+
+      // 4. 【V_MODIFICATION】: 替换底座数组
+      if (familyConfig.needsBase) { //
         const base = {
           id: `base-${Date.now()}`,
           type: 'base',
           polish: 'P5',
           color,
-          // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
-          modelPath: "/models/Bases/Base.glb",
-          texturePath: "", // 不再需要，由 Scene3D.jsx 处理
-          position: [prev.bases.length * 2, 0, 0],
+          modelPath: "/models/Bases/Base.glb", //
+          texturePath: "", //
+          position: [0, 0, 0], // 重置位置
           dimensions: { length: 0, width: 0, height: 0 },
           weight: 0
         };
-        newState.bases = [...prev.bases, base];
+        // 替换，而不是附加
+        newState.bases = [base];
       } else {
-        newState.bases = [];
-        newState.subBases = [];
+        // 如果新产品不需要底座，则清空底座和地基 (遵循原始逻辑)
+        newState.bases = []; //
+        newState.subBases = []; //
       }
 
       return newState;
     });
-  }, [designState, updateDesignState]); // 移除了 buildModelPath, buildTexturePath
+  }, [designState, updateDesignState]); //
 
   // --- 合并点：从同事的 DesignerPage.jsx 中添加 addTablet ---
   const addTablet = useCallback(() => {

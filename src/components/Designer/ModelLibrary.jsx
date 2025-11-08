@@ -94,15 +94,28 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
             };
 
             const classes = familyClasses[selectedFamily] || [];
-            data = classes.map(cls => ({
-              id: cls.toLowerCase().replace(/\s+/g, '-'),
-              name: cls,
-              type: 'class', // 最终的可选择项
-              thumbnail: `./images/Shapes/${selectedFamily}/${cls.replace(/\s+/g, '%20')}.png`,
-              description: `${cls} Style`,
-              family: selectedFamily,
-              polish: productFamilies[selectedFamily]?.defaultPolish || 'P5'
-            }));
+
+            // --- 【V_MODIFICATION】: 关键修复 - 添加 modelPath ---
+            data = classes.map(cls => {
+              // 1. 构建模型路径（URL 格式）
+              const modelPath = `/models/Shapes/${selectedFamily}/${cls.replace(/\s+/g, '%20')}.glb`;
+              // 2. 构建缩略图路径
+              const thumbnailPath = `./images/Shapes/${selectedFamily}/${cls.replace(/\s+/g, '%20')}.png`;
+
+              return {
+                id: cls.toLowerCase().replace(/\s+/g, '-'),
+                name: cls,
+                type: 'class', // 最终的可选择项
+                thumbnail: thumbnailPath, // 使用正确的缩略图路径
+                description: `${cls} Style`,
+                family: selectedFamily,
+                polish: productFamilies[selectedFamily]?.defaultPolish || 'P5',
+                // 3. 将 modelPath 添加到返回的对象中
+                modelPath: modelPath
+              };
+            });
+            // --- 修复结束 ---
+
           } else if (type === 'vases') {
             // 模拟花瓶具体款式 (Vases: Family -> Vase)
             const vaseItems = {
@@ -111,21 +124,31 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
             };
 
             const vaseNames = vaseItems[selectedFamily] || [];
-            data = vaseNames.map(name => ({
-              id: name.toLowerCase().replace(/\s+/g, '-'),
-              name: name,
-              type: 'vase', // 最终的可选择项
-              thumbnail: `./images/Vases/${selectedFamily}/${name.replace(/\s+/g, '%20')}.png`,
-              description: name,
-              class: selectedFamily
-            }));
+
+            // --- 【V_MODIFICATION】: 关键修复 - 添加 modelPath ---
+            data = vaseNames.map(name => {
+              // 1. 构建模型路径
+              const modelPath = `/models/Vases/${selectedFamily}/${name.replace(/\s+/g, '%20')}.glb`;
+
+              return {
+                id: name.toLowerCase().replace(/\s+/g, '-'),
+                name: name,
+                type: 'vase', // 最终的可选择项
+                thumbnail: `./images/Vases/${selectedFamily}/${name.replace(/\s+/g, '%20')}.png`,
+                description: name,
+                class: selectedFamily,
+                // 2. 将 modelPath 添加到返回的对象中
+                modelPath: modelPath
+              };
+            });
+            // --- 修复结束 ---
+
           } else if (type === 'art') {
             // 艺术图案：Family -> Subclass (中间页)
             const subclasses = ART_SUBCLASSES[selectedFamily] || [];
             data = subclasses.map(subclass => ({
               id: subclass.toLowerCase().replace(/\s+/g, '-'),
               name: subclass,
-              // 关键修改：类型改为 'subclass'
               type: 'subclass',
               thumbnail: `./images/Art/${selectedFamily}/${subclass}/default.png`,
               description: `${subclass} Designs`
@@ -183,6 +206,7 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
       setSearchTerm('');
     } else {
       // 最终选择：type 为 'class', 'vase', 或 'art'
+      // 此时 item 对象会包含 modelPath 属性
       onSelect(item);
     }
   };
