@@ -958,13 +958,23 @@ const DesignerPage = () => {
                   const savedItem = savedArtOptions.find(art => art.slotIndex === i);
                   const isDropTarget = dragOverSlot === i;
 
-                  // ... (艺术图案的 thumbStyle 逻辑保持不变) ...
+                  // --- 【已修改】：艺术图案的 thumbStyle 逻辑，增加了旋转 ---
                   let thumbStyle = {};
-                  if (savedItem && savedItem.type !== 'text' && savedItem.scale) {
-                    const scaleX = Math.sign(savedItem.scale[0] || 1);
-                    const scaleY = Math.sign(savedItem.scale[1] || 1);
+                  if (savedItem && savedItem.type !== 'text') {
+                    // 1. 获取缩放 (翻转)
+                    const scaleX = savedItem.scale ? Math.sign(savedItem.scale[0] || 1) : 1;
+                    const scaleY = savedItem.scale ? Math.sign(savedItem.scale[1] || 1) : 1;
+
+                    // 2. 获取旋转 (Z轴)
+                    //    art.rotation 是一个 [x, y, z] 格式的弧度数组
+                    const rotationInRadians = (savedItem.rotation && savedItem.rotation[2]) ? savedItem.rotation[2] : 0;
+                    //    CSS transform 需要角度 (degrees)
+                    const rotationInDegrees = rotationInRadians * (180 / Math.PI);
+
+                    // 3. 组合变换
+                    //    注意: 顺序很重要，先缩放(翻转)，再旋转
                     thumbStyle = {
-                      transform: `scale(${scaleX || 1}, ${scaleY || 1})`,
+                      transform: `scale(${scaleX}, ${scaleY}) rotate(${rotationInDegrees}deg)`,
                     };
                   }
 
