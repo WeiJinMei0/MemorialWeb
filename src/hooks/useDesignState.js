@@ -145,6 +145,14 @@ const FONT_OPTIONS = [
   { name: 'zktskt Regular', path: '/fonts/zktskt_Regular.json' },
 ];
 
+// --- 在这里添加缺失的 getFontPath 函数 ---
+const getFontPath = (nameOrPath) => {
+  if (!nameOrPath) return '/fonts/helvetiker_regular.typeface.json';
+  if (nameOrPath.startsWith('/fonts/') || nameOrPath.endsWith('.json')) return nameOrPath;
+  const font = FONT_OPTIONS.find(f => f.name === nameOrPath);
+  return font ? font.path : '/fonts/helvetiker_regular.typeface.json';
+};
+// --- 添加结束 ---
 
 export const useDesignState = () => {
   const [designState, setDesignState] = useState(initialDesignState)
@@ -654,36 +662,39 @@ export const useDesignState = () => {
     }
   }, []);
 
-  // --- 合并点：添加所有文本函数 (来自同事的 useDesignState.js) ---
-  const getFontPath = (nameOrPath) => {
-    if (!nameOrPath) return '/fonts/helvetiker_regular.typeface.json';
-    if (nameOrPath.startsWith('/fonts/') || nameOrPath.endsWith('.json')) return nameOrPath;
-    const font = FONT_OPTIONS.find(f => f.name === nameOrPath);
-    return font ? font.path : '/fonts/helvetiker_regular.typeface.json';
-  };
-
+  // 【已修改】：更新 addText 函数以正确还原已保存的属性
   const addText = useCallback((textData) => {
+
+    // 1. 首先，从 textData (即
+    //    我们保存的对象) 复制所有属性。
+    //    这包括 content, font, size, engraveType, vcutColor,
+    //    frostIntensity, polishBlend, curveAmount, thickness,
+    //    alignment, kerning, lineSpacing 等。
     const newText = {
-      id: `text-${Date.now()}`,
-      monumentId: textData.monumentId,
-      content: textData.content,
-      font: textData.font || 'Arial',
-      size: textData.size || 16,
-      color: textData.color || '#000000',
-      alignment: textData.alignment || 'center',
-      kerning: textData.kerning || 0,
-      lineSpacing: textData.lineSpacing || 1.2,
-      engraveType: textData.engraveType || 'vcut',
-      thickness: textData.thickness || 0.02,
-      curveAmount: textData.curveAmount || 0,
-      vcutColor: textData.vcutColor || '#000000',
-      frostIntensity: textData.frostIntensity || 0.8,
-      polishBlend: textData.polishBlend || 0.5,
-      isSelected: true,
+      ...textData,
+
+      // 2. 然后，覆盖那些 *必须* 被重置的属性
+      id: `text-${Date.now()}`,              // 始终生成一个全新的 ID
+      monumentId: textData.monumentId,      // 这个 ID 由 DesignerPage.jsx 传入（确保是当前碑体）
+      position: [0, 0, 0],              // 始终将位置重置为默认值
+      rotation: [0, 0, 0],              // 始终将旋转重置为默认值
+      isSelected: true,                 // 始终选中新添加的文字
       isDragging: false,
-      position: [0, 0, 0], // 添加默认 position
-      rotation: [0, 0, 0]  // 添加默认 rotation
+
+      // 3. 移除来自 localStorage 的、不应存在于 designState 中的属性
+      userId: undefined,
+      slotIndex: undefined,
+      timestamp: undefined,
+      type: 'text' // 确保 type 正确
     };
+
+    // 4. (可选) 清理掉值为 undefined 的键
+    Object.keys(newText).forEach(key => {
+      if (newText[key] === undefined) {
+        delete newText[key];
+      }
+    });
+
     updateDesignState(prev => ({
       ...prev,
       textElements: [...prev.textElements, newText]

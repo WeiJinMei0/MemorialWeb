@@ -9,14 +9,16 @@ import {
   ColorPicker,
   Row,
   Col,
-  Card
+  Card,
+  message // 导入 message
 } from 'antd';
 import {
   PlusOutlined,
   CheckOutlined,
   AlignLeftOutlined,
   AlignCenterOutlined,
-  AlignRightOutlined
+  AlignRightOutlined,
+  SaveOutlined // 导入保存图标
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import './TextEditor.css'
@@ -29,7 +31,8 @@ const TextEditor = ({
                       existingTexts,
                       monuments,
                       isEditing,
-                      fontOptions
+                      fontOptions,
+                      onSaveTextToOptions // 1. 接收新的 prop
                     }) => {
   const { t } = useTranslation();
   const [textProperties, setTextProperties] = useState({
@@ -164,6 +167,19 @@ const TextEditor = ({
         {label}
       </Button>
     );
+  };
+
+  const handleSaveCurrentText = () => {
+    if (currentTextId && onSaveTextToOptions) {
+      const currentText = existingTexts.find(text => text.id === currentTextId);
+      if (currentText) {
+        onSaveTextToOptions(currentText);
+      } else {
+        message.error("未找到要保存的文字");
+      }
+    } else {
+      message.warning("请先选中一个文字对象");
+    }
   };
 
   return (
@@ -326,29 +342,40 @@ const TextEditor = ({
           </div>
         )}
 
-     {/* 操作按钮 */}
-<Row gutter={8} style={{ width: '100%' }}>
-  <Col span={12}>
-    <Button
-      type="primary"
-      onClick={handleAddText}
-      disabled={!textProperties.content.trim()}
-      style={{ width: '100%' }}
-    >
-      AddText
-    </Button>
-  </Col>
-  <Col span={12}>
-    <Button
-      danger
-      onClick={handleDeleteText}
-      disabled={!currentTextId}
-      style={{ width: '100%' }}
-    >
-      DeleteText
-    </Button>
-  </Col>
-</Row>
+        {/* 操作按钮 */}
+        <Row gutter={8} style={{ width: '100%' }}>
+          <Col span={12}>
+            <Button
+              type="primary"
+              onClick={handleAddText}
+              disabled={!textProperties.content.trim()}
+              style={{ width: '100%' }}
+            >
+              AddText
+            </Button>
+          </Col>
+          <Col span={12}>
+            <Button
+              danger
+              onClick={handleDeleteText}
+              disabled={!currentTextId}
+              style={{ width: '100%' }}
+            >
+              DeleteText
+            </Button>
+          </Col>
+        </Row>
+
+        {/* 3. 添加新的保存按钮 */}
+        <Button
+          onClick={handleSaveCurrentText}
+          disabled={!currentTextId || !onSaveTextToOptions}
+          icon={<SaveOutlined />}
+          style={{ width: '100%', marginTop: '8px' }}
+        >
+          保存到素材库
+        </Button>
+
       </Card>
     </div>
   );
