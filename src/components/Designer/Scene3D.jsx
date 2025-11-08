@@ -919,10 +919,11 @@ const EnhancedTextElement = ({
 
   // 计算文字应贴附的表面 Z（局部坐标，正面与图片同面）
   const computeSurfaceZ = useCallback((sizeZ, engraveType) => {
-    // 目标平面：局部 z = -sizeZ，再根据雕刻方式作正向偏移
-    if (engraveType === 'vcut' || engraveType === 'frost') return -sizeZ + 0.021;
-    if (engraveType === 'polish') return -sizeZ + 0.01;
-    return -sizeZ + 0.002; // 默认轻微偏移
+    // 目标平面：局部 z = -sizeZ / 2 (模型正面)，再根据雕刻方式作正向偏移
+    const surfaceZ = -sizeZ / 2; // 假设模型原点在中心
+    if (engraveType === 'vcut' || engraveType === 'frost') return surfaceZ + 0.021;
+    if (engraveType === 'polish') return surfaceZ + 0.01;
+    return surfaceZ + 0.002; // 默认轻微偏移
   }, []);
 
 
