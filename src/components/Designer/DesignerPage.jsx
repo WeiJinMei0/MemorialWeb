@@ -97,6 +97,33 @@ const DesignerPage = () => {
   } = useDesignState();
 
 
+  // 【新增】: 移除素材库项目的辅助函数
+  const removeItemFromArtOptions = useCallback((itemToRemove) => {
+    if (!itemToRemove) return;
+
+    setSavedArtOptions(prevOptions => {
+      // 1. 从 state 中过滤掉被移除的项目
+      const newOptions = prevOptions.filter(item => item.id !== itemToRemove.id);
+
+      // 2. 更新 localStorage
+      try {
+        const allSavedItems = JSON.parse(localStorage.getItem('savedItems') || '[]');
+        // 过滤掉其他用户的项目
+        const otherUsersItems = allSavedItems.filter(item => item.userId !== user?.id);
+        // 保存更新后的当前用户项目列表
+        const updatedAllItems = [...otherUsersItems, ...newOptions];
+        localStorage.setItem('savedItems', JSON.stringify(updatedAllItems));
+      } catch (error) {
+        console.error("Failed to update savedItems in localStorage after removal:", error);
+        message.error("更新素材库存储失败。");
+      }
+
+      // 3. 返回新的 state
+      return newOptions;
+    });
+  }, [user, message]); // 依赖 user 和 message
+
+
   // 加载最近保存的设计和Art Options
   useEffect(() => {
     try {
@@ -395,7 +422,6 @@ const DesignerPage = () => {
   }, []);
 
   // 处理拖拽到场景的逻辑
-  // 【已修改】：更新 handleSceneDrop
   const handleSceneDrop = useCallback((e) => {
     e.preventDefault();
     try {
@@ -404,19 +430,17 @@ const DesignerPage = () => {
       if (dragData.type === 'saved-item' && dragData.data) {
         const itemData = dragData.data;
 
-        // 1. 获取当前碑体的 ID
+        // ... (获取 targetMonumentId 的逻辑保持不变)
         const targetMonumentId = designState.monuments.length > 0 ? designState.monuments[0].id : null;
         if (itemData.type === 'text' && !targetMonumentId) {
           message.error('请先添加一个主碑才能添加文字');
           return;
         }
 
-        // 2. 构建要添加的对象
+        // ... (构建 itemToAdd 的逻辑保持不变)
         const itemToAdd = {
-          ...itemData, // 包含所有已保存的属性 (font, size, etc.)
-          // 确保将 monumentId 设置为 *当前* 碑体
+          ...itemData,
           monumentId: itemData.type === 'text' ? targetMonumentId : null,
-          // id, position, rotation 将在 addText/addArt 中被重置
         };
 
         if (itemData.type === 'text') {
@@ -426,12 +450,17 @@ const DesignerPage = () => {
           addArt(itemToAdd);
           message.success(`已添加保存的图案: ${itemData.name || itemData.subclass}`);
         }
+
+        // --- 【在这里添加修改】 ---
+        // 复用后，从素材库中移除该项目
+        removeItemFromArtOptions(itemData);
+        // --- 【修改结束】 ---
       }
     } catch (error) {
       console.error('拖拽添加失败:', error);
     }
-    // 3. 添加 addText，designState.monuments 作为依赖
-  }, [addArt, addText, designState.monuments]);
+    // 3. 将 removeItemFromArtOptions 添加到依赖项数组中
+  }, [addArt, addText, designState.monuments, removeItemFromArtOptions]);
 
   const handleArtOptionSlotDragOver = useCallback((e, slotIndex) => {
     e.preventDefault();
@@ -490,19 +519,17 @@ const DesignerPage = () => {
   // 【已修改】：更新 handleSavedItemClick
   const handleSavedItemClick = useCallback((savedItem) => {
 
-    // 1. 获取当前碑体的 ID
+    // ... (获取 targetMonumentId 的逻辑保持不变)
     const targetMonumentId = designState.monuments.length > 0 ? designState.monuments[0].id : null;
     if (savedItem.type === 'text' && !targetMonumentId) {
       message.error('请先添加一个主碑才能添加文字');
       return;
     }
 
-    // 2. 构建要添加的对象
+    // ... (构建 itemToAdd 的逻辑保持不变)
     const itemToAdd = {
-      ...savedItem, // 包含所有已保存的属性 (font, size, etc.)
-      // 确保将 monumentId 设置为 *当前* 碑体
+      ...savedItem,
       monumentId: savedItem.type === 'text' ? targetMonumentId : null,
-      // id, position, rotation 将在 addText/addArt 中被重置
     };
 
     if (savedItem.type === 'text') {
@@ -512,8 +539,14 @@ const DesignerPage = () => {
       addArt(itemToAdd);
       message.success(`已添加保存的图案: ${savedItem.name || savedItem.subclass}`);
     }
-    // 3. 添加 addText,designState.monuments 作为依赖
-  }, [addArt, addText, designState.monuments]);
+
+    // --- 【在这里添加修改】 ---
+    // 复用后，从素材库中移除该项目
+    removeItemFromArtOptions(savedItem);
+    // --- 【修改结束】 ---
+
+    // 3. 将 removeItemFromArtOptions 添加到依赖项数组中
+  }, [addArt, addText, designState.monuments, removeItemFromArtOptions]);
 
   // 修改 handleSaveArtToOptions (当在 ArtEditorPanel 中点击保存时)
   const handleSaveArtToOptions = useCallback(async (artElement) => {
