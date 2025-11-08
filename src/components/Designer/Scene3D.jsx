@@ -137,10 +137,10 @@ const Model = forwardRef(({
 
   // --- 4. 新增：加载底座所需的三种贴图 ---
   useEffect(() => {
+    // 【修改】: 此逻辑现在由 isMultiTextureBase 触发，碑体和底座都使用
     if (!isMultiTextureBase) return;
 
     // 根据 'color' prop 映射到你的贴图文件夹名称
-    // 你提到了 'Blue', 'Red', 'Grey', 'Rustic'
     // 我假设 'Black' 颜色对应 'Rustic' 文件夹
     const colorFolderMap = {
       'Black': 'Black',
@@ -262,18 +262,19 @@ const Model = forwardRef(({
               child.material.needsUpdate = true;
 
               const name = child.name;
+              // 【V_MODIFICATION】: 修改匹配逻辑以包含 'surfaceB' 和 'surfaceC'
               if (name === 'surfaceA') {
                 parts.surfaceA = child;
-              } else if (name.startsWith('surfaceB_')) {
+              } else if (name.startsWith('surfaceB')) { // 匹配 'surfaceB' (碑) 和 'surfaceB_' (底座)
                 parts.surfaceB_meshes.push(child);
-              } else if (name.startsWith('surfaceC_')) {
+              } else if (name.startsWith('surfaceC')) { // 匹配 'surfaceC' (碑) 和 'surfaceC_' (底座)
                 parts.surfaceC_meshes.push(child);
               }
             }
           });
           if (isMounted) setMultiTextureParts(parts);
         } else {
-          // **旧逻辑：应用单个贴图** (用于碑、花瓶等)
+          // **旧逻辑：应用单个贴图** (用于花瓶等)
           const textureLoader = new THREE.TextureLoader();
           clonedScene.traverse((child) => {
             if (child.isMesh) {
@@ -350,13 +351,51 @@ const Model = forwardRef(({
     const { surfaceA, surfaceB_meshes, surfaceC_meshes } = multiTextureParts;
     const { polished, sandblasted, natural } = baseTextures;
 
-    // 映射逻辑：'PT' 用 扫砂，其他 ('P5', 'PM2' 等) 用 磨光
-    // 顶面 (A) 总是 磨光 (pg)
-    const texA = polished;
-    // 上侧面 (B) 根据加工方式变化
-    const texB_group = (polish === 'PT') ? natural : polished;
-    // 下侧面 (C) 总是 自然 (zr)
-    const texC_group = (polish === 'P5') ? polished : natural;
+    // 【V_MODIFICATION】: 引入基于 modelPath 的逻辑分支
+    let texA, texB_group, texC_group;
+
+    const isBaseModel = modelPath === "/models/Bases/Base.glb";
+
+    if (isBaseModel) {
+      // --- 1. 现有的底座 (Base) 逻辑 ---
+      // 映射逻辑：'PT' 用 扫砂，其他 ('P5', 'PM2' 等) 用 磨光
+      // 顶面 (A) 总是 磨光 (pg)
+      texA = polished;
+      // 上侧面 (B) 根据加工方式变化
+      texB_group = (polish === 'PT') ? natural : polished;
+      // 下侧面 (C) 总是 自然 (zr)
+      texC_group = (polish === 'P5') ? polished : natural;
+    } else {
+      // --- 2. 新的碑体 (Monument) 逻辑 ---
+      // P2：surfaceA(正/背) = 磨光, surfaceB(侧) = 自然, surfaceC(顶) = 自然
+      // P3：surfaceA(正/背) = 磨光, surfaceB(侧) = 自然, surfaceC(顶) = 磨光
+      // P5：surfaceA(正/背) = 磨光, surfaceB(侧) = 磨光, surfaceC(顶) = 磨光
+      switch (polish) {
+        case 'P2':
+          texA = polished;
+          texB_group = natural;
+          texC_group = natural;
+          break;
+        case 'P3':
+          texA = polished;
+          texB_group = natural;
+          texC_group = polished;
+          break;
+        case 'P5':
+          texA = polished;
+          texB_group = polished;
+          texC_group = polished;
+          break;
+        default:
+          // 默认回退到 P2
+          texA = polished;
+          texB_group = natural;
+          texC_group = natural;
+          break;
+      }
+    }
+    // --- 结束逻辑分支 ---
+
 
     // 应用贴图 (必须克隆，防止共享)
     if (surfaceA) {
@@ -375,7 +414,7 @@ const Model = forwardRef(({
       mesh.material.needsUpdate = true;
     });
 
-  }, [isMultiTextureBase, polish, baseTextures, multiTextureParts]); // 依赖加工方式、贴图和部件
+  }, [isMultiTextureBase, polish, baseTextures, multiTextureParts, modelPath]); // 【V_MODIFICATION】: 添加 modelPath 到依赖
 
 
 
@@ -413,44 +452,69 @@ const Model = forwardRef(({
 
     const { surfaceA, surfaceB_meshes, surfaceC_meshes } = multiTextureParts;
     const scale = meshRef.current.scale;
-    const sx = scale.x; // 对应 4.html 的 sx
-    const sy = scale.y; // 对应 4.html 的 sy (高度)
-    const sz = scale.z; // 对应 4.html 的 sz
+    const sx = scale.x; // 对应 4.html 的 sx (length)
+    const sy = scale.y; // 对应 4.html 的 sy (height)
+    const sz = scale.z; // 对应 4.html 的 sz (width)
 
-    // 辅助函数，来自 4.html
-    const applyScale = (mesh) => {
-      if (!mesh || !mesh.material.map) return;
-      const map = mesh.material.map;
-      const name = mesh.name;
+    // 【V_MODIFICATION】: 引入基于 modelPath 的逻辑分支
+    const isBaseModel = modelPath === "/models/Bases/Base.glb";
 
-      // (Three.js Y-up 坐标系)
-      // 名字包含 'front' 或 'back' 的面 (X-Y 平面) -> 贴图重复 sx, sy
-      if (name.includes('_front') || name.includes('_back')) {
-        map.repeat.set(sx, sy);
-        map.offset.set((1 - sx) / 2, (1 - sy) / 2);
+    if (isBaseModel) {
+      // --- 1. 现有的底座 (Base) 逻辑 ---
+      // 辅助函数，来自 4.html
+      const applyScale = (mesh) => {
+        if (!mesh || !mesh.material.map) return;
+        const map = mesh.material.map;
+        const name = mesh.name;
+
+        // (Three.js Y-up 坐标系)
+        // 名字包含 'front' 或 'back' 的面 (X-Y 平面) -> 贴图重复 sx, sy
+        if (name.includes('_front') || name.includes('_back')) {
+          map.repeat.set(sx, sy);
+          map.offset.set((1 - sx) / 2, (1 - sy) / 2);
+        }
+        // 名字包含 'left' 或 'right' 的面 (Y-Z 平面) -> 贴图重复 sz, sy
+        else if (name.includes('_left') || name.includes('_right')) {
+          map.repeat.set(sz, sy);
+          map.offset.set((1 - sz) / 2, (1 - sy) / 2);
+        }
+      };
+
+      // --- A (顶面) ---
+      if (surfaceA && surfaceA.material.map) {
+        const mapA = surfaceA.material.map;
+        // 顶面 (X-Z 平面) -> 贴图重复 sx, sz
+        mapA.repeat.set(sx, sz);
+        mapA.offset.set((1 - sx) / 2, (1 - sz) / 2);
       }
-      // 名字包含 'left' 或 'right' 的面 (Y-Z 平面) -> 贴图重复 sz, sy
-      else if (name.includes('_left') || name.includes('_right')) {
-        map.repeat.set(sz, sy);
-        map.offset.set((1 - sz) / 2, (1 - sy) / 2);
-      }
-      // map.needsUpdate = true; // 在 r3f 中，修改 .repeat 和 .offset 会自动标记更新
-    };
+      // --- B (上侧面) 组 ---
+      surfaceB_meshes.forEach(applyScale);
+      // --- C (下侧面) 组 ---
+      surfaceC_meshes.forEach(applyScale);
 
-    // --- A (顶面) ---
-    if (surfaceA && surfaceA.material.map) {
-      const mapA = surfaceA.material.map;
-      // 顶面 (X-Z 平面) -> 贴图重复 sx, sz
-      mapA.repeat.set(sx, sz);
-      mapA.offset.set((1 - sx) / 2, (1 - sz) / 2);
-      // mapA.needsUpdate = true;
+    } else {
+      // --- 2. 新的碑体 (Monument) 逻辑 ---
+      // 碑体: A = 正/背面, B = 侧面, C = 顶面
+      // A (正/背面) -> (X-Y 平面) -> 贴图重复 sx, sy
+      if (surfaceA && surfaceA.material.map) {
+        surfaceA.material.map.repeat.set(sx, sy);
+        surfaceA.material.map.offset.set((1 - sx) / 2, (1 - sy) / 2);
+      }
+      // B (侧面) -> (Y-Z 平面) -> 贴图重复 sz, sy
+      surfaceB_meshes.forEach(mesh => {
+        if (mesh && mesh.material.map) {
+          mesh.material.map.repeat.set(sz, sy);
+          mesh.material.map.offset.set((1 - sz) / 2, (1 - sy) / 2);
+        }
+      });
+      // C (顶面) -> (X-Z 平面) -> 贴图重复 sx, sz
+      surfaceC_meshes.forEach(mesh => {
+        if (mesh && mesh.material.map) {
+          mesh.material.map.repeat.set(sx, sz);
+          mesh.material.map.offset.set((1 - sx) / 2, (1 - sz) / 2);
+        }
+      });
     }
-
-    // --- B (上侧面) 组 ---
-    surfaceB_meshes.forEach(applyScale);
-
-    // --- C (下侧面) 组 ---
-    surfaceC_meshes.forEach(applyScale);
   });
 
 
@@ -1575,15 +1639,17 @@ const MonumentScene = forwardRef(({
 
         return (
           <React.Fragment key={`monument-${monument.id}`}>
-            {/* 您的 Monument Model 渲染 */}
+            {/* 【V_MODIFICATION】: 您的 Monument Model 渲染 */}
             <Model
               key={monument.id}
               ref={el => modelRefs.current[monument.id] = el}
               modelPath={monument.modelPath}
-              texturePath={monument.texturePath}
+              // texturePath={monument.texturePath} // <-- 移除
+              isMultiTextureBase={true}            // <-- 添加
+              polish={monument.polish}             // <-- 添加
               position={positions[monument.id] || [0, 0, 0]}
               dimensions={monument.dimensions}
-              color={monument.color}
+              color={monument.color} // 保留
               onDimensionsChange={(dims) => handleModelLoad(monument.id, 'monument', dims)}
               isFillModeActive={isFillModeActive}
               onFillClick={() => onModelFillClick(monument.id, 'monument')}

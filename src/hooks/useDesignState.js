@@ -95,7 +95,7 @@ const FONT_OPTIONS = [
   { name: 'Gauranga Normal', path: '/fonts/Gauranga_Normal.json', cssFamily: 'serif' },
   { name: 'GeèzEdit Amharic P Regular', path: '/fonts/GeèzEdit Amharic P_Regular.json' },
   { name: 'Grantham Roman', path: '/fonts/Grantham_Roman.json', cssFamily: 'serif' },
- // { name: 'Helvetica Medium Regular', path: '/fonts/Helvetica Medium_Regular.json', cssFamily: 'Helvetica, Arial, sans-serif' },
+  // { name: 'Helvetica Medium Regular', path: '/fonts/Helvetica Medium_Regular.json', cssFamily: 'Helvetica, Arial, sans-serif' },
   { name: 'Lucida Calligraphy Italic', path: '/fonts/Lucida Calligraphy_Italic.json', cssFamily: '"Lucida Calligraphy", cursive' },
   { name: 'Lucida Handwriting Italic', path: '/fonts/Lucida Handwriting_Italic.json', cssFamily: '"Lucida Handwriting", cursive' },
   { name: 'Lynda Cursive Bold', path: '/fonts/Lynda Cursive_Bold.json', cssFamily: 'cursive' },
@@ -175,23 +175,9 @@ export const useDesignState = () => {
   }, []);
 
 
-  // 构建模型路径
-  const buildModelPath = useCallback((type, family, productClass, polish) => {
-    if (type === 'base' || type === 'subBase') {
-      return `./models/Bases/${polish}/Base_${polish}.glb`;
-    } else {
-      return `./models/Shapes/${family}/${productClass}/${polish}/${family}_${productClass}_${polish}.glb`;
-    }
-  }, []);
+  // --- 【V_MODIFICATION】: 移除了 buildModelPath 和 buildTexturePath ---
+  // 它们代表旧的逻辑，新逻辑在 Scene3D.jsx 中处理
 
-  // 构建纹理路径
-  const buildTexturePath = useCallback((type, family, productClass, polish, color) => {
-    if (type === 'base' || type === 'subBase') {
-      return `./textures/Bases/${polish}/Base_${polish}_${color}.jpg`;
-    } else {
-      return `./textures/Shapes/${family}/${productClass}/${polish}/${family}_${productClass}_${polish}_${color}.jpg`;
-    }
-  }, []);
 
   // --- 这是您文件中的 loadDefaultTablet (现在它被正确包含了) ---
   const loadDefaultTablet = useCallback(() => {
@@ -207,8 +193,9 @@ export const useDesignState = () => {
       class: productClass,
       polish,
       color,
-      modelPath: buildModelPath('monument', family, productClass, polish),
-      texturePath: buildTexturePath('monument', family, productClass, polish, color),
+      // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
+      modelPath: "/models/Shapes/Tablet/Serp Top.glb",
+      texturePath: "", // 不再需要，由 Scene3D.jsx 处理
       position: [0, 0, 0],
       dimensions: { length: 0, width: 0, height: 0 },
       weight: 0
@@ -219,8 +206,9 @@ export const useDesignState = () => {
       type: 'base',
       polish: 'P5',
       color,
-      modelPath: buildModelPath('base', null, null, 'P5'),
-      texturePath: buildTexturePath('base', null, null, 'P5', color),
+      // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
+      modelPath: "/models/Bases/Base.glb",
+      texturePath: "", // 不再需要，由 Scene3D.jsx 处理
       position: [0, 0, 0],
       dimensions: { length: 0, width: 0, height: 0 },
       weight: 0
@@ -233,7 +221,7 @@ export const useDesignState = () => {
       subBases: [],
       currentMaterial: color
     }));
-  }, [updateDesignState, buildModelPath, buildTexturePath]);
+  }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
   const addProduct = useCallback((productData) => {
     const { family, class: productClass, polish = 'P5' } = productData;
@@ -249,8 +237,9 @@ export const useDesignState = () => {
       class: productClass,
       polish,
       color,
-      modelPath: buildModelPath('monument', family, productClass, polish),
-      texturePath: buildTexturePath('monument', family, productClass, polish, color),
+      // 【V_MODIFICATION】: 直接使用 ModelLibrary 提供的 modelPath
+      modelPath: productData.modelPath,
+      texturePath: "", // 不再需要，由 Scene3D.jsx 处理
       position: [designState.monuments.length * 2, 0, 0],
       dimensions: { length: 0, width: 0, height: 0 },
       weight: 0
@@ -265,8 +254,9 @@ export const useDesignState = () => {
           type: 'base',
           polish: 'P5',
           color,
-          modelPath: buildModelPath('base', null, null, 'P5'),
-          texturePath: buildTexturePath('base', null, null, 'P5', color),
+          // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
+          modelPath: "/models/Bases/Base.glb",
+          texturePath: "", // 不再需要，由 Scene3D.jsx 处理
           position: [prev.bases.length * 2, 0, 0],
           dimensions: { length: 0, width: 0, height: 0 },
           weight: 0
@@ -279,14 +269,16 @@ export const useDesignState = () => {
 
       return newState;
     });
-  }, [designState, updateDesignState, buildModelPath, buildTexturePath]);
+  }, [designState, updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
   // --- 合并点：从同事的 DesignerPage.jsx 中添加 addTablet ---
   const addTablet = useCallback(() => {
+    // 【V_MODIFICATION】: 我们需要模拟 ModelLibrary 提供的 productData 对象
     addProduct({
       family: 'Tablet',
       class: 'Serp Top',
-      polish: 'P5'
+      polish: 'P5',
+      modelPath: "/models/Shapes/Tablet/Serp Top.glb" // 添加缺失的 modelPath
     });
   }, [addProduct]);
 
@@ -298,8 +290,9 @@ export const useDesignState = () => {
         type: 'base',
         polish: 'P5',
         color: prev.currentMaterial,
-        modelPath: buildModelPath('base', null, null, 'P5'),
-        texturePath: buildTexturePath('base', null, null, 'P5', prev.currentMaterial),
+        // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
+        modelPath: "/models/Bases/Base.glb",
+        texturePath: "", // 不再需要，由 Scene3D.jsx 处理
         position: [prev.bases.length * 2, 0, 0],
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0
@@ -310,7 +303,7 @@ export const useDesignState = () => {
         bases: [...prev.bases, base]
       };
     });
-  }, [updateDesignState, buildModelPath, buildTexturePath]);
+  }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
   const removeBase = useCallback((baseId) => {
     updateDesignState(prev => ({
@@ -327,8 +320,9 @@ export const useDesignState = () => {
         type: 'subBase',
         polish: 'P5',
         color: prev.currentMaterial,
-        modelPath: buildModelPath('subBase', null, null, 'P5'),
-        texturePath: buildTexturePath('subBase', null, null, 'P5', prev.currentMaterial),
+        // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
+        modelPath: "/models/Bases/Base.glb",
+        texturePath: "", // 不再需要，由 Scene3D.jsx 处理
         position: [prev.subBases.length * 2, 0, 0],
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0
@@ -339,7 +333,7 @@ export const useDesignState = () => {
         subBases: [...prev.subBases, subBase]
       };
     });
-  }, [updateDesignState, buildModelPath, buildTexturePath]);
+  }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
   const removeSubBase = useCallback((subBaseId) => {
     updateDesignState(prev => ({
@@ -351,20 +345,32 @@ export const useDesignState = () => {
 
   const updateMaterial = useCallback((color) => {
     updateDesignState(prev => {
-      const updateElementMaterial = (elements) =>
+      // 【V_MODIFICATION】:
+      // 碑体、底座使用新逻辑 (isMultiTextureBase=true)
+      // 它们只需要 color 属性
+      const updateMultiTextureElements = (elements) =>
+        elements.map(element => ({
+          ...element,
+          color, // 只更新 color
+        }));
+
+      // 花瓶使用旧逻辑 (isMultiTextureBase=false)
+      // 它们需要更新 texturePath
+      const updateVaseMaterial = (elements) =>
         elements.map(element => ({
           ...element,
           color,
+          // (这个逻辑来自您的原始文件，是正确的)
           texturePath: element.texturePath.replace(/_[^_]+\.jpg$/, `_${color}.jpg`)
         }));
 
       return {
         ...prev,
         currentMaterial: color,
-        monuments: updateElementMaterial(prev.monuments),
-        bases: updateElementMaterial(prev.bases),
-        subBases: updateElementMaterial(prev.subBases),
-        vases: updateElementMaterial(prev.vases),
+        monuments: updateMultiTextureElements(prev.monuments),
+        bases: updateMultiTextureElements(prev.bases),
+        subBases: updateMultiTextureElements(prev.subBases),
+        vases: updateVaseMaterial(prev.vases), // 花瓶保留旧逻辑
       };
     });
   }, [updateDesignState]);
@@ -375,21 +381,14 @@ export const useDesignState = () => {
       const updateElement = (elements) =>
         elements.map(element => {
           if (element.id === elementId) {
-            let newModelPath, newTexturePath;
-
-            if (elementType === 'monument') {
-              newModelPath = buildModelPath('monument', element.family, element.class, newPolish);
-              newTexturePath = buildTexturePath('monument', element.family, element.class, newPolish, element.color);
-            } else {
-              newModelPath = buildModelPath(elementType, null, null, newPolish);
-              newTexturePath = buildTexturePath(elementType, null, null, newPolish, element.color);
-            }
-
+            // 【V_MODIFICATION】: 
+            // 这是新逻辑的核心。
+            // 我们只更新 'polish' 属性。
+            // 我们*不*触碰 modelPath 或 texturePath。
+            // Scene3D.jsx 会检测到这个 'polish' 属性的变化并自动切换贴图。
             return {
               ...element,
               polish: newPolish,
-              modelPath: newModelPath,
-              texturePath: newTexturePath
             };
           }
           return element;
@@ -413,7 +412,7 @@ export const useDesignState = () => {
 
       return updatedState;
     });
-  }, [updateDesignState, buildModelPath, buildTexturePath]);
+  }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
 
   const updateDimensions = useCallback((elementId, newDimensions, elementType) => {
@@ -475,14 +474,20 @@ export const useDesignState = () => {
 
 
   const addVase = useCallback((vaseData) => {
+    // 【V_MODIFICATION】: 
+    // 花瓶的逻辑保持不变，因为它们使用 (isMultiTextureBase=false)
+    // 它们确实需要唯一的 modelPath 和 texturePath。
     const vase = {
       id: `vase-${Date.now()}`,
       type: 'vase',
       class: vaseData.class,
       name: vaseData.name,
       color: designState.currentMaterial,
-      modelPath: `./models/Vases/${vaseData.class}/${vaseData.name}.glb`,
-      texturePath: `./textures/Vases/${vaseData.class}/${vaseData.name}_${designState.currentMaterial}.jpg`,
+      // 【V_MODIFICATION】: 确保花瓶路径正确 (来自 ModelLibrary.jsx)
+      modelPath: vaseData.modelPath,
+      // 【V_MODIFICATION】: (可选) 为花瓶构建 texturePath
+      // 注意：这假设花瓶贴图与模型名称匹配
+      texturePath: `./textures/Vases/${vaseData.class}/${vaseData.name.replace(/\.glb$/, '')}_${designState.currentMaterial}.jpg`,
       position: [0, 0, 0],
       dimensions: { length: 0.5, width: 0.5, height: 0.5 }, // 您的版本有默认尺寸
       weight: 0

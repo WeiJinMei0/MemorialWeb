@@ -49,10 +49,10 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
   useEffect(() => {
     const loadItems = async () => {
       setLoading(true);
-      
+
       try {
         let data = [];
-        
+
         if (currentPage === 'home') {
           // 首页显示所有分类
           if (type === 'shapes') {
@@ -86,13 +86,13 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
           if (type === 'shapes') {
             // 模拟具体款式数据 (Shapes: Family -> Class)
             const familyClasses = {
-              'Tablet': ['Serp Top', 'Flat Top', 'Half Serp Top', 'Oval'],
+              'Tablet': ['Serp Top', 'Flat Top', 'Half Serp Top', 'Oval Top'],
               'Bench': ['Smith Cremation Bench', 'Oversize Smith Cremation Bench', 'Curved Bench'],
               'Rock': ['Triangle Rock', 'Round Rock', 'Square Rock'],
               'Pedestal': ['Cremation Pedestal', 'Oversize Cremation Pedestal'],
               'Columbarium': ['Hampton - 2 unit', 'Hampton - 3 unit']
             };
-            
+
             const classes = familyClasses[selectedFamily] || [];
             data = classes.map(cls => ({
               id: cls.toLowerCase().replace(/\s+/g, '-'),
@@ -109,7 +109,7 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
               'Vase for Cremation': ['Classic Cremation Vase', 'Modern Cremation Vase'],
               'Planter Vase': ['Small Planter', 'Large Planter']
             };
-            
+
             const vaseNames = vaseItems[selectedFamily] || [];
             data = vaseNames.map(name => ({
               id: name.toLowerCase().replace(/\s+/g, '-'),
@@ -152,7 +152,7 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
             }));
           }
         }
-        
+
         setItems(data);
       } catch (error) {
         console.error('Failed to load items:', error);
@@ -161,7 +161,7 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
         setLoading(false);
       }
     };
-    
+
     loadItems();
   }, [currentPage, selectedFamily, selectedSubclass, type, productFamilies]); // 依赖中加入 selectedSubclass
 
@@ -202,8 +202,8 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
       setSelectedSubclass(null);
     } else if (currentPage === 'family') {
       // 从 子类列表页/款式列表页 (family) 返回 系列主页 (home)
-    setCurrentPage('home');
-    setSelectedFamily(null);
+      setCurrentPage('home');
+      setSelectedFamily(null);
     }
     setSearchTerm('');
   };
@@ -221,7 +221,7 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
   const renderNavigationPath = () => {
     if (currentPage === 'home') return null;
 
-  return (
+    return (
       <>
         <span>/</span>
         <Button
@@ -259,25 +259,25 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
 
   // 调整导航路径的显示，以更好地适应 Ant Design 按钮布局
   const renderNavigation = () => (
-        <div className="navigation">
-          <Space>
-            <Button 
-              type="text" 
-              icon={<HomeOutlined />} 
-              onClick={handleHomeClick}
-              size="small"
-            />
+    <div className="navigation">
+      <Space>
+        <Button
+          type="text"
+          icon={<HomeOutlined />}
+          onClick={handleHomeClick}
+          size="small"
+        />
         {currentPage !== 'home' && (
-              <>
-                <span>/</span>
-                <Button 
-                  type="text" 
-                  icon={<ArrowLeftOutlined />} 
-                  onClick={handleBackClick}
-                  size="small"
-                >
+          <>
+            <span>/</span>
+            <Button
+              type="text"
+              icon={<ArrowLeftOutlined />}
+              onClick={handleBackClick}
+              size="small"
+            >
 
-                </Button>
+            </Button>
           </>
         )}
 
@@ -298,10 +298,10 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
               {selectedFamily}
             </Button>
             <span>/ {selectedSubclass}</span>
-              </>
-            )}
-          </Space>
-        </div>
+          </>
+        )}
+      </Space>
+    </div>
   );
 
 
@@ -311,7 +311,7 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
         {renderNavigation()}
 
         <h4>{getTitle()}</h4>
-        
+
         <Input
           placeholder="Search..."
           prefix={<SearchOutlined />}
@@ -337,8 +337,8 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
                   className="model-card"
                   cover={
                     <div className="model-thumbnail">
-                      <img 
-                        alt={item.name} 
+                      <img
+                        alt={item.name}
                         src={item.thumbnail}
                         onError={(e) => {
                           e.target.src = './images/placeholder.png';
@@ -348,8 +348,8 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
                   }
                   onClick={() => handleItemClick(item)}
                 >
-                  <Card.Meta 
-                    title={item.name} 
+                  <Card.Meta
+                    title={item.name}
                     description={item.description}
                   />
                   {item.needsBase && (
