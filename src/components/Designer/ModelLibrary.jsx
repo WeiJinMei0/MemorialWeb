@@ -5,7 +5,7 @@ import './ModelLibrary.css';
 
 // 模拟数据 - 在实际应用中应从API获取
 const SHAPE_FAMILIES = ['Tablet', 'Bench', 'Rock', 'Pedestal', 'Columbarium'];
-const VASE_CLASSES = ['Vase for Cremation', 'Planter Vase'];
+const VASE_CLASSES = ['Round Vase', 'Planter Vase', 'Inverted Taper Vase', 'Square Vase', 'Cross Shape Vase'];
 const ART_CLASSES = ['Asian Themed', 'Shape Carved of Material Object', 'Sandblast Carving Components', 'Ceramic Photo'];
 
 // 艺术图案子类（第二级）
@@ -34,6 +34,14 @@ const ART_PATTERNS = {
 // 辅助函数：生成图案的图片路径
 const getArtImagePath = (family, subclass, pattern) =>
   `./images/Art/${family.replace(/\s+/g, '%20')}/${subclass}/${pattern.replace(/\s+/g, '%20')}.png`;
+
+const VASE_Name = {
+  'Round Vase': ['Round Vase 4.5 x7.25', 'Round Vase 3.5 x 8', 'Round Vase 4 x 10', 'Round Vase 4.125 x 10.25', 'Round Vase 5.5 x 6', 'Round Vase 6 x 10', 'Round Vase 8 x 10', 'Round Vase 10 x 12'],
+  'Planter Vase': ['Planter Vase 14 x 12'],
+  'Inverted Taper Vase': ['Inverted Taper Vase 6 x 10'],
+  'Square Vase': ['Square Vase 6 x 12', 'Square Vase 6 x 10'],
+  'Cross Shape Vase': ['Cross Shape Vase 6 x 12']
+}
 
 
 const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
@@ -117,13 +125,8 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
             // --- 修复结束 ---
 
           } else if (type === 'vases') {
-            // 模拟花瓶具体款式 (Vases: Family -> Vase)
-            const vaseItems = {
-              'Vase for Cremation': ['Classic Cremation Vase', 'Modern Cremation Vase'],
-              'Planter Vase': ['Small Planter', 'Large Planter']
-            };
 
-            const vaseNames = vaseItems[selectedFamily] || [];
+            const vaseNames = VASE_Name[selectedFamily] || [];
 
             // --- 【V_MODIFICATION】: 关键修复 - 添加 modelPath ---
             data = vaseNames.map(name => {

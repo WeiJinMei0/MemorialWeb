@@ -160,15 +160,20 @@ export const useDesignState = () => {
   const historyIndexRef = useRef(0)
 
   const addHistory = useCallback((newState) => {
+    console.log("更新前：",historyRef.current)
     const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+    
     newHistory.push(JSON.parse(JSON.stringify(newState)));
     historyRef.current = newHistory;
+    console.log("更新后：",historyRef.current)
     historyIndexRef.current = newHistory.length - 1;
   }, []);
 
   const updateDesignState = useCallback((updater) => {
     setDesignState(prev => {
+      console.log("获取新数据")
       const newState = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater };
+      console.log("开始更新历史数据")
       addHistory(newState);
       return newState;
     });
@@ -189,6 +194,7 @@ export const useDesignState = () => {
 
   // --- 这是您文件中的 loadDefaultTablet (现在它被正确包含了) ---
   const loadDefaultTablet = useCallback(() => {
+    console.log("加载初始模型")
     const family = 'Tablet';
     const productClass = 'Serp Top';
     const polish = 'P5';
@@ -208,6 +214,7 @@ export const useDesignState = () => {
       dimensions: { length: 0, width: 0, height: 0 },
       weight: 0
     };
+    // console.log(monument)
 
     const base = {
       id: 'base-1',
@@ -222,6 +229,7 @@ export const useDesignState = () => {
       weight: 0
     };
 
+    console.log("更新历史记录")
     updateDesignState(prev => ({
       ...prev,
       monuments: [monument],
@@ -232,11 +240,11 @@ export const useDesignState = () => {
   }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
   const addProduct = useCallback((productData) => {
-    const { family, class: productClass, polish = 'P5' } = productData; //
-    const color = designState.currentMaterial; //
-    const familyConfig = PRODUCT_FAMILIES[family]; //
+    const { family, class: productClass, polish = 'P5' } = productData; 
+    const color = designState.currentMaterial; 
+    const familyConfig = PRODUCT_FAMILIES[family]; 
 
-    if (!familyConfig) return; //
+    if (!familyConfig) return; 
 
     // 1. 创建新的碑体
     const monument = {
@@ -247,8 +255,8 @@ export const useDesignState = () => {
       polish,
       color,
       modelPath: productData.modelPath, // (来自 ModelLibrary.jsx)
-      texturePath: "", //
-      position: [0, 0, 0], // 重置位置
+      texturePath: "", 
+      position: [0, 0, 0], 
       dimensions: { length: 0, width: 0, height: 0 },
       weight: 0
     };
@@ -450,7 +458,7 @@ export const useDesignState = () => {
             return {
               ...element,
               dimensions: newDims,
-              weight: calculateWeight(newDims, element.color)
+              weight: calculateWeight(newDims)
             };
           }
           return element;
@@ -641,7 +649,7 @@ export const useDesignState = () => {
   }, [updateDesignState]);
 
   // 计算重量
-  const calculateWeight = (dimensions, material) => {
+  const calculateWeight = (dimensions) => {
     const volume = (dimensions.length * dimensions.width * dimensions.height * 39.37 * 39.37 * 39.37 * 0.000589934 * 85 * 2.2);
     //const density = MATERIAL_DENSITY[material] || 2700;
     return Math.round(volume * 100) / 100;
