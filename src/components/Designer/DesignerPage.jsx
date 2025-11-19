@@ -413,13 +413,13 @@ const DesignerPage = () => {
     message.success(`Added ${artData.subclass}`)
   }
 
-  // 文本处理器
-  const handleTextPositionChange = useCallback((textId, newPosition) => {
-    updateTextPosition(textId, newPosition);
+  // --- 修改：透传 options 参数 ---
+  const handleTextPositionChange = useCallback((textId, newPosition, options) => {
+    updateTextPosition(textId, newPosition, options);
   }, [updateTextPosition]);
 
-  const handleTextRotationChange = useCallback((textId, newRotation) => {
-    updateTextRotation(textId, newRotation);
+  const handleTextRotationChange = useCallback((textId, newRotation, options) => {
+    updateTextRotation(textId, newRotation, options);
   }, [updateTextRotation]);
 
   const handleTextAdd = useCallback((textProperties) => {

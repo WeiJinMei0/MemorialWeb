@@ -751,11 +751,12 @@ const InteractiveArtPlane = forwardRef(({
             newScaleY * signX,
             scale[2] || 1
           );
+          // 添加 { replaceHistory: true }
           onTransformEnd(art.id, {
             position: meshRef.current.position.toArray(),
-            scale: meshRef.current.scale.toArray(),
+            scale: meshRef.current.scale.toArray(), // 这里包含了根据比例修正后的 scale
             rotation: meshRef.current.rotation.toArray().slice(0, 3)
-          });
+          }, { replaceHistory: true }); // <--- 这里
         } else {
           meshRef.current.scale.set(scale[0], scale[1], scale[2] || 1);
         }
@@ -990,6 +991,7 @@ const EnhancedTextElement = ({
   }, [monument, text.position, text.rotation, modelRefs, isDragging]);
 
   // 首次创建：将文字放到“正面”平面（与图片同面）：局部 z = 基准(-size.z) + offset
+  // 处理首先创建贴合的部分
   useEffect(() => {
     const isDefault = Array.isArray(text.position)
       ? (text.position[0] === 0 && text.position[1] === 0 && text.position[2] === 0)
@@ -1009,7 +1011,9 @@ const EnhancedTextElement = ({
       const xLocal = 0;
       const yLocal = 0.3;
       if (onTextPositionChange) {
-        onTextPositionChange(text.id, [xLocal, yLocal, surfaceZ]);
+        // 添加 { replaceHistory: true }
+        // 这样“贴合到表面”这个动作就会合并到“添加文字”这个动作中
+        onTextPositionChange(text.id, [xLocal, yLocal, surfaceZ], { replaceHistory: true });
         setHasInitPosition(true);
       }
     };
