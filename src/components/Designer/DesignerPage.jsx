@@ -18,6 +18,9 @@ import MaterialPanel from './MaterialPanel';
 import { useDesignState } from '../../hooks/useDesignState';
 import ArtEditorPanel from './ArtEditorPanel'
 import './DesignerPage.css';
+import OrderInfoModal from './Export/OrderInfoModal.jsx';
+import PrintPreviewModal from "./Export/PrintPreviewModal.jsx";
+import { PrinterOutlined } from '@ant-design/icons'; // 确保引入了打印图标
 
 const { Sider, Content, Footer } = Layout;
 
@@ -59,6 +62,14 @@ const DesignerPage = () => {
   const [currentTextId, setCurrentTextId] = useState(null);
   const [isTextEditing, setIsTextEditing] = useState(false);
 
+  // 新增状态
+  const [orderModalVisible, setOrderModalVisible] = useState(false);
+  const [orderModalType, setOrderModalType] = useState('proof'); // 'proof' or 'order'
+  const [proofImage, setProofImage] = useState(null);
+
+  // 新增 Print Modal 状态
+  const [printModalVisible, setPrintModalVisible] = useState(false);
+
   // useDesignState 钩子
   const {
     designState,
@@ -96,6 +107,80 @@ const DesignerPage = () => {
     updateTextRotation
   } = useDesignState();
 
+  // 修改 handleGenerateOrder：只负责打开弹窗，不直接保存
+  const handleGenerateOrder = useCallback(async () => {
+    try {
+      // 先截图，用于存缩略图
+      if (sceneRef.current) {
+        const imageBlobUrl = await sceneRef.current.captureThumbnail(); // 使用 Thumbnail 较快，或者用 captureProof
+        setProofImage(imageBlobUrl);
+      }
+      setOrderModalType('order'); // 设置为订单模式
+      setOrderModalVisible(true); // 打开弹窗
+    } catch (err) {
+      console.error(err);
+      message.error('Failed to initialize order form');
+    }
+  }, []);
+
+  // 新增 handleSubmitOrder：这是真正保存订单的函数
+  // 它将被传递给 Modal，当用户在 Modal 点击 "Submit" 时触发
+  const handleSubmitOrder = useCallback((orderMeta) => {
+    try {
+      const orderData = {
+        // 使用弹窗中填写的 Contract # 作为订单号，如果没有则自动生成
+        orderNumber: orderMeta.orderNumber || `ORD-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        userId: user?.id,
+        design: designState,
+        thumbnail: proofImage, // 保存截图
+        status: 'Pending',
+        meta: orderMeta // 保存所有填写的表单信息(陵园、负责人等)
+      };
+
+      const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+      orders.push(orderData);
+      localStorage.setItem('orders', JSON.stringify(orders));
+
+      message.success(t('modals.orderMessageSuccess'));
+      setOrderModalVisible(false); // 关闭弹窗
+    } catch (error) {
+      console.error(error);
+      message.error(t('modals.orderMessageError'));
+    }
+  }, [designState, user, proofImage, t]);
+
+  // 新增：Print Design 处理函数
+  const handlePrintDesign = useCallback(async () => {
+    try {
+      if (sceneRef.current) {
+        message.loading({ content: 'Generating Preview...', key: 'print' });
+        // 获取高清截图用于打印预览
+        const imageBlobUrl = await sceneRef.current.captureProof();
+        setProofImage(imageBlobUrl);
+        setPrintModalVisible(true);
+        message.success({ content: 'Ready', key: 'print' });
+      }
+    } catch (err) {
+      console.error(err);
+      message.error('Failed to generate print preview');
+    }
+  }, []);
+
+  // 新增：Email/Download 处理函数 (对应 Email Download 2.pdf)
+  const handleEmailDownload = useCallback(async () => {
+    try {
+      if (sceneRef.current) {
+        const imageBlobUrl = await sceneRef.current.captureProof();
+        setProofImage(imageBlobUrl);
+      }
+      setOrderModalType('proof');
+      setOrderModalVisible(true);
+    } catch (err) {
+      console.error(err);
+      message.error('无法生成截图，请重试');
+    }
+  }, []);
 
   // 【新增】: 移除素材库项目的辅助函数
   const removeItemFromArtOptions = useCallback((itemToRemove) => {
@@ -297,34 +382,6 @@ const DesignerPage = () => {
     });
   }, [designState, user, modal, t]);
 
-  // handleGenerateOrder
-  const handleGenerateOrder = useCallback(() => {
-    modal.confirm({
-      title: t('modals.orderTitle'),
-      icon: <FileTextOutlined />,
-      content: t('modals.orderContent'),
-      okText: t('modals.orderOkText'),
-      cancelText: t('modals.orderCancelText'),
-      async onOk() {
-        try {
-          message.loading({ content: t('modals.orderMessageOrdering'), key: 'ordering' });
-          const orderData = {
-            design: designState,
-            proofImage: await sceneRef.current?.captureProof?.(),
-            userId: user?.id,
-            timestamp: new Date().toISOString(),
-            orderNumber: `ARB${Date.now()}`
-          };
-          const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-          orders.push(orderData);
-          localStorage.setItem('orders', JSON.stringify(orders));
-          message.success({ content: t('modals.orderMessageSuccess'), key: 'ordering' });
-        } catch (error) {
-          message.error({ content: t('modals.orderMessageError'), key: 'ordering' });
-        }
-      },
-    });
-  }, [designState, user, modal, t]);
 
   // handleBackgroundChange
   const handleBackgroundChange = (value) => {
@@ -856,6 +913,7 @@ const DesignerPage = () => {
           <div className="scene-container">
             <div className="scene-controls-top">
               <Space.Compact>
+                {/* 撤销/重做/背景选择 */}
                 <Button icon={<UndoOutlined />} size="small" disabled={!canUndo} onClick={undo}>{t('designer.undo')}</Button>
                 <Button icon={<RedoOutlined />} size="small" disabled={!canRedo} onClick={redo}>{t('designer.redo')}</Button>
                 <div className="custom-select-with-left-icon">
@@ -864,8 +922,17 @@ const DesignerPage = () => {
                     {BACKGROUND_OPTIONS.map(bg => (<Select.Option key={bg.value} value={bg.value}>{bg.label}</Select.Option>))}
                   </Select>
                 </div>
+                {/* 1. 保存设计 (Save Design) */}
                 <Button type="primary" icon={<SaveOutlined />} size="small" onClick={handleSaveDesign}>{t('designer.save')}</Button>
+
+                {/* 2. 打印设计 (Print Design - 新增) */}
+                <Button type="default" icon={<PrinterOutlined />} size="small" onClick={handlePrintDesign}>Print Design</Button>
+
+                {/* 3. 生成订单 (Generate Order - 仅保存数据) */}
                 <Button type="primary" icon={<FileTextOutlined />} size="small" onClick={handleGenerateOrder}>{t('designer.generateOrder')}</Button>
+
+                {/* 4. 邮件/下载 (Email/Download - 新增) */}
+                <Button type="default" icon={<SaveOutlined />} size="small" onClick={handleEmailDownload}>Email/Download</Button>
               </Space.Compact>
             </div>
             <div className="scene-wrapper">
@@ -1142,6 +1209,21 @@ const DesignerPage = () => {
           </div>
         </Footer>
       </Layout>
+      {/* 4. 渲染 PrintPreviewModal */}
+      <PrintPreviewModal
+        visible={printModalVisible}
+        onCancel={() => setPrintModalVisible(false)}
+        designState={designState}
+        proofImage={proofImage}
+      />
+      <OrderInfoModal
+        visible={orderModalVisible}
+        type={orderModalType}
+        onCancel={() => setOrderModalVisible(false)}
+        designState={designState} // 传入当前设计数据
+        proofImage={proofImage}   // 传入3D截图
+        onSubmit={handleSubmitOrder} // 传入提交回调
+      />
     </Layout>
   )
 }
