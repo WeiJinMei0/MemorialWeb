@@ -183,14 +183,6 @@ const Model = forwardRef(({
   }, [isMultiTextureBase, color]); // 当 color 改变时重新加载
 
 
-
-
-
-
-
-
-
-
   // --- 5. 修改：模型加载与部件分离 ---
   useEffect(() => {
     let isMounted = true;
@@ -569,7 +561,7 @@ const Model = forwardRef(({
 
 
 // -----------------------------------------------------
-// 您的 InteractiveArtPlane 组件 (保持不变)
+//  InteractiveArtPlane 组件
 // -----------------------------------------------------
 const InteractiveArtPlane = forwardRef(({
   art,
@@ -860,6 +852,12 @@ const InteractiveArtPlane = forwardRef(({
                   pixelY,
                   rgbColor
                 );
+
+                // --- 【修复 Bug 关键点】: 实时保存修改后的图像 ---
+                // 填色操作修改了 Canvas 像素，必须立即保存为 DataURL 并更新到全局状态 (designState)，
+                // 否则当组件因 Suspense (如加载字体) 被卸载后，所有未保存的像素修改都会丢失。
+                const newDataUrl = canvas.toDataURL('image/png');
+                onTransformEnd(art.id, { modifiedImageData: newDataUrl });
               }
             }
             return;
@@ -883,8 +881,7 @@ const InteractiveArtPlane = forwardRef(({
 });
 
 
-// --- 合并点：从同事的 Scene3D.jsx 复制 EnhancedTextElement ---
-// (同事的 EnhancedTextElement)
+// EnhancedTextElement
 const EnhancedTextElement = ({
   text,
   monument,
@@ -1335,7 +1332,7 @@ const EnhancedTextElement = ({
 
 // 主场景组件
 const MonumentScene = forwardRef(({
-  // 您的 Art props
+  // Art props
   designState,
   onDimensionsChange,
   onDuplicateElement,
