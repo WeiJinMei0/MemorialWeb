@@ -445,27 +445,56 @@ const DesignerPage = () => {
   }, [deleteText]);
 
   const handleTextSelect = useCallback((textId) => {
+    // 1. 互斥逻辑：如果选中了文字，就取消选中艺术图案
     handleArtElementSelect(null);
-    console.log('DesignerPage: 文字被选中', textId);
+
+    // 2. 更新当前选中的文字 ID
     setCurrentTextId(textId);
-    setIsTextEditing(true);
+
     if (textId) {
+      // ---【关键修改】---
+      // 如果选中了文字：
+      // A. 标记为正在编辑状态
+      setIsTextEditing(true);
+      // B. 更新设计状态中的选中标记（用于显示3D坐标轴）
       setTextSelected(textId, true);
+      // C. 【新增】自动打开左侧的 "Text" 工具栏，从而显示 TextEditor 面板
+      setActiveTool('text');
+    } else {
+      // 如果取消选中（点击空白处）：
+      setIsTextEditing(false);
+      // 如果当前正打开着文字面板，则关闭它，让界面更清爽
+      // (使用回调函数形式以确保获取最新的 activeTool 状态)
+      setActiveTool(prevTool => prevTool === 'text' ? null : prevTool);
     }
   }, [handleArtElementSelect, setTextSelected]);
 
-  // Art Options 拖拽处理函数
-  const handleArtDragStart = useCallback((e, artElement) => {
-    // 防止与点击选择冲突，只在拖拽时设置
-    e.dataTransfer.effectAllowed = 'copy';
-    setDraggedArt(artElement);
+  // --- 【新增】: 关闭文字编辑器的处理函数 ---
+  const handleCloseTextEditor = useCallback(() => {
+    // 1. 关闭工具栏
+    setActiveTool(null);
+    // 2. 退出编辑模式
+    setIsTextEditing(false);
+    // 3. 清除当前选中的文字 ID
+    setCurrentTextId(null);
+    // 4. 清除 3D 场景中的选中状态 (移除坐标轴)
+    designState.textElements.forEach(text => {
+      setTextSelected(text.id, false);
+    });
+  }, [setActiveTool, setIsTextEditing, setCurrentTextId, designState.textElements, setTextSelected]);
 
-    // 设置拖拽数据
-    e.dataTransfer.setData('application/json', JSON.stringify({
-      type: 'art-element',
-      data: artElement
-    }));
-  }, []);
+  // // Art Options 拖拽处理函数
+  // const handleArtDragStart = useCallback((e, artElement) => {
+  //   // 防止与点击选择冲突，只在拖拽时设置
+  //   e.dataTransfer.effectAllowed = 'copy';
+  //   setDraggedArt(artElement);
+  //
+  //   // 设置拖拽数据
+  //   e.dataTransfer.setData('application/json', JSON.stringify({
+  //     type: 'art-element',
+  //     data: artElement
+  //   }));
+  // }, []);
 
   // 从Art Options拖拽出来的处理函数
   // 8. 修改 handleSavedArtDragStart (当从素材库开始拖拽时)
@@ -722,6 +751,7 @@ const DesignerPage = () => {
             isEditing={isTextEditing}
             fontOptions={fontOptions}
             onSaveTextToOptions={handleSaveTextToOptions} // <-- 传递 prop
+            onClose={handleCloseTextEditor}
           />
         );
       default:

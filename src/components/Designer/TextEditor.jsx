@@ -18,7 +18,8 @@ import {
   AlignLeftOutlined,
   AlignCenterOutlined,
   AlignRightOutlined,
-  SaveOutlined // 导入保存图标
+  SaveOutlined, // 导入保存图标
+  CloseOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import './TextEditor.css'
@@ -32,7 +33,8 @@ const TextEditor = ({
                       monuments,
                       isEditing,
                       fontOptions,
-                      onSaveTextToOptions // 1. 接收新的 prop
+                      onSaveTextToOptions, // 1. 接收新的 prop
+                      onClose
                     }) => {
   const { t } = useTranslation();
   const [textProperties, setTextProperties] = useState({
@@ -184,7 +186,21 @@ const TextEditor = ({
 
   return (
     <div className="text-editor-panel">
-      <Card size="small" title="TestEditor" style={{ width: '100%' }}>
+      <Card
+        size="small"
+        title="Text Editor"
+        style={{ width: '100%' }}
+        // --- 【3. 新增 extra 属性添加关闭按钮】 ---
+        extra={
+          <Button
+            type="text"
+            size="small"
+            icon={<CloseOutlined />}
+            onClick={onClose}
+            title="关闭面板"
+          />
+        }
+      >
         {/* 文字内容 */}
         <div style={{ marginBottom: 16 }}>
           <label>textcontent</label>
