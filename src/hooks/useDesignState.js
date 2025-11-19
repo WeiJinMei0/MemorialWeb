@@ -159,22 +159,28 @@ export const useDesignState = () => {
   const historyRef = useRef([JSON.parse(JSON.stringify(initialDesignState))])
   const historyIndexRef = useRef(0)
 
-  const addHistory = useCallback((newState) => {
-    console.log("更新前：",historyRef.current)
-    const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
-    
-    newHistory.push(JSON.parse(JSON.stringify(newState)));
-    historyRef.current = newHistory;
-    console.log("更新后：",historyRef.current)
-    historyIndexRef.current = newHistory.length - 1;
+  // --- 修改 addHistory 支持 replace ---
+  const addHistory = useCallback((newState, replace = false) => {
+    // 如果是 replace 模式，且历史记录不为空，则替换当前最新的一条
+    if (replace && historyIndexRef.current >= 0) {
+      const currentHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+      currentHistory[historyIndexRef.current] = JSON.parse(JSON.stringify(newState));
+      historyRef.current = currentHistory;
+    } else {
+      // 正常模式：截断并追加
+      const newHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+      newHistory.push(JSON.parse(JSON.stringify(newState)));
+      historyRef.current = newHistory;
+      historyIndexRef.current = newHistory.length - 1;
+    }
   }, []);
 
-  const updateDesignState = useCallback((updater) => {
+  // --- 修改 updateDesignState 支持 options ---
+  const updateDesignState = useCallback((updater, options = {}) => {
     setDesignState(prev => {
-      console.log("获取新数据")
       const newState = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater };
-      console.log("开始更新历史数据")
-      addHistory(newState);
+      // 检查 options.replaceHistory
+      addHistory(newState, options.replaceHistory);
       return newState;
     });
   }, [addHistory]);
@@ -552,8 +558,8 @@ export const useDesignState = () => {
     }));
   }, [designState, updateDesignState]);
 
-  // 这是您的 updateArtElementState
-  const updateArtElementState = useCallback((artId, updater) => {
+  // --- 修改：让 updateArtElementState 接受 options ---
+  const updateArtElementState = useCallback((artId, updater, options = {}) => {
     updateDesignState(prev => ({
       ...prev,
       artElements: prev.artElements.map(art => {
@@ -565,7 +571,7 @@ export const useDesignState = () => {
         }
         return art;
       })
-    }));
+    }), options); // 传递 options
   }, [updateDesignState]);
 
   // 复制元素
@@ -738,22 +744,24 @@ export const useDesignState = () => {
     }));
   }, [updateDesignState]);
 
-  const updateTextPosition = useCallback((textId, newPosition) => {
+  // --- 修改：让 updateTextPosition 接受 options ---
+  const updateTextPosition = useCallback((textId, newPosition, options = {}) => {
     updateDesignState(prev => ({
       ...prev,
       textElements: prev.textElements.map(text =>
         text.id === textId ? { ...text, position: newPosition } : text
       )
-    }));
+    }), options); // 传递 options
   }, [updateDesignState]);
 
-  const updateTextRotation = useCallback((textId, newRotation) => {
+  // --- 修改：让 updateTextRotation 接受 options ---
+  const updateTextRotation = useCallback((textId, newRotation, options = {}) => {
     updateDesignState(prev => ({
       ...prev,
       textElements: prev.textElements.map(text =>
         text.id === textId ? { ...text, rotation: newRotation } : text
       )
-    }));
+    }), options); // 传递 options
   }, [updateDesignState]);
 
   // ---------------- 结束合并文本函数 ----------------

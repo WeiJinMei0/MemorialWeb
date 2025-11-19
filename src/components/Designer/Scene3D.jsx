@@ -183,14 +183,6 @@ const Model = forwardRef(({
   }, [isMultiTextureBase, color]); // 当 color 改变时重新加载
 
 
-
-
-
-
-
-
-
-
   // --- 5. 修改：模型加载与部件分离 ---
   useEffect(() => {
     let isMounted = true;
@@ -569,7 +561,7 @@ const Model = forwardRef(({
 
 
 // -----------------------------------------------------
-// 您的 InteractiveArtPlane 组件 (保持不变)
+//  InteractiveArtPlane 组件
 // -----------------------------------------------------
 const InteractiveArtPlane = forwardRef(({
   art,
@@ -759,11 +751,12 @@ const InteractiveArtPlane = forwardRef(({
             newScaleY * signX,
             scale[2] || 1
           );
+          // 添加 { replaceHistory: true }
           onTransformEnd(art.id, {
             position: meshRef.current.position.toArray(),
-            scale: meshRef.current.scale.toArray(),
+            scale: meshRef.current.scale.toArray(), // 这里包含了根据比例修正后的 scale
             rotation: meshRef.current.rotation.toArray().slice(0, 3)
-          });
+          }, { replaceHistory: true }); // <--- 这里
         } else {
           meshRef.current.scale.set(scale[0], scale[1], scale[2] || 1);
         }
@@ -860,6 +853,12 @@ const InteractiveArtPlane = forwardRef(({
                   pixelY,
                   rgbColor
                 );
+
+                // --- 【修复 Bug 关键点】: 实时保存修改后的图像 ---
+                // 填色操作修改了 Canvas 像素，必须立即保存为 DataURL 并更新到全局状态 (designState)，
+                // 否则当组件因 Suspense (如加载字体) 被卸载后，所有未保存的像素修改都会丢失。
+                const newDataUrl = canvas.toDataURL('image/png');
+                onTransformEnd(art.id, { modifiedImageData: newDataUrl });
               }
             }
             return;
@@ -883,8 +882,7 @@ const InteractiveArtPlane = forwardRef(({
 });
 
 
-// --- 合并点：从同事的 Scene3D.jsx 复制 EnhancedTextElement ---
-// (同事的 EnhancedTextElement)
+// EnhancedTextElement
 const EnhancedTextElement = ({
   text,
   monument,
@@ -993,6 +991,7 @@ const EnhancedTextElement = ({
   }, [monument, text.position, text.rotation, modelRefs, isDragging]);
 
   // 首次创建：将文字放到“正面”平面（与图片同面）：局部 z = 基准(-size.z) + offset
+  // 处理首先创建贴合的部分
   useEffect(() => {
     const isDefault = Array.isArray(text.position)
       ? (text.position[0] === 0 && text.position[1] === 0 && text.position[2] === 0)
@@ -1012,7 +1011,9 @@ const EnhancedTextElement = ({
       const xLocal = 0;
       const yLocal = 0.3;
       if (onTextPositionChange) {
-        onTextPositionChange(text.id, [xLocal, yLocal, surfaceZ]);
+        // 添加 { replaceHistory: true }
+        // 这样“贴合到表面”这个动作就会合并到“添加文字”这个动作中
+        onTextPositionChange(text.id, [xLocal, yLocal, surfaceZ], { replaceHistory: true });
         setHasInitPosition(true);
       }
     };
@@ -1335,7 +1336,7 @@ const EnhancedTextElement = ({
 
 // 主场景组件
 const MonumentScene = forwardRef(({
-  // 您的 Art props
+  // Art props
   designState,
   onDimensionsChange,
   onDuplicateElement,
@@ -1749,7 +1750,13 @@ const Scene3D = forwardRef(({
       <Canvas
         camera={{
           // --- 合并点：使用同事的相机位置 ---
-          position: [0, 3, 1], //
+          // 原来是: position: [0, 3, 1], (背面)
+          // 修改为: position: [0, 2, -3], (正面)
+          // 说明：
+          // X=0 (居中)
+          // Y=2 (稍微调低一点高度，视角更平视，原3有点太高)
+          // Z=-3 (移动到负轴，正对图案所在的 -0.205 面)
+          position: [0, 2, -3],
           fov: 25, //
           near: 0.1,
           far: 1000
