@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-// 1. 导入 App, message, Modal, 和 UserOutlined
+import React, { useState } from 'react';
+// 1. 移除了 useRef, useEffect (不再需要)
 import { Layout, Button, Dropdown, Space, App, message, Modal } from 'antd';
 import {
   HomeOutlined,
@@ -7,12 +7,12 @@ import {
   HistoryOutlined,
   LogoutOutlined,
   GlobalOutlined,
-  UserOutlined // 2. 已导入
+  UserOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-// 2. 导入样式以确保 header 样式生效
+// 导入样式以确保 header 样式生效
 import '../../components/Designer/DesignerPage.css';
 
 const { Header } = Layout;
@@ -27,10 +27,9 @@ const MainLayout = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth(); // 3. 从 useAuth 获取 user
+  const { user, logout } = useAuth();
   const currentPath = location.pathname;
 
-  // 3. 使用 App.useApp() 钩子。这是让 message 等组件正常工作的关键
   App.useApp();
 
   const handleNavigation = (path) => {
@@ -44,7 +43,6 @@ const MainLayout = () => {
 
   const handleLanguageChange = ({ key }) => {
     i18n.changeLanguage(key);
-    // 现在这个 message 调用可以正常工作了
     message.success(`Language changed to ${LANGUAGE_OPTIONS.find(lang => lang.code === key)?.nativeName}`);
   };
 
@@ -53,11 +51,12 @@ const MainLayout = () => {
     return lang ? lang.nativeName : i18n.language.toUpperCase();
   };
 
+  // 语言菜单配置
   const languageMenu = {
     items: LANGUAGE_OPTIONS.map(lang => ({
       key: lang.code,
       label: (
-        <div style={{ display: 'flex', justifyContent: 'space-between', minWidth: '140px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', minWidth: '100px' }}>
           <span>{lang.nativeName}</span>
         </div>
       ),
@@ -65,27 +64,41 @@ const MainLayout = () => {
     onClick: handleLanguageChange,
   };
 
-
+  // --- 重构后的 UserDropdown ---
   const UserDropdown = () => {
-    const [dropdownVisible, setDropdownVisible] = useState(false);
-    const dropdownRef = useRef(null);
     const [userInfoVisible, setUserInfoVisible] = useState(false);
-
-    useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-          setDropdownVisible(false);
-        }
-      };
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }, []);
 
     const showUserInfo = () => {
       setUserInfoVisible(true);
-      setDropdownVisible(false);
+    };
+
+    // 用户菜单配置 (仿照语言菜单样式)
+    const userMenu = {
+      items: [
+        {
+          key: 'account',
+          label: (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '100px' }}>
+              <UserOutlined />
+              <span>Account</span>
+            </div>
+          ),
+          onClick: showUserInfo,
+        },
+        {
+          type: 'divider',
+        },
+        {
+          key: 'logout',
+          label: (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '100px', color: '#ff4d4f' }}>
+              <LogoutOutlined />
+              <span>Logout</span>
+            </div>
+          ),
+          onClick: handleLogout,
+        },
+      ],
     };
 
     const renderUserInfo = () => {
@@ -101,16 +114,14 @@ const MainLayout = () => {
     };
 
     return (
-      <div className="user-dropdown" ref={dropdownRef}>
-        <Button icon={<UserOutlined />} onClick={() => setDropdownVisible(!dropdownVisible)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {user?.username || 'Account'}
-        </Button>
-        {dropdownVisible && (
-          <div className="dropdown-menu">
-            <div className="dropdown-item" onClick={showUserInfo}> <UserOutlined /> <span>Account</span> </div>
-            <div className="dropdown-item logout" onClick={handleLogout}> <LogoutOutlined /> <span>Logout</span> </div>
-          </div>
-        )}
+      <>
+        {/* 这里的 Button 样式会自动继承 DesignerPage.css 中的 .header-right .ant-btn 样式 (透明背景+白边框) */}
+        <Dropdown menu={userMenu} placement="bottomRight" trigger={['click']} arrow>
+          <Button icon={<UserOutlined />} style={{ minWidth: '120px' }}>
+            <span>{user?.username || 'Account'}</span>
+          </Button>
+        </Dropdown>
+
         <Modal
           title="Account Information"
           open={userInfoVisible}
@@ -121,7 +132,7 @@ const MainLayout = () => {
         >
           {renderUserInfo()}
         </Modal>
-      </div>
+      </>
     );
   };
 
@@ -154,8 +165,9 @@ const MainLayout = () => {
                 <span>{getCurrentLanguageName()}</span>
               </Button>
             </Dropdown>
-            {/* 5. 替换旧按钮为新组件 */}
+
             <UserDropdown />
+
           </Space.Compact>
         </div>
       </Header>
