@@ -1,0 +1,318 @@
+/* --- 全局容器 --- */
+.editable-order-form-container {
+    background: white;
+    padding: 20px;
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+    max-width: 900px; /* 限制宽度以防变形 */
+    margin: 0 auto;
+}
+
+/* --- Header --- */
+.pdf-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 5px;
+}
+
+.pdf-title {
+    font-size: 16px;
+    font-weight: bold;
+    text-transform: uppercase;
+    text-align: left;
+    line-height: 1.2;
+    font-family: 'Times New Roman', serif;
+}
+
+.pdf-header-line {
+    height: 3px;
+    background-color: #000;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+/* --- 黑色边框大盒子 --- */
+.pdf-section-box {
+    border: 2px solid #000;
+    margin-bottom: 8px;
+    position: relative;
+}
+
+.pdf-section-title {
+    position: absolute;
+    top: -8px;
+    left: 0;
+    background: white;
+    padding-right: 5px;
+    font-size: 11px;
+    font-weight: bold;
+    font-family: Arial, sans-serif;
+    text-transform: uppercase;
+}
+
+/* --- 左右分栏布局 (Contract Info) --- */
+.pdf-split-layout {
+    display: flex;
+}
+
+.pdf-col-left {
+    width: 50%;
+    padding: 12px 8px 8px 8px;
+    border-right: 2px solid #000;
+}
+
+.pdf-col-right {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+}
+
+.pdf-right-top {
+    padding: 12px 8px 8px 8px;
+    flex: 1;
+}
+
+.pdf-right-bottom {
+    border-top: 2px solid #000;
+    padding: 8px;
+}
+
+.pdf-right-header {
+    font-size: 9px;
+    font-weight: bold;
+    margin-bottom: 6px;
+    font-family: Arial, sans-serif;
+    text-transform: uppercase;
+}
+
+/* --- 内部内容布局 (Memorial Info & Enhancements) --- */
+.pdf-content-padding {
+    padding: 12px 8px 8px 8px;
+}
+
+.pdf-flex-row {
+    display: flex;
+    align-items: center; /* 垂直居中 */
+    gap: 10px;
+    padding: 4px 0;
+    flex-wrap: wrap;
+}
+
+.border-bottom {
+    border-bottom: 1px solid #ccc;
+}
+
+/* --- 输入框样式 (Label + Input) --- */
+.pdf-form-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.pdf-label {
+    font-size: 10px;
+    font-weight: bold;
+    text-align: right;
+    padding-right: 6px;
+    font-family: Arial, sans-serif;
+    flex-shrink: 0;
+}
+
+.pdf-label-bold {
+    font-size: 10px;
+    font-weight: bold;
+    font-family: Arial, sans-serif;
+    margin-right: 5px;
+}
+
+.pdf-label-small {
+    font-size: 9px;
+    font-weight: bold;
+    font-family: Arial, sans-serif;
+    margin-right: 4px;
+    white-space: nowrap;
+}
+
+/* 覆盖 Antd Form Item */
+.pdf-input-item {
+    flex: 1;
+    margin-bottom: 0 !important;
+    min-width: 0; /* 允许 flex item 缩小 */
+}
+
+/* 蓝色输入框 - 核心还原点 */
+.pdf-input-box {
+    background-color: #dae6f4;
+    border: 1px solid #000 !important;
+    border-radius: 0 !important;
+    height: 22px;
+    padding: 0 4px;
+    font-size: 11px;
+    color: #000;
+    width: 100%;
+}
+
+.pdf-input-box:focus {
+    box-shadow: none;
+    border-color: #1890ff !important;
+}
+
+/* 内联字段 (Label + Input 紧凑型) */
+.pdf-inline-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* --- 复选框样式 --- */
+.pdf-checkbox-group-vertical {
+    margin-top: 10px;
+    padding-left: 10px;
+}
+
+.pdf-checkbox-row {
+    display: flex;
+    gap: 10px;
+}
+
+.pdf-checkbox-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pdf-check-item {
+    display: flex;
+    align-items: center;
+    font-size: 9px;
+    font-weight: bold;
+    font-family: Arial, sans-serif;
+    cursor: pointer;
+    margin-bottom: 2px;
+    white-space: nowrap;
+}
+
+/* 模拟方框 */
+.fake-checkbox {
+    width: 10px;
+    height: 10px;
+    border: 1px solid #000;
+    margin-right: 6px;
+    background: #fff;
+    flex-shrink: 0;
+}
+
+/* 选中状态 (需 JS 配合，或直接利用 Antd Checked 状态) */
+.ant-form-item-control-input-content .fake-checkbox {
+    /* 这是一个简单的 hack，实际勾选建议用 Antd Checkbox 但隐藏其 default style */
+}
+
+/* 底部 Check */
+.pdf-section-footer-row {
+    border-top: 1px solid #000;
+    padding: 4px 8px;
+    font-size: 9px;
+    font-weight: bold;
+    font-family: Arial, sans-serif;
+    display: flex;
+    align-items: center;
+}
+
+/* --- 页脚文字 --- */
+.pdf-footer-text {
+    font-size: 8px;
+    margin-top: 10px;
+    line-height: 1.3;
+}
+
+.pdf-footer-text p {
+    margin-bottom: 2px;
+}
+
+.pdf-signatures {
+    margin-top: 15px;
+    display: flex;
+    gap: 20px;
+}
+
+.pdf-signatures .pdf-form-row {
+    flex: 1;
+}
+
+/* --- 保持之前的 Header 和 Contract CSS 不变，以下是新增/修改部分 --- */
+
+/* 全局复选框样式优化 */
+.fake-checkbox {
+    width: 12px; /* 稍微大一点，正方形 */
+    height: 12px;
+    border: 1px solid #000;
+    margin-right: 5px;
+    background: #fff;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Polish 区域网格布局 */
+.pdf-checkbox-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.pdf-check-item {
+    display: flex;
+    align-items: center;
+    font-size: 10px; /* 字体调小 */
+    font-weight: normal;
+    font-family: Arial, sans-serif;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* 通用 Flex 行 */
+.pdf-flex-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+}
+
+.border-bottom {
+    border-bottom: 1px solid #ccc;
+}
+
+/* 标签样式微调 */
+.pdf-label-bold {
+    font-size: 10px;
+    font-weight: 800; /* 更粗 */
+    font-family: Arial, sans-serif;
+    margin-right: 5px;
+    white-space: nowrap;
+}
+
+.pdf-label-small {
+    font-size: 9px;
+    font-weight: bold;
+    font-family: Arial, sans-serif;
+    margin-right: 4px;
+    white-space: nowrap;
+}
+
+/* 输入框微调 */
+.pdf-input-box {
+    background-color: #dae6f4;
+    border: 1px solid #000 !important;
+    border-radius: 0 !important;
+    height: 22px; /* 高度对其 */
+    padding: 0 4px;
+    font-size: 11px;
+    color: #000;
+    width: 100%;
+}
+
+/* Bench 区域特殊处理 */
+.pdf-bench-section {
+    /* 确保上下有间距 */
+}
