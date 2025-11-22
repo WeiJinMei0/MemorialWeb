@@ -113,48 +113,51 @@ const DesignerPage = () => {
     updateTextRotation,
   } = useDesignState();
 
-  // 修改 handleGenerateOrder：只负责打开弹窗，不直接保存
-  const handleGenerateOrder = useCallback(async () => {
-    try {
-      // 先截图，用于存缩略图
-      if (sceneRef.current) {
-        const imageBlobUrl = await sceneRef.current.captureThumbnail(); // 使用 Thumbnail 较快，或者用 captureProof
-        setProofImage(imageBlobUrl);
-      }
-      setOrderModalType('order'); // 设置为订单模式
-      setOrderModalVisible(true); // 打开弹窗
-    } catch (err) {
-      console.error(err);
-      message.error('Failed to initialize order form');
-    }
-  }, []);
+  // --- 【修改】：点击 Order 弹出确认框，直接生成 ---
+  const handleGenerateOrder = useCallback(() => {
+    modal.confirm({
+      title: t('modals.orderTitle'), // "Confirm Generate Order?"
+      icon: <FileTextOutlined />,
+      content: t('modals.orderContent'), // "This will create a new order..."
+      okText: t('modals.orderOkText'),
+      cancelText: t('modals.orderCancelText'),
+      async onOk() {
+        try {
+          message.loading({ content: t('modals.orderMessageOrdering'), key: 'ordering' });
 
-  // 新增 handleSubmitOrder：这是真正保存订单的函数
-  // 它将被传递给 Modal，当用户在 Modal 点击 "Submit" 时触发
-  const handleSubmitOrder = useCallback((orderMeta) => {
-    try {
-      const orderData = {
-        // 使用弹窗中填写的 Contract # 作为订单号，如果没有则自动生成
-        orderNumber: orderMeta.orderNumber || `ORD-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        userId: user?.id,
-        design: designState,
-        thumbnail: proofImage, // 保存截图
-        status: 'Pending',
-        meta: orderMeta // 保存所有填写的表单信息(陵园、负责人等)
-      };
+          // 1. 截图
+          let thumbnail = null;
+          if (sceneRef.current) {
+            thumbnail = await sceneRef.current.captureThumbnail();
+          }
 
-      const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-      orders.push(orderData);
-      localStorage.setItem('orders', JSON.stringify(orders));
+          // 2. 构造数据 (自动生成单号，Meta 留空)
+          const orderData = {
+            orderNumber: `ORD-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            userId: user?.id,
+            design: designState,
+            thumbnail: thumbnail,
+            status: 'Pending',
+            meta: {} // 初始为空，去 Order History 里编辑
+          };
 
-      message.success(t('modals.orderMessageSuccess'));
-      setOrderModalVisible(false); // 关闭弹窗
-    } catch (error) {
-      console.error(error);
-      message.error(t('modals.orderMessageError'));
-    }
-  }, [designState, user, proofImage, t]);
+          // 3. 保存
+          const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+          orders.push(orderData);
+          localStorage.setItem('orders', JSON.stringify(orders));
+
+          message.success({ content: t('modals.orderMessageSuccess'), key: 'ordering' });
+
+        } catch (error) {
+          console.error(error);
+          message.error({ content: t('modals.orderMessageError'), key: 'ordering' });
+        }
+      },
+    });
+  }, [designState, user, t, modal]);
+
+
 
   // 新增：Print Design 处理函数
   const handlePrintDesign = useCallback(async () => {
@@ -1321,7 +1324,6 @@ const DesignerPage = () => {
         onCancel={() => setOrderModalVisible(false)}
         designState={designState} // 传入当前设计数据
         proofImage={proofImage}   // 传入3D截图
-        onSubmit={handleSubmitOrder} // 传入提交回调
       />
     </Layout>
   )

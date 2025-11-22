@@ -23,6 +23,7 @@
     "react-draggable": "^4.5.0",
     "react-i18next": "^13.5.0",
     "react-router-dom": "^7.9.3",
+    "react-to-print": "^3.2.0",
     "three": "^0.180.0"
   },
   "devDependencies": {
