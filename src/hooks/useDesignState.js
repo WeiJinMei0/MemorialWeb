@@ -518,7 +518,10 @@ export const useDesignState = () => {
       texturePath: `./textures/Vases/${vaseData.class}/${vaseData.name.replace(/\.glb$/, '')}_${designState.currentMaterial}.jpg`,
       position: [0, 0, 0],
       dimensions: { length: 0.5, width: 0.5, height: 0.5 }, // 您的版本有默认尺寸
-      weight: 0
+      weight: 0,
+      rotation: vaseData.rotation || [0, 0, 0],
+      scale: vaseData.scale || [1, 1, 1],
+      isSelected: false
     };
 
     updateDesignState(prev => ({
@@ -649,8 +652,30 @@ export const useDesignState = () => {
             return art;
           })
         };
-      }
-      return prev;
+      }else if (elementType === 'vase'){
+       // 花瓶翻转
+       return {
+        ...prev,
+        vases: prev.vases.map(vase => {
+          if (vase.id === elementId) {
+            const currentScale = vase.scale || [1, 1, 1];
+            let newScale = [...currentScale];
+
+            if (axis === 'x') {
+              newScale[0] *= -1;
+            } else if (axis === 'y') {
+              newScale[1] *= -1;
+            } else if (axis === 'z') {
+              newScale[2] *= -1;
+            }
+
+            return { ...vase, scale: newScale };
+          }
+          return vase;
+        })
+      };
+    }
+    return prev;
     });
   }, [updateDesignState]);
 
@@ -765,6 +790,21 @@ export const useDesignState = () => {
   }, [updateDesignState]);
 
   // ---------------- 结束合并文本函数 ----------------
+const updateVaseElementState = useCallback((vaseId, updater, options = {}) => {
+  updateDesignState(prev => ({
+    ...prev,
+    vases: prev.vases.map(vase => {
+      if (vase.id === vaseId) {
+        const newPartialState = typeof updater === 'function'
+          ? updater(vase)
+          : updater;
+        return { ...vase, ...newPartialState };
+      }
+      return vase;
+    })
+  }), options);
+}, [updateDesignState]);
+
 
   // ***** 移除了您文件中的 "无限循环" useEffect (您的原文件已经移除了它) *****
 
@@ -787,6 +827,7 @@ export const useDesignState = () => {
     deleteElement,
     flipElement,
     updateArtElementState,
+    updateVaseElementState, // 新增：统一的花瓶状态更新函数
     undo,
     redo,
     canUndo: historyIndexRef.current > 0,

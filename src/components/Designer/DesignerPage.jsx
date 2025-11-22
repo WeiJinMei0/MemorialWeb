@@ -17,6 +17,7 @@ import TextEditor from './TextEditor';
 import MaterialPanel from './MaterialPanel';
 import { useDesignState } from '../../hooks/useDesignState';
 import ArtEditorPanel from './ArtEditorPanel'
+import VaseEditorPanel from './VaseEditorPanel' // 新增导入
 import './DesignerPage.css';
 import OrderInfoModal from './Export/OrderInfoModal.jsx';
 import PrintPreviewModal from "./Export/PrintPreviewModal.jsx";
@@ -57,6 +58,10 @@ const DesignerPage = () => {
   const [draggedArt, setDraggedArt] = useState(null);
   const [dragOverSlot, setDragOverSlot] = useState(null);
 
+  // Vase 状态 (新增)
+  const [selectedVaseId, setSelectedVaseId] = useState(null);
+  const [vaseTransformMode, setVaseTransformMode] = useState('translate');
+
   // Text 和 Unit 状态
   const [selectedUnit, setSelectedUnit] = useState('feet');
   const [currentTextId, setCurrentTextId] = useState(null);
@@ -89,6 +94,7 @@ const DesignerPage = () => {
     deleteElement,
     flipElement,
     updateArtElementState,
+    updateVaseElementState,
     undo,
     redo,
     canUndo,
@@ -104,7 +110,7 @@ const DesignerPage = () => {
     fontOptions,
     getFontPath,
     updateTextPosition,
-    updateTextRotation
+    updateTextRotation,
   } = useDesignState();
 
   // 修改 handleGenerateOrder：只负责打开弹窗，不直接保存
@@ -269,7 +275,8 @@ const DesignerPage = () => {
   const handleArtElementSelect = useCallback((artId) => {
     if (artId !== null) {
       // setIsTextEditing(false);
-      //setCurrentTextId(null);
+      // setCurrentTextId(null);
+      // setSelectedVaseId(null); // 取消选中花瓶
       setActiveTool(null);
       setTransformMode('translate');
     } else {
@@ -278,9 +285,36 @@ const DesignerPage = () => {
     setSelectedArtId(artId);
   }, [setActiveTool, setTransformMode, setIsFillModeActive]);
 
+  const handleVaseElementSelect = useCallback((vaseId) => {
+    if (vaseId !== null) {
+      // setIsTextEditing(false);
+      // setCurrentTextId(null);
+      // handleArtElementSelect(null); // 取消选中艺术图案
+      setActiveTool(null);
+      setVaseTransformMode('translate');
+      // 更新设计状态中的选中状态
+      updateVaseElementState(vaseId, { isSelected: true });
+    }else {
+      // 取消选中时，将所有花瓶的选中状态设为 false
+      designState.vases.forEach(vase => {
+        updateVaseElementState(vase.id, { isSelected: false });
+      });
+    }
+    setSelectedVaseId(vaseId);
+  }, [handleArtElementSelect, designState.vases, updateVaseElementState]);
+
+  // handleCloseVaseEditor (新增)
+  const handleCloseVaseEditor = useCallback(() => {
+    if (selectedVaseId) {
+      updateVaseElementState(selectedVaseId, { isSelected: false });
+    }
+    setSelectedVaseId(null);
+  }, [selectedVaseId, updateVaseElementState]);
+
   // handleToolSelect
   const handleToolSelect = (key) => {
     handleArtElementSelect(null);
+    handleCloseVaseEditor();
     if (activeTool === key) {
       setIsTextEditing(false);
       setCurrentTextId(null);
@@ -309,11 +343,20 @@ const DesignerPage = () => {
     return null;
   }, [designState, selectedArtId]);
 
+  // selectedVase (新增)
+  const selectedVase = useMemo(() => {
+    return designState.vases.find(vase => vase.id === selectedVaseId);
+  }, [designState, selectedVaseId]);
+
   // handleDeleteElement
   const handleDeleteElement = useCallback((elementId, elementType) => {
     deleteElement(elementId, elementType);
-    handleArtElementSelect(null);
-  }, [deleteElement, handleArtElementSelect]);
+    if (elementType === 'art') {
+      handleArtElementSelect(null);
+    } else if (elementType === 'vase') {
+      handleCloseVaseEditor();
+    }
+  }, [deleteElement, handleArtElementSelect, handleCloseVaseEditor]);
 
   // Art 属性处理器
   const handleLineColorChange = useCallback((artId, newColor) => {
@@ -328,6 +371,15 @@ const DesignerPage = () => {
     }));
   }, [updateArtElementState]);
 
+  // Vase 操作处理器 (新增)
+  const handleVaseDuplicate = useCallback((vaseId) => {
+    duplicateElement(vaseId, 'vase');
+    handleCloseVaseEditor();
+  }, [duplicateElement, handleCloseVaseEditor]);
+
+  const handleVaseFlip = useCallback((vaseId, axis) => {
+    flipElement(vaseId, axis, 'vase');
+  }, [flipElement]);
 
   // handleSaveDesign (包含之前的修复)
   const handleSaveDesign = useCallback(() => {
@@ -447,6 +499,7 @@ const DesignerPage = () => {
   const handleTextSelect = useCallback((textId) => {
     // 1. 互斥逻辑：如果选中了文字，就取消选中艺术图案
     handleArtElementSelect(null);
+    handleCloseVaseEditor();
 
     // 2. 更新当前选中的文字 ID
     setCurrentTextId(textId);
@@ -467,7 +520,7 @@ const DesignerPage = () => {
       // (使用回调函数形式以确保获取最新的 activeTool 状态)
       setActiveTool(prevTool => prevTool === 'text' ? null : prevTool);
     }
-  }, [handleArtElementSelect, setTextSelected]);
+  }, [handleArtElementSelect, handleCloseVaseEditor, setTextSelected]);
 
   // --- 【新增】: 关闭文字编辑器的处理函数 ---
   const handleCloseTextEditor = useCallback(() => {
@@ -993,12 +1046,18 @@ const DesignerPage = () => {
                 isTextEditing={isTextEditing}
                 getFontPath={getFontPath}
 
+                // Vase Props (新增)
+                onVaseSelect={handleVaseElementSelect}
+                selectedVaseId={selectedVaseId}
+                vaseTransformMode={vaseTransformMode}
+                onUpdateVaseElementState={updateVaseElementState}
+
                 // Drag and Drop Props
                 onSceneDrop={handleSceneDrop}
               />
 
               {/* 工具面板 */}
-              {activeTool && !selectedArt && (
+              {activeTool && !selectedArt && !selectedVase &&  (
                 <div className="tool-panel">
                   {renderToolContent()}
                 </div>
@@ -1020,6 +1079,16 @@ const DesignerPage = () => {
                   isFillModeActive={isFillModeActive}
                   setIsFillModeActive={setIsFillModeActive}
                   onSaveToArtOptions={handleSaveArtToOptions}
+                />
+              )}
+              {/* 花瓶编辑面板 (新增) */}
+              {selectedVase && (
+                <VaseEditorPanel
+                  vase={selectedVase}
+                  onClose={handleCloseVaseEditor}
+                  onDelete={handleDeleteElement}
+                  onDuplicate={handleVaseDuplicate}
+                  onFlip={flipElement}
                 />
               )}
             </div>
