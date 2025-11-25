@@ -145,13 +145,16 @@ const Model = forwardRef(({
     // 根据 'color' prop 映射到你的贴图文件夹名称
     // 我假设 'Black' 颜色对应 'Rustic' 文件夹
     const colorFolderMap = {
+      'Bahama Blue': 'Bahama Blue',
       'Black': 'Black',
-      'Grey': 'Rustic',
-      'Red': 'Red',
-      'Blue': 'Blue',
-      // ... 为 'Green' 和 'White' 添加映射 (如果它们也有文件夹)
-      'Green': 'Rustic', // 假设回退
-      'White': 'Grey'  // 假设回退
+      'Blue Pearl': 'Blue Pearl',
+      'Charcoal': 'Charcoal',
+      'Grey': 'Grey',
+      'Ocean Green': 'Ocean Green',
+      'Paradiso': 'Paradiso',
+      'PG red': 'PG red',
+      'Pink': 'Pink',
+      'Rustic Mahgoany': 'Rustic Mahgoany'
     };
     const colorFolder = colorFolderMap[color] || 'Rustic'; // 默认回退到 Rustic
 
@@ -548,7 +551,7 @@ const Model = forwardRef(({
           if (onFillClick) {
             onFillClick();
           }
-        }else if (onSelect) {
+        } else if (onSelect) {
           onSelect(); // 新增：触发选择回调
         }
       }}
@@ -702,7 +705,7 @@ const Vase3D = forwardRef(({
     if (controlRef.current) {
       controlRef.current.mode = transformMode;
       controlRef.current.enabled = isSelected;
-      
+
       if (transformMode === 'rotate') {
         controlRef.current.showX = false;
         controlRef.current.showY = false;
@@ -1599,7 +1602,7 @@ const MonumentScene = forwardRef(({
   onVaseSelect,
   selectedVaseId,
   vaseTransformMode,
-  onUpdateVaseElementState, 
+  onUpdateVaseElementState,
   onSceneDrop // <-- 在这里添加 onSceneDrop
 }, ref) => {
   const { gl, scene } = useThree();
@@ -1616,7 +1619,7 @@ const MonumentScene = forwardRef(({
       if (isTextEditing && onTextSelect) {
         onTextSelect(null);
       }
-       // 新增：取消选中花瓶
+      // 新增：取消选中花瓶
       if (onVaseSelect) {
         onVaseSelect(null);
       }
@@ -1789,7 +1792,7 @@ const MonumentScene = forwardRef(({
         const height = getModelHeight(base.id);
         const length = getModelLength(base.id);
         // 所有bases使用相同的X位置（居中），但在Y方向堆叠
-        positions[base.id] = [0, baseYPosition, -0.183];
+        positions[base.id] = [0, baseYPosition, -0.103];
 
         // 下一个base放在当前base的顶部
         if (height > 0) {
@@ -1989,11 +1992,11 @@ const Scene3D = forwardRef(({
   isTextEditing,
   getFontPath,
 
-   // 新增：Vase props
+  // 新增：Vase props
   onVaseSelect,
   selectedVaseId,
   vaseTransformMode,
-  onUpdateVaseElementState, 
+  onUpdateVaseElementState,
 
   ...props
 }, ref) => {

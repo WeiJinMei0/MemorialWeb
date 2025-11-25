@@ -1,51 +1,53 @@
 /* MaterialPanel.css */
+
 .material-panel {
-  padding: 12px;
+  width: 100%;
+  padding: 10px;
 }
 
 .materials-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  /* 强制两列布局，类似参考图 */
+  gap: 16px;
+  /* 增加间距 */
 }
 
 .material-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  position: relative;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
-  transition: background-color 0.2s ease;
+  border-radius: 8px;
+  /* 圆角更大 */
+  transition: all 0.2s;
+  border: 2px solid transparent;
+  /* 默认透明边框，防止选中时抖动 */
+  background-color: #f5f5f5;
 }
 
-.material-item:hover {
-  background-color: #f5f5f5;
+/* 选中状态样式 - 模仿参考图 */
+.material-item.selected {
+  border-color: #1890ff;
+  /* 蓝色边框 */
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  /* 外部发光效果 */
 }
 
 .material-thumbnail-container {
   position: relative;
   width: 100%;
-  margin-bottom: 6px;
+  padding-top: 56.25%;
+  /* 16:9 长方形比例 (之前是 100% 正方形) */
 }
 
 .material-thumbnail {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: 60px;
-  border-radius: 4px;
+  height: 100%;
   overflow: hidden;
-  border: 2px solid transparent;
-  transition: all 0.3s ease;
-}
-
-.material-item:hover .material-thumbnail {
-  border-color: #1890ff;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
-}
-
-.material-item.selected .material-thumbnail {
-  border-color: #1890ff;
-  box-shadow: 0 2px 12px rgba(24, 144, 255, 0.4);
+  border-radius: 6px;
+  /* 让图片圆角略小于容器 */
 }
 
 .material-thumbnail img {
@@ -54,39 +56,86 @@
   object-fit: cover;
 }
 
+/* 右上角选中对勾 - 圆形徽章样式 */
 .selection-indicator {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 16px;
-  height: 16px;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
   background: #1890ff;
+  color: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-size: 10px;
+  font-size: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 5;
 }
 
-.material-name {
-  font-size: 11px;
+/* --- 悬停放大预览 (已调大) --- */
+.material-hover-preview {
+  position: absolute;
+  bottom: 115%;
+  /* 位置稍微抬高 */
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: 10px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  width: 260px;
+  /* 宽度显著增加 */
+  z-index: 100;
+  pointer-events: none;
+  animation: popIn 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+/* 预览框下面的小三角 */
+.material-hover-preview::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -8px;
+  border-width: 8px;
+  border-style: solid;
+  border-color: white transparent transparent transparent;
+}
+
+.preview-image {
+  width: 100%;
+  height: 160px;
+  /* 图片高度增加 */
+  overflow: hidden;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background-color: #eee;
+}
+
+.preview-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-name {
   text-align: center;
-  color: #666;
-  line-height: 1.2;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 16px;
+  /* 字体变大 */
+  color: #333;
 }
 
-/* 紧凑模式 */
-.material-panel.compact .materials-grid {
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px) scale(0.9);
+  }
 
-.material-panel.compact .material-thumbnail {
-  height: 50px;
-}
-
-.material-panel.compact .material-name {
-  font-size: 10px;
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
