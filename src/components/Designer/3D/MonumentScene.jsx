@@ -44,7 +44,7 @@ const MonumentScene = forwardRef(({
 
   const handleSceneClick = (e) => {
     // 使用 nativeEvent 获取原生 DOM 事件
-    if (e.nativeEvent.target.tagName === 'CANVAS' && !isFillModeActive) {
+    if (e.Event.target.tagName === 'CANVAS' && !isFillModeActive) {
       onArtElementSelect(null);
       if (isTextEditing && onTextSelect) {
         onTextSelect(null);
