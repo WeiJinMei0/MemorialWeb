@@ -246,11 +246,11 @@ export const useDesignState = () => {
   }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
   const addProduct = useCallback((productData) => {
-    const { family, class: productClass, polish = 'P5' } = productData; 
-    const color = designState.currentMaterial; 
-    const familyConfig = PRODUCT_FAMILIES[family]; 
+    const { family, class: productClass, polish = 'P5' } = productData;
+    const color = designState.currentMaterial;
+    const familyConfig = PRODUCT_FAMILIES[family];
 
-    if (!familyConfig) return; 
+    if (!familyConfig) return;
 
     // 1. 创建新的碑体
     const monument = {
@@ -261,8 +261,8 @@ export const useDesignState = () => {
       polish,
       color,
       modelPath: productData.modelPath, // (来自 ModelLibrary.jsx)
-      texturePath: "", 
-      position: [0, 0, 0], 
+      texturePath: "",
+      position: [0, 0, 0],
       dimensions: { length: 0, width: 0, height: 0 },
       weight: 0
     };
@@ -511,17 +511,15 @@ export const useDesignState = () => {
       class: vaseData.class,
       name: vaseData.name,
       color: designState.currentMaterial,
-      // 【V_MODIFICATION】: 确保花瓶路径正确 (来自 ModelLibrary.jsx)
       modelPath: vaseData.modelPath,
-      // 【V_MODIFICATION】: (可选) 为花瓶构建 texturePath
-      // 注意：这假设花瓶贴图与模型名称匹配
       texturePath: `./textures/Vases/${vaseData.class}/${vaseData.name.replace(/\.glb$/, '')}_${designState.currentMaterial}.jpg`,
-      position: [0, 0, 0],
-      dimensions: { length: 0.5, width: 0.5, height: 0.5 }, // 您的版本有默认尺寸
+      position: [-0.5, -0.5, -0.5],
+      dimensions: { length: 0.5, width: 0.5, height: 0.5 },
       weight: 0,
       rotation: vaseData.rotation || [0, 0, 0],
       scale: vaseData.scale || [1, 1, 1],
-      isSelected: false
+      isSelected: false,
+      isVaseModel: true
     };
 
     updateDesignState(prev => ({
@@ -652,30 +650,30 @@ export const useDesignState = () => {
             return art;
           })
         };
-      }else if (elementType === 'vase'){
-       // 花瓶翻转
-       return {
-        ...prev,
-        vases: prev.vases.map(vase => {
-          if (vase.id === elementId) {
-            const currentScale = vase.scale || [1, 1, 1];
-            let newScale = [...currentScale];
+      } else if (elementType === 'vase') {
+        // 花瓶翻转
+        return {
+          ...prev,
+          vases: prev.vases.map(vase => {
+            if (vase.id === elementId) {
+              const currentScale = vase.scale || [1, 1, 1];
+              let newScale = [...currentScale];
 
-            if (axis === 'x') {
-              newScale[0] *= -1;
-            } else if (axis === 'y') {
-              newScale[1] *= -1;
-            } else if (axis === 'z') {
-              newScale[2] *= -1;
+              if (axis === 'x') {
+                newScale[0] *= -1;
+              } else if (axis === 'y') {
+                newScale[1] *= -1;
+              } else if (axis === 'z') {
+                newScale[2] *= -1;
+              }
+
+              return { ...vase, scale: newScale };
             }
-
-            return { ...vase, scale: newScale };
-          }
-          return vase;
-        })
-      };
-    }
-    return prev;
+            return vase;
+          })
+        };
+      }
+      return prev;
     });
   }, [updateDesignState]);
 
@@ -790,20 +788,20 @@ export const useDesignState = () => {
   }, [updateDesignState]);
 
   // ---------------- 结束合并文本函数 ----------------
-const updateVaseElementState = useCallback((vaseId, updater, options = {}) => {
-  updateDesignState(prev => ({
-    ...prev,
-    vases: prev.vases.map(vase => {
-      if (vase.id === vaseId) {
-        const newPartialState = typeof updater === 'function'
-          ? updater(vase)
-          : updater;
-        return { ...vase, ...newPartialState };
-      }
-      return vase;
-    })
-  }), options);
-}, [updateDesignState]);
+  const updateVaseElementState = useCallback((vaseId, updater, options = {}) => {
+    updateDesignState(prev => ({
+      ...prev,
+      vases: prev.vases.map(vase => {
+        if (vase.id === vaseId) {
+          const newPartialState = typeof updater === 'function'
+            ? updater(vase)
+            : updater;
+          return { ...vase, ...newPartialState };
+        }
+        return vase;
+      })
+    }), options);
+  }, [updateDesignState]);
 
 
   // ***** 移除了您文件中的 "无限循环" useEffect (您的原文件已经移除了它) *****

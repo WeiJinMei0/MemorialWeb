@@ -341,8 +341,18 @@ const MonumentScene = forwardRef(({
         />
       ))}
 
-      <ambientLight intensity={0.6} />
-      <directionalLight position={[10, 10, 5]} intensity={1} />
+      {/* --- Updated Lighting Setup: Multi-point lighting for no obvious shadows --- */}
+      <ambientLight intensity={0.4} />
+      {/* Front Right (Key Light-ish) */}
+      <directionalLight position={[5, 10, 10]} intensity={0.8} />
+      {/* Front Left (Fill Light) */}
+      <directionalLight position={[-5, 10, 10]} intensity={0.8} />
+      {/* Back (Rim Light) - Helps separate from background */}
+      <directionalLight position={[0, 5, -10]} intensity={0.6} />
+      {/* Side Lights - Fills side shadows */}
+      <directionalLight position={[-10, 0, 0]} intensity={0.4} />
+      <directionalLight position={[10, 0, 0]} intensity={0.4} />
+
       <axesHelper args={[5]} />
 
     </group>
