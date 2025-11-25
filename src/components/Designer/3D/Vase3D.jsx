@@ -16,6 +16,7 @@ const Vase3D = forwardRef(({
   const meshRef = useRef();
   const controlRef = useRef();
   const [model, setModel] = useState(null);
+
   const [error, setError] = useState(false);
 
   // 纹理状态
@@ -103,13 +104,17 @@ const Vase3D = forwardRef(({
         clonedScene.traverse((child) => {
           if (child.isMesh) {
             child.material = child.material.clone();
+            // 强制将底色设为最亮
+            child.material.color.setHex(0xffffff);
 
-            if (child.name === 'vase' || child.name.includes('vase')) {
+            child.material.color.setHex(0xffffff);
+
+            if (child.name === 'vase') {
               child.material.map = vaseTextures.polished.clone();
               child.material.map.colorSpace = THREE.NoColorSpace;
               child.material.roughness = 1;
               child.material.metalness = 0.0;
-            } else if (child.name === 'vaseInside' || child.name.includes('Inside')) {
+            } else if (child.name === 'vaseInside') {
               child.material.map = vaseTextures.sandblasted.clone();
               child.material.map.colorSpace = THREE.NoColorSpace;
               child.material.roughness = 1;
