@@ -156,7 +156,7 @@ const EnhancedTextElement = ({
     };
     applyZ();
     return () => { if (rafId) cancelAnimationFrame(rafId); };
-  }, [monument, text.id, text.position, text.engraveType, onTextPositionChange, modelRefs, computeSurfaceZ]);
+  }, [monument, text.id, text.engraveType, onTextPositionChange, modelRefs, computeSurfaceZ]);
 
   useEffect(() => {
     let rafId;
