@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// --- 辅助函数： Flood Fill (保持不变) ---
+// Flood Fill：按像素替换填充区域，但保留原始黑线防止被覆盖
 export const floodFill = (context, canvas, originalImageData, canvasTexture, startX, startY, newColor) => {
   const { width, height } = canvas;
   const imageData = context.getImageData(0, 0, width, height);
@@ -60,6 +60,7 @@ export const floodFill = (context, canvas, originalImageData, canvasTexture, sta
   canvasTexture.needsUpdate = true;
 };
 
+// 颜色名 -> 十六进制值映射，供老数据沿用
 export const getColorValue = (color) => {
   const colorMap = {
     'Black': 0x333333,

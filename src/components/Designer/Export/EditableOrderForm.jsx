@@ -3,8 +3,12 @@ import { Form, Input, Checkbox, Row, Col, DatePicker } from 'antd';
 import dayjs from 'dayjs';
 import './EditableOrderForm.css';
 
+/**
+ * EditableOrderForm 用于在导出 PDF 前快速填写/修正合同字段。
+ * 组件会读取 designState 自动带入碑体、底座、花瓶的尺寸/颜色。
+ */
 const EditableOrderForm = ({ form, initialData, designState }) => {
-  // 初始化数据 (保持不变)
+  // 初始化数据：把日期字段转成 dayjs，并尽量从 designState 补齐尺寸
   useEffect(() => {
     if (initialData) {
       const dateFields = ['date', 'installationDate'];
@@ -37,7 +41,7 @@ const EditableOrderForm = ({ form, initialData, designState }) => {
     }
   }, [initialData, designState, form]);
 
-  // --- 辅助组件 ---
+  // --- 辅助组件：保持视觉与 PDF 模板一致 ---
   const RenderRow = ({ label, name, labelWidth = '110px' }) => (
     <div className="pdf-form-row">
       <span className="pdf-label" style={{ width: labelWidth }}>{label}</span>
@@ -70,7 +74,7 @@ const EditableOrderForm = ({ form, initialData, designState }) => {
 
       <Form form={form} component={false}>
 
-        {/* 1. CONTRACT INFORMATION (保持不变) */}
+        {/* 1. CONTRACT INFORMATION：对应纸质表单第一页左上角 */}
         <div className="pdf-section-box">
           <div className="pdf-section-title">CONTRACT INFORMATION</div>
           <div className="pdf-split-layout">
@@ -270,7 +274,7 @@ const EditableOrderForm = ({ form, initialData, designState }) => {
           </div>
         </div>
 
-        {/* === 3. ENHANCEMENTS (Pixel Perfect Fix) === */}
+        {/* === 3. ENHANCEMENTS：可选配件/艺术件 === */}
         <div className="pdf-section-box">
           <div className="pdf-section-title">ENHANCEMENTS</div>
           <div className="pdf-content-padding">
