@@ -8,6 +8,10 @@ import { extend } from '@react-three/fiber';
 
 extend({ TextGeometry });
 
+/**
+ * EnhancedTextElement 负责将排版逻辑、材质模拟、TransformControls
+ * 统一封装，让外层只需传入 text state 即可得到可交互的 3D 文本。
+ */
 const EnhancedTextElement = ({
   text,
   monument,
@@ -33,6 +37,7 @@ const EnhancedTextElement = ({
   const [lineOffsets, setLineOffsets] = useState([]);
   const rafWriteRef = useRef(null);
 
+  // 字体路径解析：兼容传入 name 或完整版路径
   const localGetFontPath = useCallback((nameOrPath) => {
     if (getFontPath) {
       return getFontPath(nameOrPath);
@@ -40,6 +45,7 @@ const EnhancedTextElement = ({
     return nameOrPath || '/fonts/helvetiker_regular.typeface.json';
   }, [getFontPath]);
 
+  // 根据雕刻方式为文字落在碑面略微抬高，防止 z-fighting
   const computeSurfaceZ = useCallback((sizeZ, engraveType) => {
     const surfaceZ = -sizeZ / 2;
     if (engraveType === 'vcut' || engraveType === 'frost') return surfaceZ + 0.021;
@@ -47,6 +53,7 @@ const EnhancedTextElement = ({
     return surfaceZ + 0.002;
   }, []);
 
+  // 将 TransformControls 的世界位姿回写到面板状态，便于历史记录
   const writeBackPoseToState = useCallback(() => {
     if (!groupRef.current || !monument) return;
     const monumentMesh = modelRefs.current[monument.id]?.getMesh();
@@ -77,6 +84,12 @@ const EnhancedTextElement = ({
     if (!rafWriteRef.current) rafWriteRef.current = requestAnimationFrame(doWrite);
   }, [monument, text.id, onTextPositionChange, onTextRotationChange, modelRefs]);
 
+  // 把局部 position/rotation 同步到世界坐标，驱动 groupRef
+  // 初始化默认文字位置：等待碑体尺寸计算完后再写入
+  // 当碑体高度改变时，自动将文字重新贴回表面，避免悬浮
+  // polish 文字共享碑体材质的镜面属性，这里 lazy clone
+  // 选中状态下支持键盘快捷键切换 T/R，未选中则恢复 Orbit 控制
+  // 重新计算多行文本的对齐偏移，使得 left/right/center 视觉正确
   useEffect(() => {
     if (!groupRef.current || !monument) return;
     const monumentMesh = modelRefs.current[monument.id]?.getMesh();
@@ -262,6 +275,7 @@ const EnhancedTextElement = ({
     }
   }, [text.id, onTextSelect]);
 
+  // 按字符计算弧长与半径，实现可调弯曲的碑文
   const renderCurvedText = () => {
     if (!text.content) return null;
 
@@ -359,6 +373,7 @@ const EnhancedTextElement = ({
     });
   };
 
+  // 常规排版：分行渲染并根据 lineOffsets 做对齐
   const renderNormalText = () => {
     const content = text.content || 'Text';
     const lines = content.split('\n');
@@ -394,6 +409,7 @@ const EnhancedTextElement = ({
     );
   };
 
+  // 统一入口，根据 curveAmount 决定使用哪种渲染
   const renderTextContent = () => {
     if (text.curveAmount && text.curveAmount > 0) {
       return renderCurvedText();

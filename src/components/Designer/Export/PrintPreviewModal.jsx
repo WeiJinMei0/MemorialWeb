@@ -3,6 +3,10 @@ import { Modal, Button, Form, Input, Radio, Slider, message } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
 import DesignPreviewTemplate from './DesignPreviewTemplate';
 
+/**
+ * PrintPreviewModal 负责将 3D 设计状态渲染成纸面预览，并提供打印 UI。
+ * 左侧是实时预览（DesignPreviewTemplate），右侧是打印信息表单。
+ */
 const PrintPreviewModal = ({ visible, onCancel, designState, proofImage }) => {
   const [form] = Form.useForm();
   const [formData, setFormData] = useState({});
@@ -11,10 +15,12 @@ const PrintPreviewModal = ({ visible, onCancel, designState, proofImage }) => {
   const [textOverlap, setTextOverlap] = useState(true);
   const [textScale, setTextScale] = useState(1.5);
 
+  // 每次输入框变化时缓存起来，用于预览上的 orderInfo
   const handleValuesChange = (_, allValues) => {
     setFormData(allValues);
   };
 
+  // 直接调用浏览器 print，依赖下方 @media print CSS 控制样式
   const handlePrint = () => {
     window.print();
   };
@@ -44,7 +50,7 @@ const PrintPreviewModal = ({ visible, onCancel, designState, proofImage }) => {
     >
       <div className="print-design-layout" style={{ display: 'flex', gap: '24px', height: '800px' }}>
 
-        {/* --- 左侧：预览区域 --- */}
+        {/* --- 左侧：预览区域，专注渲染 DesignPreviewTemplate --- */}
         <div style={{
           flex: 1,
           border: '1px solid #eee',
@@ -60,7 +66,7 @@ const PrintPreviewModal = ({ visible, onCancel, designState, proofImage }) => {
             height: 'auto',
             padding: '0'
           }}>
-            {/* 预览时的容器 */}
+            {/* 预览时的容器：保持满宽度，打印时由 CSS 接管尺寸 */}
             <div className="preview-paper" style={{ width: '100%', minHeight: '100%', background: 'white' }}>
               <DesignPreviewTemplate
                 designState={designState}
@@ -71,7 +77,7 @@ const PrintPreviewModal = ({ visible, onCancel, designState, proofImage }) => {
           </div>
         </div>
 
-        {/* --- 右侧：输入表单 (保持不变) --- */}
+        {/* --- 右侧：输入表单，收集合同/墓园等信息 --- */}
         <div className="no-print" style={{ width: '380px', overflowY: 'auto', paddingRight: '8px', flexShrink: 0 }}>
           <Form
             layout="vertical"
@@ -111,7 +117,7 @@ const PrintPreviewModal = ({ visible, onCancel, designState, proofImage }) => {
         </div>
       </div>
 
-      {/* 打印样式优化 */}
+      {/* 打印样式优化：通过 Flex 将预览纸张居中，其余 UI 隐藏 */}
       <style>{`
         @media print {
           @page {

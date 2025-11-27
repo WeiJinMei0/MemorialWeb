@@ -4,13 +4,17 @@ import { Typography, Image, Input, Divider } from 'antd';
 const { Text, Title } = Typography;
 const { TextArea } = Input;
 
+/**
+ * DesignPreviewTemplate 负责把 designState 映射成纸质 proof 版式。
+ * 被 PrintPreviewModal 与 OrderInfoModal 共用，支持只读或可编辑模式。
+ */
 const DesignPreviewTemplate = ({
                                  designState,
                                  proofImage,
                                  orderInfo = {},
                                  onInfoChange = null
                                }) => {
-  // 1. 单位转换
+  // 1. 单位转换：内部仍然是米/英尺，预览需要英寸并四舍五入
   const formatDim = (val) => {
     if (!val) return 0;
     return (val * 39.37).toFixed(0);
@@ -31,7 +35,7 @@ const DesignPreviewTemplate = ({
 
   const usedArts = artElements.map(a => a.name || a.subclass || 'Custom Art').join(', ');
 
-  // 3. 渲染辅助函数
+  // 3. 渲染辅助函数：根据是否传入 onInfoChange 决定 Input 或纯文本
   const renderField = (field, placeholder) => {
     const value = orderInfo[field];
     if (onInfoChange) {

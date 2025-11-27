@@ -40,8 +40,12 @@ const CheckboxItem = ({ label, checked }) => (
   </View>
 );
 
+/**
+ * OrderFormPDF 负责把 3D 设计状态与订单元数据转换成 PDF（@react-pdf）。
+ * 该组件与 EditableOrderForm 保持布局一致，导出时由 OrderInfoModal 调用。
+ */
 const OrderFormPDF = ({ designState, orderMeta }) => {
-  // 1. 提取设计数据
+  // 1. 提取设计数据：以第一个碑体/底座/花瓶为主
   const monument = designState.monuments?.[0] || { dimensions: {}, color: '', polish: '', class: '' };
   const base = designState.bases?.[0];
   const vases = designState.vases || [];

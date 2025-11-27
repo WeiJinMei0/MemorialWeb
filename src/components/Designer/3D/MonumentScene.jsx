@@ -9,6 +9,10 @@ import Vase3D from './Vase3D.jsx';
 import InteractiveArtPlane from './InteractiveArtPlane.jsx';
 import EnhancedTextElement from './EnhancedTextElement.jsx';
 
+/**
+ * MonumentScene 是 3D 画布的聚合层：负责布置模型、文字、花瓶与艺术画板，
+ * 同时提供截图、拖拽、填色等交互入口。
+ */
 const MonumentScene = forwardRef(({
   designState,
   onDimensionsChange,
@@ -42,6 +46,7 @@ const MonumentScene = forwardRef(({
   const artPlaneRefs = useRef({});
   const vaseRefs = useRef({});
 
+  // 点击空白处时清空所有选中状态，避免残留 gizmo
   const handleSceneClick = (e) => {
     // 使用 nativeEvent 获取原生 DOM 事件
     if (e.Event.target.tagName === 'CANVAS' && !isFillModeActive) {
@@ -55,6 +60,7 @@ const MonumentScene = forwardRef(({
     }
   };
 
+  // 支持从外部拖入保存的艺术元素 JSON
   const handleSceneDrop = useCallback((e) => {
     e.preventDefault();
     try {
@@ -76,6 +82,7 @@ const MonumentScene = forwardRef(({
     onArtElementSelect(artId);
   }, [onArtElementSelect]);
 
+  // vase 选中后需要同步面板状态，便于编辑参数
   const handleSelectVase = useCallback((vaseId) => {
     if (onVaseSelect) {
       onVaseSelect(vaseId);
@@ -85,6 +92,7 @@ const MonumentScene = forwardRef(({
     }
   }, [onVaseSelect, onUpdateVaseElementState]);
 
+  // 背景图（HDRI）异步加载，失败则回退成纯色
   useEffect(() => {
     if (background) {
       const textureLoader = new THREE.TextureLoader();
@@ -100,6 +108,7 @@ const MonumentScene = forwardRef(({
     }
   }, [background, scene]);
 
+  // 向外暴露截图 & 画布数据导出的能力
   useImperativeHandle(ref, () => ({
     captureThumbnail: () => {
       return new Promise((resolve) => {
@@ -132,6 +141,7 @@ const MonumentScene = forwardRef(({
     }
   }));
 
+  // 通过遍历 designState 动态计算每个模型的世界坐标
   const positions = useMemo(() => {
     const positions = {};
 
@@ -168,6 +178,7 @@ const MonumentScene = forwardRef(({
     let currentX_base = -0.381;
     let currentX_Tablet = -0.304;
 
+    // 逐段累加子底座 X/Y，保持等间距
     if (designState.subBases.length > 0) {
       const totalSubBaseLength = designState.subBases.reduce((sum, subBase) => sum + getModelLength(subBase.id), 0) + (designState.subBases.length - 1) * 0.2;
       if (totalSubBaseLength > 0) currentX_subBase = -totalSubBaseLength / 2;
@@ -184,6 +195,7 @@ const MonumentScene = forwardRef(({
       });
     }
 
+    // 底座：以长度最大的一块居中，其余垂直堆叠
     if (designState.bases.length > 0) {
       if (designState.subBases.length === 0) {
         currentY_base = -0.5;
@@ -210,6 +222,7 @@ const MonumentScene = forwardRef(({
       });
     }
 
+    // 碑身：如果只有碑身，也要确保初始高度正确
     if (designState.monuments.length > 0) {
       if (designState.subBases.length === 0 && designState.bases.length === 0) {
         currentY_Tablet = -0.5;
