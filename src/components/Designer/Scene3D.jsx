@@ -548,7 +548,9 @@ const Model = forwardRef(({
           if (onFillClick) {
             onFillClick();
           }
-        }else if (onSelect) {
+        } else if (onSelect) {
+          onSelect(); // 新增：触发选择回调
+        } else if (onSelect) {
           onSelect(); // 新增：触发选择回调
         }
       }}
@@ -702,7 +704,229 @@ const Vase3D = forwardRef(({
     if (controlRef.current) {
       controlRef.current.mode = transformMode;
       controlRef.current.enabled = isSelected;
-      
+
+      if (transformMode === 'rotate') {
+        controlRef.current.showX = false;
+        controlRef.current.showY = false;
+        controlRef.current.showZ = true;
+      } else if (transformMode === 'scale') {
+        controlRef.current.showX = true;
+        controlRef.current.showY = true;
+        controlRef.current.showZ = false;
+      } else if (transformMode === 'translate') {
+        controlRef.current.showX = true;
+        controlRef.current.showY = true;
+        controlRef.current.showZ = false;
+      }
+    }
+  }, [isSelected, transformMode]);
+
+  // 变换事件处理器
+  const onTransformEndHandler = () => {
+    if (meshRef.current) {
+      const newTransform = {
+        position: meshRef.current.position.toArray(),
+        scale: meshRef.current.scale.toArray(),
+        rotation: meshRef.current.rotation.toArray().slice(0, 3)
+      };
+      onUpdateVaseElementState(vase.id, newTransform);
+    }
+  };
+
+  const onTransformStartHandler = () => {
+    // 变换开始时的处理
+  };
+
+  const onTransformChangeHandler = () => {
+    // 变换过程中的处理
+  };
+
+  if (error) {
+    return (
+      <mesh ref={meshRef} position={vase.position}>
+        <boxGeometry args={[0.5, 0.5, 0.5]} />
+        <meshStandardMaterial color="red" transparent opacity={0.5} />
+        <Html distanceFactor={10}>
+          <div>Vase Error</div>
+        </Html>
+      </mesh>
+    );
+  }
+
+  if (!model) {
+    return (
+      <mesh position={vase.position} scale={[0.5, 0.5, 0.5]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="gray" transparent opacity={0.3} />
+      </mesh>
+    );
+  }
+
+  return (
+    <group ref={ref}>
+      {isSelected && (
+        <TransformControls
+          ref={controlRef}
+          object={meshRef}
+          onMouseDown={onTransformStartHandler}
+          onMouseUp={onTransformEndHandler}
+          onChange={onTransformChangeHandler}
+          mode={transformMode}
+        />
+      )}
+      <primitive
+        ref={meshRef}
+        object={model}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          if (!isSelected) {
+            onSelect(vase.id);
+          }
+        }}
+      />
+    </group>
+  );
+});
+const Vase3D = forwardRef(({
+  vase,
+  isSelected,
+  onSelect,
+  onUpdateVaseElementState,
+  transformMode,
+}, ref) => {
+  const meshRef = useRef();
+  const controlRef = useRef();
+  const [model, setModel] = useState(null);
+  const [error, setError] = useState(false);
+
+  const { scene } = useThree();
+
+  useImperativeHandle(ref, () => ({
+    getMesh: () => meshRef.current,
+  }));
+
+  // 模型加载逻辑
+  useEffect(() => {
+    let isMounted = true;
+    let currentSceneObject = null;
+
+    const loadModel = async () => {
+      try {
+        // 清理旧模型
+        if (currentSceneObject && scene) {
+          scene.remove(currentSceneObject);
+          currentSceneObject.traverse((child) => {
+            if (child.isMesh) {
+              if (child.geometry) child.geometry.dispose();
+              if (child.material) {
+                if (Array.isArray(child.material)) {
+                  child.material.forEach(mat => {
+                    if (mat.map) mat.map.dispose();
+                    mat.dispose();
+                  });
+                } else {
+                  if (child.material.map) child.material.map.dispose();
+                  child.material.dispose();
+                }
+              }
+            }
+          });
+          currentSceneObject = null;
+        }
+
+        const loader = new GLTFLoader();
+        const gltf = await loader.loadAsync(vase.modelPath);
+        if (!isMounted) return;
+
+        const clonedScene = gltf.scene.clone();
+        scene.add(clonedScene);
+        currentSceneObject = clonedScene;
+        meshRef.current = clonedScene;
+
+        // 应用纹理
+        const textureLoader = new THREE.TextureLoader();
+        clonedScene.traverse((child) => {
+          if (child.isMesh) {
+            textureLoader.load(vase.texturePath, (texture) => {
+              if (!isMounted) return;
+              texture.colorSpace = THREE.SRGBColorSpace;
+              child.material = new THREE.MeshStandardMaterial({
+                map: texture,
+                roughness: 0.7,
+                metalness: 0.1
+              });
+            }, undefined, () => {
+              if (!isMounted) return;
+              child.material = new THREE.MeshStandardMaterial({
+                color: getColorValue(vase.color),
+                roughness: 0.7,
+                metalness: 0.1
+              });
+            });
+          }
+        });
+
+        if (!isMounted) return;
+        setModel(clonedScene);
+      } catch (err) {
+        console.error(`Failed to load vase model: ${vase.modelPath}`, err);
+        if (isMounted) setError(true);
+      }
+    };
+
+    loadModel();
+
+    return () => {
+      isMounted = false;
+      if (currentSceneObject && scene) {
+        scene.remove(currentSceneObject);
+        currentSceneObject.traverse((child) => {
+          if (child.isMesh) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach(mat => {
+                  if (mat.map) mat.map.dispose();
+                  mat.dispose();
+                });
+              } else {
+                if (child.material.map) child.material.map.dispose();
+                child.material.dispose();
+              }
+            }
+          }
+        });
+      }
+    };
+  }, [vase.modelPath, vase.color, vase.texturePath, scene]);
+
+  // 应用位置、缩放和旋转
+  useLayoutEffect(() => {
+    if (meshRef.current) {
+      meshRef.current.position.set(
+        vase.position[0] || 0,
+        vase.position[1] || 0,
+        vase.position[2] || 0
+      );
+      meshRef.current.scale.set(
+        vase.scale[0] || 1,
+        vase.scale[1] || 1,
+        vase.scale[2] || 1
+      );
+      meshRef.current.rotation.set(
+        vase.rotation[0] || 0,
+        vase.rotation[1] || 0,
+        vase.rotation[2] || 0
+      );
+    }
+  }, [vase.position, vase.scale, vase.rotation]);
+
+  // 变换控件设置
+  useEffect(() => {
+    if (controlRef.current) {
+      controlRef.current.mode = transformMode;
+      controlRef.current.enabled = isSelected;
+
       if (transformMode === 'rotate') {
         controlRef.current.showX = false;
         controlRef.current.showY = false;
@@ -1599,7 +1823,13 @@ const MonumentScene = forwardRef(({
   onVaseSelect,
   selectedVaseId,
   vaseTransformMode,
-  onUpdateVaseElementState, 
+  onUpdateVaseElementState,
+
+  // Vase props (新增)
+  onVaseSelect,
+  selectedVaseId,
+  vaseTransformMode,
+  onUpdateVaseElementState,
   onSceneDrop // <-- 在这里添加 onSceneDrop
 }, ref) => {
   const { gl, scene } = useThree();
@@ -1616,7 +1846,11 @@ const MonumentScene = forwardRef(({
       if (isTextEditing && onTextSelect) {
         onTextSelect(null);
       }
-       // 新增：取消选中花瓶
+      // 新增：取消选中花瓶
+      if (onVaseSelect) {
+        onVaseSelect(null);
+      }
+      // 新增：取消选中花瓶
       if (onVaseSelect) {
         onVaseSelect(null);
       }
@@ -1989,11 +2223,18 @@ const Scene3D = forwardRef(({
   isTextEditing,
   getFontPath,
 
-   // 新增：Vase props
+  // 新增：Vase props
   onVaseSelect,
   selectedVaseId,
   vaseTransformMode,
-  onUpdateVaseElementState, 
+  onUpdateVaseElementState,
+
+
+  // 新增：Vase props
+  onVaseSelect,
+  selectedVaseId,
+  vaseTransformMode,
+  onUpdateVaseElementState,
 
   ...props
 }, ref) => {

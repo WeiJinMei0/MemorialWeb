@@ -110,7 +110,7 @@ const DesignerPage = () => {
     fontOptions,
     getFontPath,
     updateTextPosition,
-    updateTextRotation,
+    updateTextRotation
   } = useDesignState();
 
   // --- 【修改】：点击 Order 弹出确认框，直接生成 ---
@@ -297,7 +297,7 @@ const DesignerPage = () => {
       setVaseTransformMode('translate');
       // 更新设计状态中的选中状态
       updateVaseElementState(vaseId, { isSelected: true });
-    }else {
+    } else {
       // 取消选中时，将所有花瓶的选中状态设为 false
       designState.vases.forEach(vase => {
         updateVaseElementState(vase.id, { isSelected: false });
@@ -507,6 +507,7 @@ const DesignerPage = () => {
     // 2. 更新当前选中的文字 ID
     setCurrentTextId(textId);
 
+    setActiveTool('text');
     if (textId) {
       // ---【关键修改】---
       // 如果选中了文字：
@@ -806,6 +807,15 @@ const DesignerPage = () => {
             monuments={designState.monuments}
             isEditing={isTextEditing}
             fontOptions={fontOptions}
+            onClose={() => {
+              setActiveTool(null);
+              setIsTextEditing(false);
+              setCurrentTextId(null);
+              // 清除所有文字的选中状态
+              designState.textElements.forEach(text => {
+                setTextSelected(text.id, false);
+              });
+            }}
             onSaveTextToOptions={handleSaveTextToOptions} // <-- 传递 prop
             onClose={handleCloseTextEditor}
           />
@@ -1054,13 +1064,16 @@ const DesignerPage = () => {
                 selectedVaseId={selectedVaseId}
                 vaseTransformMode={vaseTransformMode}
                 onUpdateVaseElementState={updateVaseElementState}
+                onTextContentChange={(textId, newContent) => {
+                  updateTextContent(textId, newContent);
+                }}
 
                 // Drag and Drop Props
                 onSceneDrop={handleSceneDrop}
               />
 
               {/* 工具面板 */}
-              {activeTool && !selectedArt && !selectedVase &&  (
+              {activeTool && !selectedArt && !selectedVase && (
                 <div className="tool-panel">
                   {renderToolContent()}
                 </div>

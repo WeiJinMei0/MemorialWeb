@@ -99,6 +99,21 @@
   font-size: 11px;
 }
 
+.font-preview-tooltip {
+  width: 180px;
+  height: 110px;
+  background: #ffffff;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.font-preview-tooltip canvas {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .text-editor-header {
@@ -113,4 +128,21 @@
     flex-direction: column;
     gap: 0;
   }
+}
+
+/* TextEditor.css 或全局样式文件 */
+.text-control-button {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.text-control-button:hover {
+  z-index: 1000;
+}
+
+/* 确保 Html 组件内容正确显示 */
+.text-control-button-container {
+  pointer-events: auto !important;
 }
