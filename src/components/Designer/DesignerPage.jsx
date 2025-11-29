@@ -771,6 +771,23 @@ const DesignerPage = () => {
     }
   }, [savedArtOptions, user]);
 
+  // 1. 新增：处理文字旋转 90 度
+  const handleRotateText90 = useCallback(() => {
+    if (currentTextId) {
+      const text = designState.textElements.find(t => t.id === currentTextId);
+      if (text) {
+        const currentRotation = text.rotation || [0, 0, 0];
+        // Z轴旋转 +90度 (π/2)
+        const newRotation = [
+          currentRotation[0],
+          currentRotation[1],
+          currentRotation[2] + Math.PI / 2 + Math.PI
+        ];
+        updateTextRotation(currentTextId, newRotation);
+      }
+    }
+  }, [currentTextId, designState.textElements, updateTextRotation]);
+
   // renderToolContent
   const renderToolContent = () => {
     switch (activeTool) {
@@ -804,6 +821,9 @@ const DesignerPage = () => {
             onDeleteText={handleDeleteText}
             currentTextId={currentTextId}
             existingTexts={texts}
+            transformMode={transformMode} // 传入当前模式
+            setTransformMode={setTransformMode} // 传入设置模式的函数
+            onRotate90={handleRotateText90} // 传入旋转90度函数
             monuments={designState.monuments}
             isEditing={isTextEditing}
             fontOptions={fontOptions}

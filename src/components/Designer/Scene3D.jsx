@@ -550,8 +550,6 @@ const Model = forwardRef(({
           }
         } else if (onSelect) {
           onSelect(); // 新增：触发选择回调
-        } else if (onSelect) {
-          onSelect(); // 新增：触发选择回调
         }
       }}
     />
@@ -565,228 +563,6 @@ const Model = forwardRef(({
   ) : ModelComponent;
 });
 
-const Vase3D = forwardRef(({
-  vase,
-  isSelected,
-  onSelect,
-  onUpdateVaseElementState,
-  transformMode,
-}, ref) => {
-  const meshRef = useRef();
-  const controlRef = useRef();
-  const [model, setModel] = useState(null);
-  const [error, setError] = useState(false);
-
-  const { scene } = useThree();
-
-  useImperativeHandle(ref, () => ({
-    getMesh: () => meshRef.current,
-  }));
-
-  // 模型加载逻辑
-  useEffect(() => {
-    let isMounted = true;
-    let currentSceneObject = null;
-
-    const loadModel = async () => {
-      try {
-        // 清理旧模型
-        if (currentSceneObject && scene) {
-          scene.remove(currentSceneObject);
-          currentSceneObject.traverse((child) => {
-            if (child.isMesh) {
-              if (child.geometry) child.geometry.dispose();
-              if (child.material) {
-                if (Array.isArray(child.material)) {
-                  child.material.forEach(mat => {
-                    if (mat.map) mat.map.dispose();
-                    mat.dispose();
-                  });
-                } else {
-                  if (child.material.map) child.material.map.dispose();
-                  child.material.dispose();
-                }
-              }
-            }
-          });
-          currentSceneObject = null;
-        }
-
-        const loader = new GLTFLoader();
-        const gltf = await loader.loadAsync(vase.modelPath);
-        if (!isMounted) return;
-
-        const clonedScene = gltf.scene.clone();
-        scene.add(clonedScene);
-        currentSceneObject = clonedScene;
-        meshRef.current = clonedScene;
-
-        // 应用纹理
-        const textureLoader = new THREE.TextureLoader();
-        clonedScene.traverse((child) => {
-          if (child.isMesh) {
-            textureLoader.load(vase.texturePath, (texture) => {
-              if (!isMounted) return;
-              texture.colorSpace = THREE.SRGBColorSpace;
-              child.material = new THREE.MeshStandardMaterial({
-                map: texture,
-                roughness: 0.7,
-                metalness: 0.1
-              });
-            }, undefined, () => {
-              if (!isMounted) return;
-              child.material = new THREE.MeshStandardMaterial({
-                color: getColorValue(vase.color),
-                roughness: 0.7,
-                metalness: 0.1
-              });
-            });
-          }
-        });
-
-        if (!isMounted) return;
-        setModel(clonedScene);
-      } catch (err) {
-        console.error(`Failed to load vase model: ${vase.modelPath}`, err);
-        if (isMounted) setError(true);
-      }
-    };
-
-    loadModel();
-
-    return () => {
-      isMounted = false;
-      if (currentSceneObject && scene) {
-        scene.remove(currentSceneObject);
-        currentSceneObject.traverse((child) => {
-          if (child.isMesh) {
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) {
-              if (Array.isArray(child.material)) {
-                child.material.forEach(mat => {
-                  if (mat.map) mat.map.dispose();
-                  mat.dispose();
-                });
-              } else {
-                if (child.material.map) child.material.map.dispose();
-                child.material.dispose();
-              }
-            }
-          }
-        });
-      }
-    };
-  }, [vase.modelPath, vase.color, vase.texturePath, scene]);
-
-  // 应用位置、缩放和旋转
-  useLayoutEffect(() => {
-    if (meshRef.current) {
-      meshRef.current.position.set(
-        vase.position[0] || 0,
-        vase.position[1] || 0,
-        vase.position[2] || 0
-      );
-      meshRef.current.scale.set(
-        vase.scale[0] || 1,
-        vase.scale[1] || 1,
-        vase.scale[2] || 1
-      );
-      meshRef.current.rotation.set(
-        vase.rotation[0] || 0,
-        vase.rotation[1] || 0,
-        vase.rotation[2] || 0
-      );
-    }
-  }, [vase.position, vase.scale, vase.rotation]);
-
-  // 变换控件设置
-  useEffect(() => {
-    if (controlRef.current) {
-      controlRef.current.mode = transformMode;
-      controlRef.current.enabled = isSelected;
-
-      if (transformMode === 'rotate') {
-        controlRef.current.showX = false;
-        controlRef.current.showY = false;
-        controlRef.current.showZ = true;
-      } else if (transformMode === 'scale') {
-        controlRef.current.showX = true;
-        controlRef.current.showY = true;
-        controlRef.current.showZ = false;
-      } else if (transformMode === 'translate') {
-        controlRef.current.showX = true;
-        controlRef.current.showY = true;
-        controlRef.current.showZ = false;
-      }
-    }
-  }, [isSelected, transformMode]);
-
-  // 变换事件处理器
-  const onTransformEndHandler = () => {
-    if (meshRef.current) {
-      const newTransform = {
-        position: meshRef.current.position.toArray(),
-        scale: meshRef.current.scale.toArray(),
-        rotation: meshRef.current.rotation.toArray().slice(0, 3)
-      };
-      onUpdateVaseElementState(vase.id, newTransform);
-    }
-  };
-
-  const onTransformStartHandler = () => {
-    // 变换开始时的处理
-  };
-
-  const onTransformChangeHandler = () => {
-    // 变换过程中的处理
-  };
-
-  if (error) {
-    return (
-      <mesh ref={meshRef} position={vase.position}>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshStandardMaterial color="red" transparent opacity={0.5} />
-        <Html distanceFactor={10}>
-          <div>Vase Error</div>
-        </Html>
-      </mesh>
-    );
-  }
-
-  if (!model) {
-    return (
-      <mesh position={vase.position} scale={[0.5, 0.5, 0.5]}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="gray" transparent opacity={0.3} />
-      </mesh>
-    );
-  }
-
-  return (
-    <group ref={ref}>
-      {isSelected && (
-        <TransformControls
-          ref={controlRef}
-          object={meshRef}
-          onMouseDown={onTransformStartHandler}
-          onMouseUp={onTransformEndHandler}
-          onChange={onTransformChangeHandler}
-          mode={transformMode}
-        />
-      )}
-      <primitive
-        ref={meshRef}
-        object={model}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          if (!isSelected) {
-            onSelect(vase.id);
-          }
-        }}
-      />
-    </group>
-  );
-});
 const Vase3D = forwardRef(({
   vase,
   isSelected,
@@ -1342,6 +1118,7 @@ const EnhancedTextElement = ({
   onDeleteText,
   isSelected,
   isTextEditing,
+  globalTransformMode,
   getFontPath, // 接收字体路径
   modelRefs // 接收模型引用
 }) => {
@@ -1353,10 +1130,19 @@ const EnhancedTextElement = ({
   const [monumentMaterial, setMonumentMaterial] = useState(null);
   const [dragEnabled, setDragEnabled] = useState(false);
   const [hasInitPosition, setHasInitPosition] = useState(false);
-  const [transformMode, setTransformMode] = useState('translate');
+  //const [transformMode, setTransformMode] = useState('translate');
+  // 【修改】: 移除内部 transformMode state，或者将其与 globalTransformMode 同步
+  // const [transformMode, setTransformMode] = useState('translate'); // <--- 删除这行
+
+  // 使用传入的 globalTransformMode，如果没传这就默认为 translate
+  const mode = globalTransformMode || 'translate';
   const lineRefs = useRef([]);
   const [lineOffsets, setLineOffsets] = useState([]);
   const rafWriteRef = useRef(null);
+
+  // 新增：用于显示角度的状态
+  const [currentRotationDeg, setCurrentRotationDeg] = useState(0);
+  const [isRotating, setIsRotating] = useState(false);
 
   const localGetFontPath = useCallback((nameOrPath) => {
     if (getFontPath) {
@@ -1763,19 +1549,66 @@ const EnhancedTextElement = ({
         userData={{ isTextElement: true, textId: text.id }}
       >
         {renderTextContent()}
+        {/* 【新增】：旋转时显示角度 */}
+        {isSelected && isRotating && mode === 'rotate' && (
+          <Html position={[0, 0.2, 0]} center>
+            <div style={{
+              background: 'rgba(0,0,0,0.7)',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap'
+            }}>
+              {currentRotationDeg.toFixed(1)}°
+            </div>
+          </Html>
+        )}
       </group>
 
       {isSelected && isTextEditing && groupRef.current && (
         <TransformControls
           object={groupRef.current}
-          mode={transformMode}
+          //mode={transformMode}
+          mode={mode} // 【修改】：使用 globalTransformMode
           space="local"
-          showX={transformMode === 'translate'}
-          showY={transformMode === 'translate'}
-          showZ={transformMode === 'rotate'}
-          onMouseDown={() => { controls && (controls.enabled = false); setIsDragging(true); }}
-          onObjectChange={writeBackPoseToState}
-          onMouseUp={() => { writeBackPoseToState(); controls && (controls.enabled = true); setIsDragging(false); }}
+          //showX={transformMode === 'translate'}
+          //showY={transformMode === 'translate'}
+          //showZ={transformMode === 'rotate'}
+          showX={mode === 'translate'}
+          showY={mode === 'translate'}
+          showZ={mode === 'rotate'}
+          // 【修改】：更加严格的逻辑
+          onMouseDown={() => {
+            controls && (controls.enabled = false);
+            setIsDragging(true);
+            // 只有当前模式确实是旋转时，才标记为正在旋转
+            if (mode === 'rotate') {
+              setIsRotating(true);
+            } else {
+              setIsRotating(false); // 确保拖拽时一定是 false
+            }
+          }}
+
+          onObjectChange={() => {
+            writeBackPoseToState();
+            // 【修改】：仅在旋转模式下更新角度计算，节省性能
+            if (mode === 'rotate' && groupRef.current) {
+              const rotZ = groupRef.current.rotation.z;
+              let deg = (rotZ * 180) / Math.PI;
+              deg = deg % 360;
+              if (deg < 0) deg += 360;
+              setCurrentRotationDeg(deg);
+            }
+          }}
+
+          onMouseUp={() => {
+            writeBackPoseToState();
+            controls && (controls.enabled = true);
+            setIsDragging(false);
+            setIsRotating(false); // 总是重置
+          }}
         />
       )}
     </>
@@ -1824,12 +1657,6 @@ const MonumentScene = forwardRef(({
   selectedVaseId,
   vaseTransformMode,
   onUpdateVaseElementState,
-
-  // Vase props (新增)
-  onVaseSelect,
-  selectedVaseId,
-  vaseTransformMode,
-  onUpdateVaseElementState,
   onSceneDrop // <-- 在这里添加 onSceneDrop
 }, ref) => {
   const { gl, scene } = useThree();
@@ -1845,10 +1672,6 @@ const MonumentScene = forwardRef(({
       // --- 合并点：添加文字取消选中 ---
       if (isTextEditing && onTextSelect) {
         onTextSelect(null);
-      }
-      // 新增：取消选中花瓶
-      if (onVaseSelect) {
-        onVaseSelect(null);
       }
       // 新增：取消选中花瓶
       if (onVaseSelect) {
@@ -2161,6 +1984,7 @@ const MonumentScene = forwardRef(({
                 onTextRotationChange={onTextRotationChange}
                 getFontPath={getFontPath} // 传递 getFontPath
                 modelRefs={modelRefs} // 传递 modelRefs
+                globalTransformMode={transformMode} // <--- 传递下去
               />
             ))}
           </React.Fragment>
@@ -2229,13 +2053,6 @@ const Scene3D = forwardRef(({
   vaseTransformMode,
   onUpdateVaseElementState,
 
-
-  // 新增：Vase props
-  onVaseSelect,
-  selectedVaseId,
-  vaseTransformMode,
-  onUpdateVaseElementState,
-
   ...props
 }, ref) => {
   return (
@@ -2289,6 +2106,7 @@ const Scene3D = forwardRef(({
             currentTextId={currentTextId}
             isTextEditing={isTextEditing}
             getFontPath={getFontPath}
+
 
             // 新增：传递花瓶props
             onVaseSelect={onVaseSelect}

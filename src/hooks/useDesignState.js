@@ -73,30 +73,28 @@ const FONT_OPTIONS = [
   { name: 'Calibri Light Regular', path: '/fonts/Calibri Light_Regular.json', cssFamily: 'Calibri, Arial, sans-serif' },
   { name: 'Calibri Light Italic', path: '/fonts/Calibri Light_Italic.json', cssFamily: 'Calibri, Arial, sans-serif' },
   { name: 'Comic Sans MS Regular', path: '/fonts/Comic Sans MS_Regular.json', cssFamily: 'Comic Sans MS, cursive' },
-  { name: 'Palatino Linotype Regular', path: '/fonts/Palatino Linotype_Regular.json', cssFamily: 'Palatino, serif' },
-  { name: 'Palatino Linotype Bold', path: '/fonts/Palatino Linotype_Bold.json', cssFamily: 'Palatino, serif' },
-  { name: 'Palatino Linotype Italic', path: '/fonts/Palatino Linotype_Italic.json', cssFamily: 'Palatino, serif' },
-  { name: 'Palatino Linotype Bold Italic', path: '/fonts/Palatino Linotype_Bold Italic.json', cssFamily: 'Palatino, serif' },
+  //{ name: 'Palatino Linotype Regular', path: '/fonts/Palatino Linotype_Regular.json', cssFamily: 'Palatino, serif' },
+  //{ name: 'Palatino Linotype Bold', path: '/fonts/Palatino Linotype_Bold.json', cssFamily: 'Palatino, serif' },
+  //{ name: 'Palatino Linotype Italic', path: '/fonts/Palatino Linotype_Italic.json', cssFamily: 'Palatino, serif' },
+  //{ name: 'Palatino Linotype Bold Italic', path: '/fonts/Palatino Linotype_Bold Italic.json', cssFamily: 'Palatino, serif' },
   { name: 'Bookman Old Style Regular', path: '/fonts/Bookman Old Style_Regular.json', cssFamily: 'serif' },
   { name: 'Bookman Old Style Bold', path: '/fonts/Bookman Old Style_Bold.json', cssFamily: 'serif' },
   { name: 'Bookman Old Style Italic', path: '/fonts/Bookman Old Style_Italic.json', cssFamily: 'serif' },
   { name: 'Bookman Old Style Bold Italic', path: '/fonts/Bookman Old Style_Bold Italic.json', cssFamily: 'serif' },
   { name: 'Bookman Profi Regular', path: '/fonts/Bookman Profi_Regular.json', cssFamily: 'serif' },
-  
+
   // 手写体/艺术字体 (Handwriting/Artistic Fonts)
   { name: 'Lucida Calligraphy Italic', path: '/fonts/Lucida Calligraphy_Italic.json', cssFamily: '"Lucida Calligraphy", cursive' },
   { name: 'Lucida Handwriting Italic', path: '/fonts/Lucida Handwriting_Italic.json', cssFamily: '"Lucida Handwriting", cursive' },
   { name: 'Script MT Bold Regular', path: '/fonts/Script MT Bold_Regular.json', cssFamily: 'cursive' },
   { name: 'SnellRoundhand Script Regular', path: '/fonts/SnellRoundhand Script_Regular.json', cssFamily: 'cursive' },
-  { name: 'EnglishScriptEF Regular', path: '/fonts/EnglishScriptEF_Regular.json', cssFamily: 'cursive' },
-  { name: 'EnglishScriptEF_Bold', path: '/fonts/EnglishScriptEF_Bold.json', cssFamily: 'cursive' },
+  //{ name: 'EnglishScriptEF Regular', path: '/fonts/EnglishScriptEF_Regular.json', cssFamily: 'cursive' },
   { name: 'Magnolia Script Regular', path: '/fonts/Magnolia Script_Regular.json', cssFamily: 'cursive' },
   { name: 'Lynda Cursive Normal', path: '/fonts/Lynda Cursive_Normal.json', cssFamily: 'cursive' },
   { name: 'Lynda Cursive Bold', path: '/fonts/Lynda Cursive_Bold.json', cssFamily: 'cursive' },
   { name: 'Spring Beauty Regular', path: '/fonts/Spring Beauty_Regular.json', cssFamily: 'cursive' },
   { name: 'Madina Regular', path: '/fonts/Madina_Regular.json', cssFamily: 'cursive' },
-  {name:'Romantic_Medium',path:'/fonts/Romantic_Medium.json'},
-  
+
   // 古典/装饰字体 (Classical/Decorative Fonts)
   { name: 'Old English Text MT Regular', path: '/fonts/Old English Text MT_Regular.json', cssFamily: 'serif' },
   { name: 'Old English Regular', path: '/fonts/Old-English_Normal.json', cssFamily: 'serif' },
@@ -112,37 +110,35 @@ const FONT_OPTIONS = [
   { name: 'Mythica Medium', path: '/fonts/MythicaW01-Medium_Regular.json', cssFamily: 'serif' },
   { name: 'OldeWorld Bold', path: '/fonts/OldeWorld-Bold_Regular.json', cssFamily: 'serif' },
   { name: 'Cheltenham Bold Condensed', path: '/fonts/CheltenhamW01-BoldCondensed_Regular.json', cssFamily: 'serif' },
-  
+
   // 技术/等宽字体 (Technical/Monospace Fonts)
   { name: 'Square721 BT Roman', path: '/fonts/Square721 BT_Roman.json', cssFamily: 'sans-serif' },
   { name: 'Square721 BT Bold', path: '/fonts/Square721 BT_Bold.json', cssFamily: 'sans-serif' },
   { name: 'Adobe Gothic Std Bold', path: '/fonts/Adobe Gothic Std B_Bold.json', cssFamily: 'sans-serif' },
   { name: 'City Medium', path: '/fonts/CityDEEMed_Regular.json', cssFamily: 'sans-serif' },
-  
+
   // 中文/汉字字体 (Chinese Fonts)
-  { name: '方正楷体', path: '/fonts/FZCuKaiS-R-GB_Regular.json' },
-  { name: '方正楷体-Z03', path: '/fonts/FZKai-Z03S_Regular.json' },
-  { name: '方正隶书', path: '/fonts/FZLiShu II-S06T_Regular.json' },
-  { name: '黑体', path: '/fonts/SimHei_Regular.json' },
-  { name: '华文隶书', path: '/fonts/STLiti_Regular.json' },
-  { name: '华文中宋', path: '/fonts/STZhongsong_Regular.json' },
-  { name: '华文中宋 粗体', path: '/fonts/STZhongsong_Bold.json' },
-  {name:'华康特粗楷体',path:'/fonts/DFKaiXBold-B5_Regular.json'},  
-  {name:'腾祥伯当行楷简繁',path:'/fonts/Tensentype XingKaiF_Regular.json'},
-  
+  { name: '方正楷体', path: '/fonts/FZCuKaiS-R-GB_Regular.json', isChinese: true },
+  { name: '方正楷体-Z03', path: '/fonts/FZKai-Z03S_Regular.json', isChinese: true },
+  { name: '方正隶书', path: '/fonts/FZLiShu II-S06T_Regular.json', isChinese: true },
+  { name: '黑体', path: '/fonts/SimHei_Regular.json', isChinese: true },
+  { name: '华文隶书', path: '/fonts/STLiti_Regular.json', isChinese: true },
+  { name: '华文中宋', path: '/fonts/STZhongsong_Regular.json', isChinese: true },
+  { name: '华文中宋 粗体', path: '/fonts/STZhongsong_Bold.json', isChinese: true },
+
   // 韩文/谚文字体 (Korean Fonts)
   { name: '고인돌B', path: '/fonts/(한)고인돌B_Regular.json' },
   { name: '볼펜체C', path: '/fonts/(한)볼펜체C_Regular.json' },
   { name: '판화체B', path: '/fonts/(한)판화체B_Regular.json' },
   { name: '가을잎체 굵은', path: '/fonts/(환)가을잎체(굵은)_Regular.json' },
-  
+
   // 其他语言字体 (Other Language Fonts)
-  { name: 'Amharic GeèzEdit', path: '/fonts/GeèzEdit Amharic P_Regular.json' },
+  { name: 'AmharicGeèzEdit', path: '/fonts/GeèzEdit Amharic P_Regular.json' },
   { name: 'Amharic Nyala', path: '/fonts/Nyala_Regular.json' },
   { name: 'Russian Dusha', path: '/fonts/Dusha V5_Regular.json' },
   { name: 'Italian DRome', path: '/fonts/DRome_Regular.json' },
   { name: 'Japanese zktskt', path: '/fonts/zktskt_Regular.json' },
-  
+
   // 特殊用途字体 (Special Purpose Fonts)
   { name: 'MLC Common Gothic', path: '/fonts/MLC Common Gothic SKS_Regular.json', cssFamily: 'sans-serif' },
   { name: 'MLC Condensed Roman', path: '/fonts/MLC Condensed Roman SKS .75in-1.25in_Regular.json', cssFamily: 'serif' },
@@ -154,12 +150,12 @@ const FONT_OPTIONS = [
   { name: 'MDSol Regular', path: '/fonts/MDSol_Regular.json' },
   { name: 'SW Italic', path: '/fonts/SWItalc_Regular.json' },
   { name: 'TR Comic Sans MS', path: '/fonts/TR Comic Sans MS_Regular.json', cssFamily: 'Comic Sans MS, cursive' },
-  
+
   // 花体/Zapf字体 (Zapf Fonts)
   { name: 'Zapf Chancery Medium Italic', path: '/fonts/Zapf Chancery BT_Medium Italic.json', cssFamily: 'serif' },
   { name: 'Zapf Chancery Demi', path: '/fonts/ZapfChan Dm BT_Demi.json', cssFamily: 'serif' },
   { name: 'ZapfChancery Medium Italic Ex', path: '/fonts/ZapfChancery-MediumItalic Ex_Regular.json', cssFamily: 'serif' },
-  
+
   // 未分类字体 (Uncategorized Fonts)
   { name: 'Times Roman', path: '/fonts/Times-Roman_Regular.json', cssFamily: 'Times, serif' },
   { name: 'Undefined Regular', path: '/fonts/undefined_Regular.json' }
@@ -266,11 +262,11 @@ export const useDesignState = () => {
   }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
   const addProduct = useCallback((productData) => {
-    const { family, class: productClass, polish = 'P5' } = productData; 
-    const color = designState.currentMaterial; 
-    const familyConfig = PRODUCT_FAMILIES[family]; 
+    const { family, class: productClass, polish = 'P5' } = productData;
+    const color = designState.currentMaterial;
+    const familyConfig = PRODUCT_FAMILIES[family];
 
-    if (!familyConfig) return; 
+    if (!familyConfig) return;
 
     // 1. 创建新的碑体
     const monument = {
@@ -281,8 +277,8 @@ export const useDesignState = () => {
       polish,
       color,
       modelPath: productData.modelPath, // (来自 ModelLibrary.jsx)
-      texturePath: "", 
-      position: [0, 0, 0], 
+      texturePath: "",
+      position: [0, 0, 0],
       dimensions: { length: 0, width: 0, height: 0 },
       weight: 0
     };
@@ -672,30 +668,30 @@ export const useDesignState = () => {
             return art;
           })
         };
-      }else if (elementType === 'vase'){
-       // 花瓶翻转
-       return {
-        ...prev,
-        vases: prev.vases.map(vase => {
-          if (vase.id === elementId) {
-            const currentScale = vase.scale || [1, 1, 1];
-            let newScale = [...currentScale];
+      } else if (elementType === 'vase') {
+        // 花瓶翻转
+        return {
+          ...prev,
+          vases: prev.vases.map(vase => {
+            if (vase.id === elementId) {
+              const currentScale = vase.scale || [1, 1, 1];
+              let newScale = [...currentScale];
 
-            if (axis === 'x') {
-              newScale[0] *= -1;
-            } else if (axis === 'y') {
-              newScale[1] *= -1;
-            } else if (axis === 'z') {
-              newScale[2] *= -1;
+              if (axis === 'x') {
+                newScale[0] *= -1;
+              } else if (axis === 'y') {
+                newScale[1] *= -1;
+              } else if (axis === 'z') {
+                newScale[2] *= -1;
+              }
+
+              return { ...vase, scale: newScale };
             }
-
-            return { ...vase, scale: newScale };
-          }
-          return vase;
-        })
-      };
-    }
-    return prev;
+            return vase;
+          })
+        };
+      }
+      return prev;
     });
   }, [updateDesignState]);
 
@@ -808,31 +804,22 @@ export const useDesignState = () => {
       )
     }), options); // 传递 options
   }, [updateDesignState]);
-  // 在 useDesignState.jsx 中添加
-const updateTextContent = useCallback((textId, newContent) => {
-  setDesignState(prev => ({
-    ...prev,
-    textElements: prev.textElements.map(text => 
-      text.id === textId ? { ...text, content: newContent } : text
-    )
-  }));
-}, [updateDesignState]);
 
   // ---------------- 结束合并文本函数 ----------------
-const updateVaseElementState = useCallback((vaseId, updater, options = {}) => {
-  updateDesignState(prev => ({
-    ...prev,
-    vases: prev.vases.map(vase => {
-      if (vase.id === vaseId) {
-        const newPartialState = typeof updater === 'function'
-          ? updater(vase)
-          : updater;
-        return { ...vase, ...newPartialState };
-      }
-      return vase;
-    })
-  }), options);
-}, [updateDesignState]);
+  const updateVaseElementState = useCallback((vaseId, updater, options = {}) => {
+    updateDesignState(prev => ({
+      ...prev,
+      vases: prev.vases.map(vase => {
+        if (vase.id === vaseId) {
+          const newPartialState = typeof updater === 'function'
+            ? updater(vase)
+            : updater;
+          return { ...vase, ...newPartialState };
+        }
+        return vase;
+      })
+    }), options);
+  }, [updateDesignState]);
 
 
   // ***** 移除了您文件中的 "无限循环" useEffect (您的原文件已经移除了它) *****
@@ -875,7 +862,6 @@ const updateVaseElementState = useCallback((vaseId, updater, options = {}) => {
     getFontPath,
     updateTextPosition,
     updateTextRotation,
-    updateTextContent, 
     // (来自同事 useDesignState.js 的额外函数，以防万一)
     // transformText,
     // updateTextRelativePosition

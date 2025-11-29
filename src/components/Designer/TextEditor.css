@@ -43,7 +43,7 @@
   padding-bottom: 4px;
 }
 
-.text-form .ant-form-item-label > label {
+.text-form .ant-form-item-label>label {
   color: #333;
   font-weight: 500;
   font-size: 13px;
@@ -100,11 +100,13 @@
 }
 
 .font-preview-tooltip {
-  width: 180px;
+  width: 200px;
   height: 110px;
-  background: #ffffff;
+  background: #ffffff !important;
   border-radius: 10px;
   overflow: hidden;
+  border: 1px solid #ffffff;
+  /* 添加白色边框 */
 }
 
 .font-preview-tooltip canvas {
@@ -112,6 +114,8 @@
   height: 100% !important;
   border-radius: 10px;
   background: #ffffff;
+  border: none;
+  /* 确保canvas没有边框 */
 }
 
 /* 响应式设计 */
@@ -119,11 +123,11 @@
   .text-editor-header {
     padding: 16px;
   }
-  
+
   .text-form {
     padding: 16px;
   }
-  
+
   .form-row {
     flex-direction: column;
     gap: 0;
