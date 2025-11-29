@@ -1,0 +1,999 @@
+.designer-layout {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.designer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  background: #001529;
+  border-bottom: 1px solid #f0f0f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 1000;
+  flex-shrink: 0;
+  height: 64px;
+  /* 固定头部高度 */
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  width: 150px;
+}
+
+.header-logo {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.header-menu {
+  display: flex;
+  padding: 4px;
+  gap: 4px;
+}
+
+.menu-item {
+  position: relative;
+  padding: 0px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.menu-item.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-weight: 600;
+}
+
+.menu-item.active .menu-text {
+  font-weight: 600;
+}
+
+.menu-arrow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(255, 255, 255, 0.2);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-right .ant-btn {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+  background: transparent;
+}
+
+/* .header-right .ant-btn:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+} */
+
+.header-right .ant-select .ant-select-selector {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.header-right .ant-select .ant-select-arrow {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 主内容布局 */
+.main-content-layout {
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 64px);
+  /* 减去头部高度 */
+}
+
+.toolbar-sider {
+  background: #fff;
+  border-right: 1px solid #f0f0f0;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.toolbar-sider .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 场景和Footer布局 */
+.scene-footer-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.designer-content {
+  flex: 1;
+  background: #ffffff;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.scene-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.scene-controls-top {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid #e8e8e8;
+}
+
+.scene-wrapper {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+/* 主工具栏定位 */
+.tool-panel {
+  position: absolute;
+  top: 80px;
+  right: 20px;
+  width: 380px;
+  max-height: calc(100% - 100px);
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  z-index: 100;
+  border: 1px solid #e8e8e8;
+}
+
+/* 【新增】图案编辑面板定位 */
+.art-editor-panel {
+  position: absolute;
+  top: 80px;
+  /* 保持与主工具面板一致的顶部位置 */
+  right: 20px;
+  width: 300px;
+  /* 调整宽度以区分 */
+  z-index: 101;
+  /* 确保它在主工具面板上方 */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+
+.tool-panel-arrow {
+  position: absolute;
+  left: -12px;
+  top: 20px;
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 12px solid white;
+  filter: drop-shadow(-2px 0 2px rgba(0, 0, 0, 0.1));
+}
+
+.custom-select-with-left-icon {
+  position: relative;
+  display: inline-block;
+}
+
+.custom-select-with-left-icon .select-left-icon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  color: #080202;
+  font-size: 14px;
+}
+
+.custom-select-with-left-icon .background-select-custom .ant-select-selector {
+  padding-left: 30px !important;
+}
+
+/* Footer 整体布局 - 固定高度 */
+.designer-footer {
+  padding: 16px;
+  background: #f5f5f5;
+  border-top: 1px solid #d9d9d9;
+  height: 150px;
+  /* 固定高度 */
+  overflow-y: auto;
+  flex-shrink: 0;
+  transition: none;
+  /* 禁用过渡效果 */
+}
+
+.footer-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+}
+
+/* 三行并列容器 - 可滚动 */
+.control-rows-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  flex: 1;
+  overflow-y: auto;
+  max-height: 66px;
+  /* 固定计算，减去按钮区域高度 */
+  padding-right: 20px;
+  padding-bottom: 5px;
+}
+
+/* 控制行 */
+.control-row {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.control-section {
+  flex: 1;
+  background: white;
+  padding: 12px;
+  /* 减小内边距 */
+  border-radius: 6px;
+  border: 1px solid #e8e8e8;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+/* 区域内容布局 - 水平排列 */
+.section-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  /* 减小间距 */
+  margin-bottom: 0;
+}
+
+/* 尺寸控制组样式 */
+.dimension-control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* 减小间距 */
+}
+
+.dimension-control-group label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+  min-width: 50px;
+  /* 减小宽度 */
+}
+
+.dimension-inputs {
+  display: flex;
+  gap: 6px;
+  /* 减小间距 */
+}
+
+.dimension-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dimension-label {
+  font-size: 11px;
+  color: #8c8c8c;
+  min-width: 20px;
+  /* 恢复原始宽度 */
+  text-align: right;
+  font-weight: 500;
+}
+
+.dimension-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.designer-footer .footer-controls .dimension-control label {
+  text-align: right;
+  min-width: 100px;
+  /* 可选：设置固定宽度保持对齐 */
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.dimension-value {
+  width: 60px;
+  /* 减小宽度 */
+}
+
+/* 附加控制组 */
+.additional-controls {
+  display: flex;
+  gap: 16px;
+  /* 减小间距 */
+  align-items: center;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* 减小间距 */
+}
+
+/* 统一所有标签样式 */
+.control-group .dimension-label {
+  font-size: 11px;
+  color: #8c8c8c;
+  min-width: 40px;
+  /* 减小宽度 */
+  text-align: right;
+  font-weight: 500;
+}
+
+.weight-value {
+  font-size: 11px;
+  color: #333;
+  font-weight: 600;
+  min-width: 35px;
+  /* 减小宽度 */
+}
+
+/* 固定在底部的 SubBase 按钮 - 固定大小 */
+.subbase-button-container {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+  border-top: 1px dashed #e8e8e8;
+  margin-top: 8px;
+  flex-shrink: 0;
+  height: 40px;
+  /* 固定按钮容器高度 */
+}
+
+/* From Text branch */
+.base-buttons-container {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+  border-top: 1px dashed #e8e8e8;
+  margin-top: 8px;
+  flex-shrink: 0;
+  height: 40px;
+}
+
+.fixed-size-button {
+  height: 28px !important;
+  /* 固定按钮高度 */
+  min-width: 140px !important;
+  /* 固定按钮最小宽度 */
+  font-size: 12px !important;
+  /* 减小字体 */
+  padding: 0 12px !important;
+  /* 固定内边距 */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .section-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .additional-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .control-row {
+    flex-direction: column;
+  }
+}
+
+/* 滚动条样式 */
+.control-rows-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.control-rows-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.control-rows-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.control-rows-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.designer-footer::-webkit-scrollbar {
+  width: 6px;
+}
+
+.designer-footer::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.designer-footer::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.designer-footer::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* --- Styles for Recently Saved Feature --- */
+
+/* 让页脚主容器横向排列 */
+.footer-content-wrapper {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+}
+
+/* 限制左侧控制区域的宽度，让右侧有空间 */
+.designer-footer .footer-controls {
+  flex: 3;
+  min-width: 600px;
+  /* 根据需要调整 */
+}
+
+/* "Recently Saved" 和 "Art Options" 的容器样式 */
+.recently-saved-container,
+.art-options-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  /* 分配 1 份空间 */
+  min-width: 200px;
+  /* 设置最小宽度，决定了其"更小"的初始状态 */
+  max-width: 350px;
+  /* 设置最大宽度，防止无限拉伸 */
+  height: 100%;
+  padding: 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background-color: #fff;
+  overflow: hidden;
+}
+
+.recently-saved-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #595959;
+  margin-bottom: 8px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* 缩略图网格 */
+.recent-designs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  /* 自适应列数 */
+  gap: 8px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+/* 单个缩略图样式 */
+.recent-design-thumb {
+  width: 100%;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.recent-design-thumb:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 悬停弹窗的内容样式 */
+.popover-preview-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.popover-preview-img {
+  width: 150px;
+  height: 120px;
+  object-fit: contain;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
+.popover-preview-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  text-align: center;
+}
+
+/* 新增的占位符方框样式 */
+.recent-design-placeholder {
+  width: 100%;
+  height: 50px;
+  background-color: #f5f5f5;
+  border: 1px dashed #d9d9d9;
+  border-radius: 4px;
+}
+
+/* --- Styles from Text branch (DesignerPage.css) --- */
+
+/*下拉框*/
+/* User Dropdown Styles */
+.user-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 150px;
+  z-index: 1000;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+  font-size: 14px;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: #f5f5f5;
+}
+
+.dropdown-item.logout {
+  color: #ff4d4f;
+}
+
+.dropdown-item.logout:hover {
+  background: #fff2f0;
+}
+
+/* User Info Modal Styles */
+.user-info-content {
+  padding: 16px 0;
+}
+
+.user-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.user-info-item:last-child {
+  border-bottom: none;
+}
+
+.user-info-label {
+  font-weight: 500;
+  color: #666;
+  min-width: 100px;
+}
+
+.user-info-value {
+  color: #262626;
+  text-align: right;
+  font-weight: 400;
+}
+
+/* 确保下拉菜单样式正确 */
+.user-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 150px;
+  z-index: 1000;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+  font-size: 14px;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: #f5f5f5;
+}
+
+.dropdown-item.logout {
+  color: #ff4d4f;
+}
+
+.dropdown-item.logout:hover {
+  background: #fff2f0;
+}
+
+/*新增文字操作选项*/
+
+.text-controls-overlay {
+  position: relative;
+  pointer-events: none;
+}
+
+.control-buttons {
+  position: relative;
+}
+
+.control-button {
+  pointer-events: auto;
+  transition: all 0.2s ease;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.delete-button:hover {
+  background: #cc0000 !important;
+}
+
+.rotate-button:hover {
+  background: #096dd9 !important;
+}
+
+.text-editor-panel {
+  padding: 8px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* 雕刻效果按钮样式 */
+.engrave-button {
+  transition: all 0.3s ease;
+}
+
+.engrave-button.active {
+  background: #1890ff;
+  color: white;
+  border-color: #1890ff;
+}
+
+/* --- Art Options 拖拽保存功能样式 --- */
+
+/* Art Option 插槽样式 */
+.art-option-slot {
+  width: 100%;
+  height: 50px;
+  border-radius: 4px;
+  border: 2px dashed #d9d9d9;
+  background-color: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 空插槽样式 */
+.art-option-slot.empty {
+  background-color: #fafafa;
+  border-color: #d9d9d9;
+}
+
+.art-option-slot.empty:hover {
+  border-color: #1890ff;
+  background-color: #f0f8ff;
+}
+
+/* 拖拽悬停效果 */
+.art-option-slot.drag-over {
+  border-color: #52c41a !important;
+  background-color: #f6ffed !important;
+  box-shadow: 0 0 10px rgba(82, 196, 26, 0.3);
+  transform: scale(1.02);
+}
+
+/* 有艺术图案的插槽 */
+.art-option-slot.has-art {
+  border: 2px solid #1890ff;
+  background-color: #fff;
+  padding: 2px;
+}
+
+.art-option-slot.has-art:hover {
+  border-color: #40a9ff;
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.2);
+  transform: scale(1.05);
+}
+
+/* 保存的艺术图案缩略图 */
+.saved-art-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.saved-art-thumb:hover {
+  transform: scale(1.1);
+}
+
+/* 空插槽内容 */
+.empty-slot-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  font-size: 11px;
+  color: #8c8c8c;
+  padding: 4px;
+}
+
+/* 拖拽提示文字 */
+.drag-hint {
+  color: #8c8c8c;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.drop-hint {
+  color: #52c41a;
+  font-weight: 600;
+  line-height: 1.2;
+  animation: pulse 1s infinite;
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+/* 拖拽时的全局样式 */
+.art-option-slot.empty::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23d9d9d9" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>') no-repeat center;
+  background-size: contain;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+.art-option-slot.empty:hover::before {
+  opacity: 0.8;
+}
+
+.art-option-slot.drag-over::before {
+  display: none;
+}
+
+/* 确保拖拽提示在图标上方 */
+.empty-slot-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .art-option-slot {
+    height: 45px;
+  }
+
+  .empty-slot-content {
+    font-size: 10px;
+  }
+}
+
+
+
+/*修改的带分数尺寸输入框*/
+/* 在 DesignerPage.css 中添加以下样式 */
+.dimension-input-with-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.dimension-label {
+  font-size: 10px;
+  color: #666;
+  font-weight: bold;
+}
+
+.fraction-input {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.fraction-input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+.dimension-control .ant-input {
+  text-align: center;
+}
+
+/* 工具提示样式 */
+.fraction-tooltip {
+  max-width: 200px;
+}
+
+.fraction-examples {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+/* ... (文件末尾) ... */
+
+/* --- 新增：用于素材库中的文字项目 --- */
+.art-option-slot.has-text {
+  border: 2px solid #1890ff; /* 保持与艺术图案一致的边框 */
+  background-color: #fff;
+  padding: 2px;
+}
+
+.saved-item-slot-text {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 4px;
+  background: #f0f8ff; /* 浅蓝色背景 */
+  border: 1px solid #b3d9ff;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: Arial, sans-serif;
+  box-sizing: border-box; /* 确保 padding 不会撑开 */
+}
+
+.saved-item-slot-text:hover {
+  background: #e6f7ff;
+  border-color: #1890ff;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.2);
+}
+
+.saved-item-text-content {
+  font-size: 10px;
+  color: #333;
+  text-align: center;
+  line-height: 1.2;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* 限制最多显示两行 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  max-height: 2.4em; /* 2 * 1.2em */
+}
+
+.saved-item-text-label {
+  font-size: 9px;
+  color: #1890ff;
+  font-weight: bold;
+  margin-top: 2px;
+  flex-shrink: 0;
+}

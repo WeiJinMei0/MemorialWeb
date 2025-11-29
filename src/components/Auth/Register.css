@@ -1,0 +1,89 @@
+.register-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+    overflow-y: scroll;
+}
+
+.register-card {
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    overflow-y: scroll;
+}
+
+.register-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.register-header h1 {
+    color: #1890ff;
+    margin-bottom: 8px;
+    font-size: 28px;
+    font-weight: 600;
+}
+
+.register-header p {
+    color: #666;
+    margin: 0;
+}
+
+.register-submit-btn {
+    height: 40px;
+    font-weight: 500;
+}
+
+.register-footer {
+    text-align: center;
+    color: #666;
+}
+
+.login-link {
+    color: #1890ff;
+    font-weight: 500;
+    margin-left: 4px;
+    text-decoration: none;
+}
+
+.login-link:hover {
+    color: #40a9ff;
+    text-decoration: underline;
+}
+
+.register-container .ant-form-item-label {
+    padding-bottom: 1px;
+}
+
+.register-card .ant-form-item {
+    margin-bottom: 1px;
+}
+
+.password-hint {
+    color: #666;
+    font-size: 12px;
+    margin-top: 4px;
+    padding-left: 8px;
+}
+
+/* 响应式设计 */
+@media (max-width: 576px) {
+    .register-container {
+        padding: 10px;
+    }
+
+    .register-card {
+        border-radius: 8px;
+    }
+
+
+
+    .register-header h1 {
+        font-size: 24px;
+    }
+}

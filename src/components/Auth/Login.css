@@ -1,0 +1,154 @@
+.login-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: none;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.login-header h1 {
+  color: #1890ff;
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.login-header p {
+  color: #666;
+  font-size: 14px;
+}
+
+.ant-card-body {
+  padding: 40px;
+}
+
+.ant-form-item {
+  margin-bottom: 20px;
+}
+
+.ant-input-affix-wrapper,
+.ant-input-password {
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.ant-btn {
+  border-radius: 6px;
+  height: 44px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.ant-radio-group {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.ant-radio-button-wrapper {
+  flex: 1;
+  text-align: center;
+  height: 36px;
+  line-height: 34px;
+}
+
+.register-section {
+  text-align: center;
+  margin-top: 16px;
+  /* background-color: yellow !important;*/
+}
+
+.register-text {
+  color: #666;
+  margin: 0;
+  font-size: 14px;
+}
+
+.register-link {
+  color: #1890ff;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.register-link:hover {
+  color: #40a9ff;
+  text-decoration: underline;
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+  .login-card {
+    margin: 20px;
+  }
+
+  .ant-card-body {
+    padding: 30px 20px;
+  }
+}
+
+
+
+
+/* 如果需要更彻底的立即变化，可以禁用所有动画 */
+.custom-segmented * {
+  transition: none !important;
+  animation: none !important;
+}
+
+
+
+
+/* Login.css */
+.user-type-toggle-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: -15px 0px 4px 0px;
+  background: #ffff;
+}
+
+.user-type-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1890ff;
+}
+
+.toggle-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-icon-wrapper:hover {
+  background: #f0f8ff;
+}
+
+.toggle-icon-wrapper:hover .toggle-icon {
+  color: #1890ff;
+}
+
+.toggle-icon {
+  font-size: 16px;
+  color: #8c8c8c;
+  transition: all 0.3s ease;
+}
