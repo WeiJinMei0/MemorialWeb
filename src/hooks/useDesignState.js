@@ -73,7 +73,8 @@ const FONT_OPTIONS = [
   { name: 'Calibri Light Regular', path: '/fonts/Calibri Light_Regular.json', cssFamily: 'Calibri, Arial, sans-serif' },
   { name: 'Calibri Light Italic', path: '/fonts/Calibri Light_Italic.json', cssFamily: 'Calibri, Arial, sans-serif' },
   { name: 'Comic Sans MS Regular', path: '/fonts/Comic Sans MS_Regular.json', cssFamily: 'Comic Sans MS, cursive' },
-  //{ name: 'Palatino Linotype Regular', path: '/fonts/Palatino Linotype_Regular.json', cssFamily: 'Palatino, serif' },
+  { name: 'EnglishScriptEF_Bold', path: '/fonts/EnglishScriptEF_Bold.json', cssFamily: 'EnglishScriptEF,sans-serif' },
+  { name: 'Palatino Linotype Regular', path: '/fonts/Palatino Linotype_Regular.json', cssFamily: 'Palatino, serif' },
   //{ name: 'Palatino Linotype Bold', path: '/fonts/Palatino Linotype_Bold.json', cssFamily: 'Palatino, serif' },
   //{ name: 'Palatino Linotype Italic', path: '/fonts/Palatino Linotype_Italic.json', cssFamily: 'Palatino, serif' },
   //{ name: 'Palatino Linotype Bold Italic', path: '/fonts/Palatino Linotype_Bold Italic.json', cssFamily: 'Palatino, serif' },
@@ -106,6 +107,7 @@ const FONT_OPTIONS = [
   { name: 'Gauranga Normal', path: '/fonts/Gauranga_Normal.json', cssFamily: 'serif' },
   { name: 'Grantham Roman', path: '/fonts/Grantham_Roman.json', cssFamily: 'serif' },
   { name: 'Roman Regular', path: '/fonts/Roman_Regular.json', cssFamily: 'serif' },
+  { name: 'Romantic_Medium', path: '/fonts/Romantic_Medium.json', cssFamily: 'serif' },
   { name: 'MuseumClassic Bold Regular', path: '/fonts/MuseumClassic Bold_Regular.json', cssFamily: 'serif' },
   { name: 'Mythica Medium', path: '/fonts/MythicaW01-Medium_Regular.json', cssFamily: 'serif' },
   { name: 'OldeWorld Bold', path: '/fonts/OldeWorld-Bold_Regular.json', cssFamily: 'serif' },
@@ -125,12 +127,17 @@ const FONT_OPTIONS = [
   { name: '华文隶书', path: '/fonts/STLiti_Regular.json', isChinese: true },
   { name: '华文中宋', path: '/fonts/STZhongsong_Regular.json', isChinese: true },
   { name: '华文中宋 粗体', path: '/fonts/STZhongsong_Bold.json', isChinese: true },
+  { name: "華康特粗楷體", path: '/fonts/DFKaiXBold-B5_Regular.json', isChinese: true },
+  { name: " 腾祥伯当行楷简繁", path: '/fonts/Tensentype XingKaiF_Regular.json', isChinese: true },
 
   // 韩文/谚文字体 (Korean Fonts)
   { name: '고인돌B', path: '/fonts/(한)고인돌B_Regular.json' },
   { name: '볼펜체C', path: '/fonts/(한)볼펜체C_Regular.json' },
   { name: '판화체B', path: '/fonts/(한)판화체B_Regular.json' },
   { name: '가을잎체 굵은', path: '/fonts/(환)가을잎체(굵은)_Regular.json' },
+  { name: '(환)궁서체_Regular', path: '/fonts/(환)궁서체_Regular.json' },
+  { name: '(환)예서(중간)_Regular', path: '/fonts/(환)예서(중간)_Regular.json' },
+  { name: '(환)진체(가는)_Regular', path: '/fonts/(환)진체(가는)_Regular.json' },
 
   // 其他语言字体 (Other Language Fonts)
   { name: 'AmharicGeèzEdit', path: '/fonts/GeèzEdit Amharic P_Regular.json' },
