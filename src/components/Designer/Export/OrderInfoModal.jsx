@@ -5,6 +5,10 @@ import { DownloadOutlined, MailOutlined } from '@ant-design/icons';
 import OrderFormPDF from '../../PDF/OrderFormPDF.jsx';
 import DesignPreviewTemplate from './DesignPreviewTemplate.jsx';
 
+/**
+ * OrderInfoModal 在“Email Design / Generate Order”之间切换。
+ * proof 模式：展示预览 + 邮件字段；order 模式：生成下单 PDF。
+ */
 const OrderInfoModal = ({
                           visible,
                           onCancel,
@@ -21,6 +25,7 @@ const OrderInfoModal = ({
   const [textOverlap, setTextOverlap] = useState(true);
   const [textScale, setTextScale] = useState(1.5);
 
+  // 聚合所有表单字段，便于传入 PDF/预览，同时控制按钮可用状态
   const handleValuesChange = (_, allValues) => {
     setFormData(allValues);
     if (type === 'order') {
@@ -30,6 +35,7 @@ const OrderInfoModal = ({
     }
   };
 
+  // 模拟发送邮件（真实环境替换为后端 API）
   const handleSendEmail = () => {
     form.validateFields().then(values => {
       const hide = message.loading('Sending email...', 0);
@@ -43,6 +49,7 @@ const OrderInfoModal = ({
     });
   };
 
+  // 保留生成的 proofImage，用户可快速下载附在邮件中
   const handleDownloadImage = () => {
     if (proofImage) {
       const link = document.createElement('a');
@@ -56,6 +63,7 @@ const OrderInfoModal = ({
     }
   };
 
+  // 订单模式：要求 Contract # 必填后再回调上层
   const handleSubmitOrder = () => {
     form.validateFields().then(values => {
       if (onSubmit) {
@@ -195,6 +203,7 @@ const OrderInfoModal = ({
   const isEmailMode = type === 'proof';
   const modalTitle = isEmailMode ? "Email Design" : "Generate Order";
 
+  // 根据模式切换 footer：邮件模式按钮较多，订单模式遵循 antd 风格
   const modalFooter = isEmailMode ? (
     <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', padding: '10px 0' }}>
       <Button type="primary" icon={<MailOutlined />} style={{ backgroundColor: '#555', borderColor: '#555', minWidth: '120px' }} onClick={handleSendEmail}>Send Email</Button>

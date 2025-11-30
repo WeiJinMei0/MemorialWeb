@@ -16,8 +16,12 @@ const styles = StyleSheet.create({
   signatureLine: { borderBottom: 1, width: 200, marginTop: 20, marginBottom: 5 }
 });
 
+/**
+ * DesignProofPDF 将当前设计渲染成客户 Proof，用于 Email/下载用途。
+ * 与网页端 DesignPreviewTemplate 内容一致，但以 PDF 布局呈现。
+ */
 const DesignProofPDF = ({ designState, orderMeta, proofImage }) => {
-  // 【关键修复】：安全地从数组获取数据
+  // 安全地从数组获取首个碑体/底座，缺省时提供占位
   const monument = designState.monuments && designState.monuments.length > 0
     ? designState.monuments[0]
     : { class: 'N/A', dimensions: { length: 0, width: 0, height: 0 }, color: 'N/A', polish: 'N/A' };

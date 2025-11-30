@@ -6,6 +6,10 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import * as THREE from 'three';
 import { getColorValue } from './utils';
 
+/**
+ * Model 负责加载 GLB、绑定贴图、回传尺寸并兼容拖拽/填色模式。
+ * 之所以封装在一个组件里，是为了让碑体/底座/配件共享完全一致的装配流程。
+ */
 const Model = forwardRef(({
   modelPath,
   texturePath,
@@ -31,6 +35,7 @@ const Model = forwardRef(({
   const [hasReportedDimensions, setHasReportedDimensions] = useState(false);
 
   // 底座状态
+  // 存储多材质底座（surfaceA/B/C）的网格引用，便于动态替换贴图
   const [multiTextureParts, setMultiTextureParts] = useState({
     surfaceA: null,
     surfaceB_meshes: [],
@@ -42,14 +47,17 @@ const Model = forwardRef(({
     natural: null
   });
 
+  // 单例 TextureLoader，避免每次渲染都 new
   const textureLoaderRef = useRef(new THREE.TextureLoader());
 
+  // 暴露 mesh 与原始尺寸，供外层重新定位或渲染辅助线
   useImperativeHandle(ref, () => ({
     getMesh: () => meshRef.current,
     getDimensions: () => originalDimensions
   }));
 
   // 加载底座/碑体贴图 (isMultiTextureBase 模式)
+  // 根据颜色一次性预加载多种抛光方式贴图，供底座/碑体切换
   useEffect(() => {
     if (!isMultiTextureBase) return;
 
@@ -96,7 +104,7 @@ const Model = forwardRef(({
     };
   }, [isMultiTextureBase, color]);
 
-  // 加载模型
+  // 加载模型与基本材质，兼容多贴图底座与普通模型
   useEffect(() => {
     let isMounted = true;
     let currentSceneObject = null;
@@ -227,7 +235,7 @@ const Model = forwardRef(({
     };
   }, [modelPath, color, texturePath, scene, isMultiTextureBase]);
 
-  // 底座/碑体 动态贴图应用
+  // 底座/碑体 动态贴图应用（根据 polish 等参数实时切换）
   useEffect(() => {
     if (!isMultiTextureBase || !polish || !baseTextures.polished || !multiTextureParts.surfaceA) {
       return;
@@ -275,7 +283,7 @@ const Model = forwardRef(({
 
   }, [isMultiTextureBase, polish, baseTextures, multiTextureParts, modelPath]);
 
-  // 缩放逻辑
+  // 缩放逻辑：依赖 props position/dimensions，把世界坐标与缩放拉回模型
   useLayoutEffect(() => {
     const currentModel = sceneObjectRef.current || model;
     if (currentModel && position) {
@@ -295,7 +303,7 @@ const Model = forwardRef(({
     }
   }, [dimensions, originalDimensions]);
 
-  // 防拉伸逻辑
+  // 防拉伸逻辑：在缩放模型后同步调整贴图 repeat/offset，避免材质被拉伸
   useFrame(() => {
     if (!isMultiTextureBase || !meshRef.current || !multiTextureParts.surfaceA) return;
 

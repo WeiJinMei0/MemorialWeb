@@ -1,13 +1,18 @@
 // src/components/Designer/3d/EnhancedTextElement.jsx
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
-import { Text3D, TransformControls } from '@react-three/drei';
+import { Text3D, TransformControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry';
 import { extend } from '@react-three/fiber';
+import Model from './Model';
 
 extend({ TextGeometry });
 
+/**
+ * EnhancedTextElement 负责将排版逻辑、材质模拟、TransformControls
+ * 统一封装，让外层只需传入 text state 即可得到可交互的 3D 文本。
+ */
 const EnhancedTextElement = ({
   text,
   monument,
@@ -18,7 +23,8 @@ const EnhancedTextElement = ({
   isSelected,
   isTextEditing,
   getFontPath,
-  modelRefs
+  modelRefs,
+  globalTransformMode // 2. 接收全局变换模式
 }) => {
   const textRef = useRef();
   const transformControlsRef = useRef();
@@ -28,11 +34,16 @@ const EnhancedTextElement = ({
   const [monumentMaterial, setMonumentMaterial] = useState(null);
   const [dragEnabled, setDragEnabled] = useState(false);
   const [hasInitPosition, setHasInitPosition] = useState(false);
-  const [transformMode, setTransformMode] = useState('translate');
+  // 3. 使用全局模式，不再使用内部 state
+  const mode = globalTransformMode || 'translate';
   const lineRefs = useRef([]);
   const [lineOffsets, setLineOffsets] = useState([]);
   const rafWriteRef = useRef(null);
+  // 4. 新增：旋转角度状态  
+  const [currentRotationDeg, setCurrentRotationDeg] = useState(0);
+  const [isRotating, setIsRotating] = useState(false);
 
+  // 字体路径解析：兼容传入 name 或完整版路径
   const localGetFontPath = useCallback((nameOrPath) => {
     if (getFontPath) {
       return getFontPath(nameOrPath);
@@ -40,6 +51,7 @@ const EnhancedTextElement = ({
     return nameOrPath || '/fonts/helvetiker_regular.typeface.json';
   }, [getFontPath]);
 
+  // 根据雕刻方式为文字落在碑面略微抬高，防止 z-fighting
   const computeSurfaceZ = useCallback((sizeZ, engraveType) => {
     const surfaceZ = -sizeZ / 2;
     if (engraveType === 'vcut' || engraveType === 'frost') return surfaceZ + 0.021;
@@ -47,6 +59,7 @@ const EnhancedTextElement = ({
     return surfaceZ + 0.002;
   }, []);
 
+  // 将 TransformControls 的世界位姿回写到面板状态，便于历史记录
   const writeBackPoseToState = useCallback(() => {
     if (!groupRef.current || !monument) return;
     const monumentMesh = modelRefs.current[monument.id]?.getMesh();
@@ -77,6 +90,12 @@ const EnhancedTextElement = ({
     if (!rafWriteRef.current) rafWriteRef.current = requestAnimationFrame(doWrite);
   }, [monument, text.id, onTextPositionChange, onTextRotationChange, modelRefs]);
 
+  // 把局部 position/rotation 同步到世界坐标，驱动 groupRef
+  // 初始化默认文字位置：等待碑体尺寸计算完后再写入
+  // 当碑体高度改变时，自动将文字重新贴回表面，避免悬浮
+  // polish 文字共享碑体材质的镜面属性，这里 lazy clone
+  // 选中状态下支持键盘快捷键切换 T/R，未选中则恢复 Orbit 控制
+  // 重新计算多行文本的对齐偏移，使得 left/right/center 视觉正确
   useEffect(() => {
     if (!groupRef.current || !monument) return;
     const monumentMesh = modelRefs.current[monument.id]?.getMesh();
@@ -262,11 +281,12 @@ const EnhancedTextElement = ({
     }
   }, [text.id, onTextSelect]);
 
+  // 按字符计算弧长与半径，实现可调弯曲的碑文
   const renderCurvedText = () => {
     if (!text.content) return null;
 
     const characters = text.content.split('');
-    const fontSize = text.size * 0.01;
+    const fontSize = text.size * 0.0254
     const kerningUnit = (text.kerning || 0) * 0.001;
     const curveAmount = text.curveAmount || 0;
     const curveDirection = curveAmount >= 0 ? 1 : -1;
@@ -359,10 +379,11 @@ const EnhancedTextElement = ({
     });
   };
 
+  // 常规排版：分行渲染并根据 lineOffsets 做对齐
   const renderNormalText = () => {
     const content = text.content || 'Text';
     const lines = content.split('\n');
-    const fontSize = text.size * 0.01;
+    const fontSize = text.size * 0.0254;
     const lineGap = fontSize * (text.lineSpacing || 1.2);
     return (
       <group>
@@ -394,6 +415,7 @@ const EnhancedTextElement = ({
     );
   };
 
+  // 统一入口，根据 curveAmount 决定使用哪种渲染
   const renderTextContent = () => {
     if (text.curveAmount && text.curveAmount > 0) {
       return renderCurvedText();
@@ -410,19 +432,60 @@ const EnhancedTextElement = ({
         userData={{ isTextElement: true, textId: text.id }}
       >
         {renderTextContent()}
+        {/* 7. 新增：显示旋转角度的 UI */}
+        {isSelected && isRotating && mode === 'rotate' && (
+          <Html position={[0, 0.2, 0]} center>
+            <div style={{
+              background: 'rgba(0,0,0,0.7)',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap'
+            }}>
+              {currentRotationDeg.toFixed(1)}°
+            </div>
+          </Html>
+        )}
       </group>
 
       {isSelected && isTextEditing && groupRef.current && (
         <TransformControls
           object={groupRef.current}
-          mode={transformMode}
+          mode={mode}
           space="local"
-          showX={transformMode === 'translate'}
-          showY={transformMode === 'translate'}
-          showZ={transformMode === 'rotate'}
-          onMouseDown={() => { controls && (controls.enabled = false); setIsDragging(true); }}
-          onObjectChange={writeBackPoseToState}
-          onMouseUp={() => { writeBackPoseToState(); controls && (controls.enabled = true); setIsDragging(false); }}
+          showX={mode === 'translate'}
+          showY={mode === 'translate'}
+          showZ={mode === 'rotate'}
+          // 8. 修改：更严格的 onMouseDown 逻辑
+          onMouseDown={() => {
+            controls && (controls.enabled = false);
+            setIsDragging(true);
+            if (mode === 'rotate') {
+              setIsRotating(true);
+            } else {
+              setIsRotating(false);
+            }
+          }}
+          // 9. 修改：仅在旋转时更新角度
+          onObjectChange={() => {
+            writeBackPoseToState();
+            if (mode === 'rotate' && groupRef.current) {
+              const rotZ = groupRef.current.rotation.z;
+              let deg = (rotZ * 180) / Math.PI;
+              deg = deg % 360;
+              if (deg < 0) deg += 360;
+              setCurrentRotationDeg(deg);
+            }
+          }}
+
+          onMouseUp={() => {
+            writeBackPoseToState();
+            controls && (controls.enabled = true);
+            setIsDragging(false);
+            setIsRotating(false); // 总是重置
+          }}
         />
       )}
     </>

@@ -946,7 +946,8 @@
 
 /* --- 新增：用于素材库中的文字项目 --- */
 .art-option-slot.has-text {
-  border: 2px solid #1890ff; /* 保持与艺术图案一致的边框 */
+  border: 2px solid #1890ff;
+  /* 保持与艺术图案一致的边框 */
   background-color: #fff;
   padding: 2px;
 }
@@ -959,13 +960,15 @@
   justify-content: center;
   align-items: center;
   padding: 4px;
-  background: #f0f8ff; /* 浅蓝色背景 */
+  background: #f0f8ff;
+  /* 浅蓝色背景 */
   border: 1px solid #b3d9ff;
   border-radius: 2px;
   cursor: pointer;
   transition: all 0.2s;
   font-family: Arial, sans-serif;
-  box-sizing: border-box; /* 确保 padding 不会撑开 */
+  box-sizing: border-box;
+  /* 确保 padding 不会撑开 */
 }
 
 .saved-item-slot-text:hover {
@@ -987,7 +990,8 @@
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  max-height: 2.4em; /* 2 * 1.2em */
+  max-height: 2.4em;
+  /* 2 * 1.2em */
 }
 
 .saved-item-text-label {

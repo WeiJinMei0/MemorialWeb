@@ -6,6 +6,10 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import * as THREE from 'three';
 import { getColorValue } from './utils';
 
+/**
+ * Vase3D 负责加载花瓶模型、双材质贴图以及 TransformControls。
+ * 逻辑与 Model 类似，但额外处理 polished / sandblasted 的面差异。
+ */
 const Vase3D = forwardRef(({
   vase,
   isSelected,
@@ -28,11 +32,15 @@ const Vase3D = forwardRef(({
   // 【优化】不再需要手动操作 scene，R3F 会自动处理
   // const { scene } = useThree(); 
 
+  // 暴露 mesh 引用，便于对齐或导出
   useImperativeHandle(ref, () => ({
     getMesh: () => meshRef.current,
   }));
 
   // 加载花瓶纹理 (保持不变)
+  // 以颜色为 key 预加载磨光/扫砂贴图
+  // 加载 glTF 并将不同 mesh 绑定对应材质
+  // 控制器切换：translate/rotate 时展示不同轴向，未选中禁用
   useEffect(() => {
     const colorFolderMap = {
       'Bahama Blue': 'Bahama Blue',
@@ -149,6 +157,7 @@ const Vase3D = forwardRef(({
   }, [vase.modelPath, vaseTextures, vase.color]); // 移除了 scene 依赖
 
   // 位置/缩放/旋转 更新逻辑
+  // props 变动或 model 加载完毕后，同步 position/scale/rotation
   useLayoutEffect(() => {
     if (meshRef.current) {
       meshRef.current.position.set(vase.position[0] || 0, vase.position[1] || 0, vase.position[2] || 0);

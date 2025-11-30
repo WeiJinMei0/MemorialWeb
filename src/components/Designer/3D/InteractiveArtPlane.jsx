@@ -4,6 +4,10 @@ import { TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { floodFill } from './utils';
 
+/**
+ * InteractiveArtPlane 提供艺术图层的加载、TransformControls 以及填色操作。
+ * 所有 2D 编辑都在隐藏 canvas 中完成，再实时映射到平面纹理。
+ */
 const InteractiveArtPlane = forwardRef(({
   art,
   isSelected,
@@ -26,6 +30,7 @@ const InteractiveArtPlane = forwardRef(({
     originalData: null
   });
 
+  // 暴露当前画布快照，供外部保存/导出
   useImperativeHandle(ref, () => ({
     getCanvasDataURL: () => {
       const { canvas } = artCanvasRef.current;
@@ -37,11 +42,14 @@ const InteractiveArtPlane = forwardRef(({
   }), [artCanvasRef.current?.canvas]);
 
 
+  // 切换艺术品时，允许缩放逻辑重新运行一次
+  // 选中状态下才允许 TransformControls 操作，模式由面板控制
   useEffect(() => {
     isInitialLoadRef.current = true;
   }, [art.id, art.imagePath]);
 
 
+  // 根据 imagePath / modifiedImageData 生成离屏 canvas 与 CanvasTexture
   useEffect(() => {
     isInitialLoadRef.current = true;
 
@@ -112,6 +120,7 @@ const InteractiveArtPlane = forwardRef(({
   }, [art.imagePath, art.modifiedImageData]);
 
 
+  // 线稿再着色：只替换黑色轮廓像素，保留填充区域
   useEffect(() => {
     const { lineColor, lineAlpha } = art.properties || {};
     const safeLineAlpha = lineAlpha ?? 1.0;
@@ -161,6 +170,7 @@ const InteractiveArtPlane = forwardRef(({
   ]);
 
 
+  // 将 position/rotation/scale 同步到 mesh，并在首次加载时自适应宽高比
   useLayoutEffect(() => {
     if (meshRef.current) {
       const position = art.position || [0, 0, 0];
@@ -233,6 +243,7 @@ const InteractiveArtPlane = forwardRef(({
       lastScaleRef.current = [...meshRef.current.scale.toArray()];
     }
   };
+  // 锁定平面厚度（Z 缩放），避免被 TransformControls 改成非 0
   const onTransformChangeHandler = () => {
     if (meshRef.current && controlRef.current.mode === 'scale') {
       const scale = meshRef.current.scale;
@@ -262,6 +273,7 @@ const InteractiveArtPlane = forwardRef(({
         onPointerDown={(e) => {
           e.stopPropagation();
           if (isSelected && isFillModeActive) {
+            // 点击像素开启 flood fill，并立即把结果写回 state
             if (e.uv) {
               const { canvas, context, originalData } = artCanvasRef.current;
               if (canvas && context && originalData && canvasTexture) {
