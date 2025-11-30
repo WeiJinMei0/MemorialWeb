@@ -527,17 +527,15 @@ export const useDesignState = () => {
       class: vaseData.class,
       name: vaseData.name,
       color: designState.currentMaterial,
-      // 【V_MODIFICATION】: 确保花瓶路径正确 (来自 ModelLibrary.jsx)
       modelPath: vaseData.modelPath,
-      // 【V_MODIFICATION】: (可选) 为花瓶构建 texturePath
-      // 注意：这假设花瓶贴图与模型名称匹配
       texturePath: `./textures/Vases/${vaseData.class}/${vaseData.name.replace(/\.glb$/, '')}_${designState.currentMaterial}.jpg`,
-      position: [0, 0, 0],
-      dimensions: { length: 0.5, width: 0.5, height: 0.5 }, // 您的版本有默认尺寸
+      position: [-0.5, -0.5, -0.5],
+      dimensions: { length: 0.5, width: 0.5, height: 0.5 },
       weight: 0,
       rotation: vaseData.rotation || [0, 0, 0],
       scale: vaseData.scale || [1, 1, 1],
-      isSelected: false
+      isSelected: false,
+      isVaseModel: true
     };
 
     updateDesignState(prev => ({
