@@ -1,10 +1,11 @@
 // src/components/Designer/3d/EnhancedTextElement.jsx
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
-import { Text3D, TransformControls } from '@react-three/drei';
+import { Text3D, TransformControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry';
 import { extend } from '@react-three/fiber';
+import Model from './Model';
 
 extend({ TextGeometry });
 
@@ -22,7 +23,8 @@ const EnhancedTextElement = ({
   isSelected,
   isTextEditing,
   getFontPath,
-  modelRefs
+  modelRefs,
+  globalTransformMode // 2. 接收全局变换模式
 }) => {
   const textRef = useRef();
   const transformControlsRef = useRef();
@@ -32,10 +34,14 @@ const EnhancedTextElement = ({
   const [monumentMaterial, setMonumentMaterial] = useState(null);
   const [dragEnabled, setDragEnabled] = useState(false);
   const [hasInitPosition, setHasInitPosition] = useState(false);
-  const [transformMode, setTransformMode] = useState('translate');
+  // 3. 使用全局模式，不再使用内部 state
+  const mode = globalTransformMode || 'translate';
   const lineRefs = useRef([]);
   const [lineOffsets, setLineOffsets] = useState([]);
   const rafWriteRef = useRef(null);
+  // 4. 新增：旋转角度状态  
+  const [currentRotationDeg, setCurrentRotationDeg] = useState(0);
+  const [isRotating, setIsRotating] = useState(false);
 
   // 字体路径解析：兼容传入 name 或完整版路径
   const localGetFontPath = useCallback((nameOrPath) => {
@@ -280,7 +286,7 @@ const EnhancedTextElement = ({
     if (!text.content) return null;
 
     const characters = text.content.split('');
-    const fontSize = text.size * 0.01;
+    const fontSize = text.size * 0.0254
     const kerningUnit = (text.kerning || 0) * 0.001;
     const curveAmount = text.curveAmount || 0;
     const curveDirection = curveAmount >= 0 ? 1 : -1;
@@ -377,7 +383,7 @@ const EnhancedTextElement = ({
   const renderNormalText = () => {
     const content = text.content || 'Text';
     const lines = content.split('\n');
-    const fontSize = text.size * 0.01;
+    const fontSize = text.size * 0.0254;
     const lineGap = fontSize * (text.lineSpacing || 1.2);
     return (
       <group>
@@ -426,19 +432,60 @@ const EnhancedTextElement = ({
         userData={{ isTextElement: true, textId: text.id }}
       >
         {renderTextContent()}
+        {/* 7. 新增：显示旋转角度的 UI */}
+        {isSelected && isRotating && mode === 'rotate' && (
+          <Html position={[0, 0.2, 0]} center>
+            <div style={{
+              background: 'rgba(0,0,0,0.7)',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap'
+            }}>
+              {currentRotationDeg.toFixed(1)}°
+            </div>
+          </Html>
+        )}
       </group>
 
       {isSelected && isTextEditing && groupRef.current && (
         <TransformControls
           object={groupRef.current}
-          mode={transformMode}
+          mode={mode}
           space="local"
-          showX={transformMode === 'translate'}
-          showY={transformMode === 'translate'}
-          showZ={transformMode === 'rotate'}
-          onMouseDown={() => { controls && (controls.enabled = false); setIsDragging(true); }}
-          onObjectChange={writeBackPoseToState}
-          onMouseUp={() => { writeBackPoseToState(); controls && (controls.enabled = true); setIsDragging(false); }}
+          showX={mode === 'translate'}
+          showY={mode === 'translate'}
+          showZ={mode === 'rotate'}
+          // 8. 修改：更严格的 onMouseDown 逻辑
+          onMouseDown={() => {
+            controls && (controls.enabled = false);
+            setIsDragging(true);
+            if (mode === 'rotate') {
+              setIsRotating(true);
+            } else {
+              setIsRotating(false);
+            }
+          }}
+          // 9. 修改：仅在旋转时更新角度
+          onObjectChange={() => {
+            writeBackPoseToState();
+            if (mode === 'rotate' && groupRef.current) {
+              const rotZ = groupRef.current.rotation.z;
+              let deg = (rotZ * 180) / Math.PI;
+              deg = deg % 360;
+              if (deg < 0) deg += 360;
+              setCurrentRotationDeg(deg);
+            }
+          }}
+
+          onMouseUp={() => {
+            writeBackPoseToState();
+            controls && (controls.enabled = true);
+            setIsDragging(false);
+            setIsRotating(false); // 总是重置
+          }}
         />
       )}
     </>
