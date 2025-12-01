@@ -368,7 +368,7 @@ const MonumentScene = forwardRef(({
       <directionalLight position={[-10, 0, 0]} intensity={0.4} />
       <directionalLight position={[10, 0, 0]} intensity={0.4} />
 
-      <axesHelper args={[5]} />
+      {/* <axesHelper args={[5]} /> */}
 
     </group>
   );
