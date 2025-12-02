@@ -1,6 +1,6 @@
 // src/components/Designer/3d/InteractiveArtPlane.jsx
-import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, useLayoutEffect } from 'react';
-import { TransformControls } from '@react-three/drei';
+import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, useLayoutEffect, useMemo } from 'react';
+import { TransformControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { floodFill } from './utils';
 
@@ -97,7 +97,8 @@ const InteractiveArtPlane = forwardRef(({
   onTransformEnd,
   transformMode,
   fillColor,
-  isFillModeActive
+  isFillModeActive,
+  surfaceZ // 新增：接收从 Scene 传入的表面 Z 坐标
 }, ref) => {
   const meshRef = useRef();
   const controlRef = useRef();
@@ -105,12 +106,17 @@ const InteractiveArtPlane = forwardRef(({
   const [aspectRatio, setAspectRatio] = useState(1);
   const lastScaleRef = useRef(null);
   const isInitialLoadRef = useRef(true);
+  const [dimensionsLabel, setDimensionsLabel] = useState({ width: 0, height: 0 }); // 用于显示尺寸
 
   const artCanvasRef = useRef({
     canvas: null,
     context: null,
     originalData: null
   });
+
+  // 为每个图案实例生成一个微小的随机 Z 偏移，避免重叠时闪烁 (Z-fighting)
+  // 范围：0.0001 ~ 0.001
+  const uniqueOffset = useMemo(() => Math.random() * 0.0009 + 0.0001, []);
 
   // 暴露当前画布快照，供外部保存/导出
   useImperativeHandle(ref, () => ({
@@ -176,8 +182,11 @@ const InteractiveArtPlane = forwardRef(({
     loader.load(art.imagePath, (loadedTexture) => {
       const img = loadedTexture.image;
       if (!img || img.naturalHeight === 0) return;
+
+      // 1. 获取正确的宽高比
       const aspect = img.naturalWidth / img.naturalHeight;
       setAspectRatio(aspect);
+
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d', { willReadFrequently: true });
       canvas.width = img.naturalWidth;
@@ -256,36 +265,81 @@ const InteractiveArtPlane = forwardRef(({
   useLayoutEffect(() => {
     if (meshRef.current) {
       const position = art.position || [0, 0, 0];
-      const scale = art.scale || [0.2, 0.2, 1];
       const rotation = art.rotation || [0, 0, 0];
 
-      meshRef.current.position.set(position[0], position[1], position[2]);
+      // 优先使用 surfaceZ 确保初始位置贴合
+      // 在此叠加 uniqueOffset 确保每个图案有微小深度差异
+      const baseZ = (surfaceZ !== undefined && surfaceZ !== null) ? surfaceZ : position[2];
+      const targetZ = baseZ - uniqueOffset;
+
+      meshRef.current.position.set(position[0], position[1], targetZ);
       meshRef.current.rotation.set(rotation[0], rotation[1], rotation[2]);
 
-      if (isInitialLoadRef.current) {
+      // 仅在首次加载且 aspect 存在时，根据比例重置 Scale
+      if (isInitialLoadRef.current && aspectRatio) {
         isInitialLoadRef.current = false;
-        if (aspectRatio > 0 && aspectRatio !== 1) {
-          const baseSize = Math.abs(scale[0]);
-          const newScaleY = baseSize / aspectRatio;
-          const signX = Math.sign(scale[0]);
-          meshRef.current.scale.set(
-            baseSize * signX,
-            newScaleY * signX,
-            scale[2] || 1
-          );
-          onTransformEnd(art.id, {
-            position: meshRef.current.position.toArray(),
-            scale: meshRef.current.scale.toArray(),
-            rotation: meshRef.current.rotation.toArray().slice(0, 3)
-          }, { replaceHistory: true });
-        } else {
-          meshRef.current.scale.set(scale[0], scale[1], scale[2] || 1);
+
+        const baseSize = 0.2; // 默认基准宽度
+
+        const newScaleX = baseSize;
+        const newScaleY = baseSize / aspectRatio;
+
+        // 保留 X 的符号（翻转）
+        const currentScaleX = art.scale ? art.scale[0] : 0.2;
+        const signX = Math.sign(currentScaleX);
+
+        meshRef.current.scale.set(
+          newScaleX * signX,
+          newScaleY * signX, // Y 也跟随翻转，保持一致（或者你想让 Y 独立？）通常保持一致
+          1 // Z 轴缩放通常为 1
+        );
+
+        // 立即回写正确的比例到状态
+        onTransformEnd(art.id, {
+          position: [position[0], position[1], targetZ],
+          scale: meshRef.current.scale.toArray(),
+          rotation: meshRef.current.rotation.toArray().slice(0, 3)
+        }, { replaceHistory: true });
+
+      } else if (!isInitialLoadRef.current) {
+        // 如果不是首次加载（例如拖拽、选中、重绘），则使用传入的 scale
+        if (art.scale) {
+          meshRef.current.scale.set(art.scale[0], art.scale[1], art.scale[2] || 1);
         }
-      } else {
-        meshRef.current.scale.set(scale[0], scale[1], scale[2] || 1);
+      }
+
+      // 更新初始尺寸显示
+      if (meshRef.current) {
+        // 假定 1 unit = 1 meter, 1 meter = 39.37 inches
+        const toInches = 39.37;
+        const w = Math.abs(meshRef.current.scale.x) * toInches;
+        const h = Math.abs(meshRef.current.scale.y) * toInches;
+        setDimensionsLabel({ width: w, height: h });
       }
     }
-  }, [art.id, art.position, art.scale, art.rotation, aspectRatio, onTransformEnd]);
+  }, [art.id, art.position, art.scale, art.rotation, aspectRatio, onTransformEnd, surfaceZ, uniqueOffset]);
+
+  // --- 智能贴合核心逻辑 ---
+  useEffect(() => {
+    if (surfaceZ !== null && surfaceZ !== undefined) {
+      // 在比较时，要考虑到 uniqueOffset
+      const currentZ = art.position ? art.position[2] : 0;
+      // 我们希望 currentZ 接近 (surfaceZ - uniqueOffset)
+      const targetZ = surfaceZ - uniqueOffset;
+
+      if (Math.abs(currentZ - targetZ) > 0.002) {
+        const newPos = [
+          art.position ? art.position[0] : 0,
+          art.position ? art.position[1] : 0,
+          targetZ
+        ];
+        if (meshRef.current) {
+          meshRef.current.position.z = targetZ;
+        }
+        onTransformEnd(art.id, { position: newPos });
+      }
+    }
+  }, [surfaceZ, art.position, art.id, onTransformEnd, uniqueOffset]);
 
 
   useEffect(() => {
@@ -325,30 +379,44 @@ const InteractiveArtPlane = forwardRef(({
       lastScaleRef.current = [...meshRef.current.scale.toArray()];
     }
   };
-  // 锁定平面厚度（Z 缩放），避免被 TransformControls 改成非 0
+  // 锁定平面厚度（Z 缩放）并实时更新尺寸标签
   const onTransformChangeHandler = () => {
-    if (meshRef.current && controlRef.current.mode === 'scale') {
-      const scale = meshRef.current.scale;
-      const lastScale = lastScaleRef.current;
-      if (!lastScale) {
-        lastScaleRef.current = [...scale.toArray()];
-        return;
+    if (meshRef.current) {
+      if (controlRef.current.mode === 'scale') {
+        const scale = meshRef.current.scale;
+        const lastScale = lastScaleRef.current;
+        if (!lastScale) {
+          lastScaleRef.current = [...scale.toArray()];
+        } else {
+          scale.z = lastScale[2] || 1;
+        }
       }
-      scale.z = lastScale[2] || 1;
+
+      // 实时更新尺寸
+      // 假定 1 unit = 1 meter, 1 meter = 39.37 inches
+      const toInches = 39.37;
+      const w = Math.abs(meshRef.current.scale.x) * toInches;
+      const h = Math.abs(meshRef.current.scale.y) * toInches;
+      setDimensionsLabel({ width: w, height: h });
     }
   };
 
   return (
     <group ref={ref}>
       {isSelected && (
-        <TransformControls
-          ref={controlRef}
-          object={meshRef}
-          onMouseDown={onTransformStartHandler}
-          onMouseUp={onTransformEndHandler}
-          onChange={onTransformChangeHandler}
-          mode={transformMode}
-        />
+        <>
+          <TransformControls
+            ref={controlRef}
+            object={meshRef}
+            onMouseDown={onTransformStartHandler}
+            onMouseUp={onTransformEndHandler}
+            onChange={onTransformChangeHandler}
+            mode={transformMode}
+          />
+          {/* 显示尺寸标签 (移除了原来的局部 gridHelper) */}
+          <group position={art.position}>
+          </group>
+        </>
       )}
       <mesh
         ref={meshRef}
@@ -361,9 +429,6 @@ const InteractiveArtPlane = forwardRef(({
                 .toArray()
                 .map(c => Math.round(c * 255));
 
-              // --- 逻辑交换 ---
-              // 按住 Shift -> 局部填充 (floodFill)
-              // 直接点击 -> 整体填充 (globalFill)
               if (e.shiftKey) {
                 if (e.uv) {
                   const pixelX = Math.floor(e.uv.x * canvas.width);
@@ -405,7 +470,37 @@ const InteractiveArtPlane = forwardRef(({
           transparent={true}
           opacity={canvasTexture ? 1.0 : 0.8}
           side={THREE.DoubleSide}
+          polygonOffset={true}
+          polygonOffsetFactor={-1} // 基础偏移
+          polygonOffsetUnits={-1}
+          depthTest={true}
+          depthWrite={false} // 重要：半透明物体通常关闭 depthWrite 以正确混合
         />
+
+        {/* 当被选中时，显示尺寸标签和蓝色边框，但移除内部的 gridHelper */}
+        {isSelected && (
+          <>
+            <Html position={[0.6, 0.6, 0]} center style={{ pointerEvents: 'none' }}>
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.75)',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                whiteSpace: 'nowrap',
+                fontFamily: 'Arial, sans-serif'
+              }}>
+                {dimensionsLabel.width.toFixed(2)}" x {dimensionsLabel.height.toFixed(2)}"
+              </div>
+            </Html>
+
+            {/* 仅保留外部边框辅助线 */}
+            <lineSegments>
+              <edgesGeometry args={[new THREE.PlaneGeometry(1, 1)]} />
+              <lineBasicMaterial color="#1890ff" linewidth={2} />
+            </lineSegments>
+          </>
+        )}
       </mesh>
     </group>
   );
