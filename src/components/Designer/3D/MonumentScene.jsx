@@ -354,6 +354,10 @@ const MonumentScene = forwardRef(({
         const monumentTexts = designState.textElements.filter(text => text.monumentId === monument.id);
         const pos = positions[monument.id] || [0, 0, 0];
 
+        // 只有主碑体才传递自动计算的 surfaceZ，避免多碑体时位置错乱
+        const isMainMonument = designState.monuments.length > 0 && monument.id === designState.monuments[0].id;
+        const effectiveSurfaceZ = isMainMonument ? autoSurfaceZ : null;
+
         return (
           <React.Fragment key={`monument-${monument.id}`}>
             <Model
@@ -383,6 +387,7 @@ const MonumentScene = forwardRef(({
                 getFontPath={getFontPath}
                 modelRefs={modelRefs}
                 globalTransformMode={transformMode}
+                surfaceZ={effectiveSurfaceZ} // 传入 autoSurfaceZ 以实现文字位置同步
               />
             ))}
           </React.Fragment>

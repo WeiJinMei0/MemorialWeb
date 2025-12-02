@@ -103,7 +103,8 @@ const InteractiveArtPlane = forwardRef(({
   const meshRef = useRef();
   const controlRef = useRef();
   const [canvasTexture, setCanvasTexture] = useState(null);
-  const [aspectRatio, setAspectRatio] = useState(1);
+  // 修改：初始值设为 null，以区分“未加载”和“默认正方形”
+  const [aspectRatio, setAspectRatio] = useState(null);
   const lastScaleRef = useRef(null);
   const isInitialLoadRef = useRef(true);
   const [dimensionsLabel, setDimensionsLabel] = useState({ width: 0, height: 0 }); // 用于显示尺寸
@@ -117,6 +118,11 @@ const InteractiveArtPlane = forwardRef(({
   // 为每个图案实例生成一个微小的随机 Z 偏移，避免重叠时闪烁 (Z-fighting)
   // 范围：0.0001 ~ 0.001
   const uniqueOffset = useMemo(() => Math.random() * 0.0009 + 0.0001, []);
+
+
+  // 正值 (+): 图案向碑体内部移动 (更深)
+  // 负值 (-): 图案向碑体外部移动 (更凸出)
+  const manualOffset = 0.005;
 
   // 暴露当前画布快照，供外部保存/导出
   useImperativeHandle(ref, () => ({
@@ -134,11 +140,13 @@ const InteractiveArtPlane = forwardRef(({
   // 选中状态下才允许 TransformControls 操作，模式由面板控制
   useEffect(() => {
     isInitialLoadRef.current = true;
+    setAspectRatio(null); // 重置比例，防止复用旧值
   }, [art.id, art.imagePath]);
 
 
   // 根据 imagePath / modifiedImageData 生成离屏 canvas 与 CanvasTexture
   useEffect(() => {
+    // 保持 initialLoad 为 true，直到获取到 aspect ratio
     isInitialLoadRef.current = true;
 
     if (art.modifiedImageData) {
@@ -269,13 +277,15 @@ const InteractiveArtPlane = forwardRef(({
 
       // 优先使用 surfaceZ 确保初始位置贴合
       // 在此叠加 uniqueOffset 确保每个图案有微小深度差异
+      // 叠加 manualOffset 进行手动微调
       const baseZ = (surfaceZ !== undefined && surfaceZ !== null) ? surfaceZ : position[2];
-      const targetZ = baseZ - uniqueOffset;
+      const targetZ = baseZ - uniqueOffset + manualOffset;
 
       meshRef.current.position.set(position[0], position[1], targetZ);
       meshRef.current.rotation.set(rotation[0], rotation[1], rotation[2]);
 
       // 仅在首次加载且 aspect 存在时，根据比例重置 Scale
+      // 修改：增加了 && aspectRatio 判断，确保图片加载完成后才计算比例
       if (isInitialLoadRef.current && aspectRatio) {
         isInitialLoadRef.current = false;
 
@@ -317,15 +327,15 @@ const InteractiveArtPlane = forwardRef(({
         setDimensionsLabel({ width: w, height: h });
       }
     }
-  }, [art.id, art.position, art.scale, art.rotation, aspectRatio, onTransformEnd, surfaceZ, uniqueOffset]);
+  }, [art.id, art.position, art.scale, art.rotation, aspectRatio, onTransformEnd, surfaceZ, uniqueOffset, manualOffset]);
 
   // --- 智能贴合核心逻辑 ---
   useEffect(() => {
     if (surfaceZ !== null && surfaceZ !== undefined) {
-      // 在比较时，要考虑到 uniqueOffset
+      // 在比较时，要考虑到 uniqueOffset 和 manualOffset
       const currentZ = art.position ? art.position[2] : 0;
-      // 我们希望 currentZ 接近 (surfaceZ - uniqueOffset)
-      const targetZ = surfaceZ - uniqueOffset;
+      // 我们希望 currentZ 接近 (surfaceZ - uniqueOffset + manualOffset)
+      const targetZ = surfaceZ - uniqueOffset + manualOffset;
 
       if (Math.abs(currentZ - targetZ) > 0.002) {
         const newPos = [
@@ -339,7 +349,7 @@ const InteractiveArtPlane = forwardRef(({
         onTransformEnd(art.id, { position: newPos });
       }
     }
-  }, [surfaceZ, art.position, art.id, onTransformEnd, uniqueOffset]);
+  }, [surfaceZ, art.position, art.id, onTransformEnd, uniqueOffset, manualOffset]);
 
 
   useEffect(() => {
