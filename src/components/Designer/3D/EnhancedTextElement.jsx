@@ -1,3 +1,4 @@
+// src/components/Designer/3d/EnhancedTextElement.jsx
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import { Text3D, TransformControls, Html } from '@react-three/drei';
@@ -531,9 +532,9 @@ const EnhancedTextElement = ({
               setIsRotating(false);
             }
           }}
-          // 9. 修改：仅在旋转时更新角度
+          //仅在旋转时更新角度，移除 writeBackPoseToState，解决卡顿
           onObjectChange={() => {
-            writeBackPoseToState();
+            // writeBackPoseToState(); // <--- 移除了这行，避免每帧重渲染
             if (mode === 'rotate' && groupRef.current) {
               const rotZ = groupRef.current.rotation.z;
               let deg = (rotZ * 180) / Math.PI;
@@ -544,6 +545,7 @@ const EnhancedTextElement = ({
           }}
 
           onMouseUp={() => {
+            // 确保在松开鼠标时回写最终位置
             writeBackPoseToState();
             controls && (controls.enabled = true);
             setIsDragging(false);

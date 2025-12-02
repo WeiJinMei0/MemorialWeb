@@ -827,17 +827,9 @@ const DesignerPage = () => {
             monuments={designState.monuments}
             isEditing={isTextEditing}
             fontOptions={fontOptions}
-            onClose={() => {
-              setActiveTool(null);
-              setIsTextEditing(false);
-              setCurrentTextId(null);
-              // 清除所有文字的选中状态
-              designState.textElements.forEach(text => {
-                setTextSelected(text.id, false);
-              });
-            }}
+            // 修复：移除冗余的内联 onClose，直接使用 handleCloseTextEditor
+            onClose={handleCloseTextEditor}
             onSaveTextToOptions={handleSaveTextToOptions} // <-- 传递 prop
-            // onClose={handleCloseTextEditor}
           />
         );
       default:
