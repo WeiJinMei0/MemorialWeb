@@ -837,7 +837,7 @@ const DesignerPage = () => {
               });
             }}
             onSaveTextToOptions={handleSaveTextToOptions} // <-- 传递 prop
-            onClose={handleCloseTextEditor}
+            // onClose={handleCloseTextEditor}
           />
         );
       default:
@@ -865,7 +865,7 @@ const DesignerPage = () => {
       switch (elementType) {
         case 'monument': return productFamilies[element.family]?.polishOptions || ['P5'];
         case 'base':
-        case 'subBase': return basePolishOptions || ['P5'];
+        case 'subBase': return basePolishOptions || ['PT'];
         default: return [];
       }
     };
