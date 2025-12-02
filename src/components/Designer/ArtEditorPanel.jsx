@@ -19,8 +19,8 @@ const presetColors = [
   {
     label: '常用颜色',
     colors: [
-      '#FC0000', '#FF8F00', '#FFFF00', '#4285F4',
-      '#8F00FF', '#000000', '#FFFFFF', '#AAAAAA',
+      '#FFFFFF', '#000000', '#FFD700', '#FC0000',
+      '#AAAAAA', '#4285F4', '#00FF00', '#FFFF00',
     ],
     disabled: false,
   },
@@ -197,8 +197,8 @@ const ArtEditorPanel = ({
               {/* 填充颜色 */}
               <div style={{ marginTop: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
-                    填充颜色 (点击模型)
+                  <Text style={{ display: 'block', fontSize: '12px' }}>
+                    填充颜色 (点击图案区域)
                   </Text>
                   <Switch
                     checkedChildren="启用"
@@ -229,7 +229,7 @@ const ArtEditorPanel = ({
                   </Tooltip>
                 </Space>
                 {/* Updated help text for swapped logic */}
-                <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginTop: '8px' }}>
+                <Text style={{ fontSize: '11px', display: 'block', marginTop: '8px' }}>
                   {isFillModeActive
                     ? "启用中：点击填充所有封闭区域，按住 Shift 点击填充单个封闭区域。"
                     : "已禁用：点击图案将进行拖动或变换。"}
@@ -238,7 +238,7 @@ const ArtEditorPanel = ({
 
               {/* 线条颜色 */}
               <div style={{ marginTop: '12px' }}>
-                <Text type="secondary" style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>
+                <Text style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>
                   线条颜色
                 </Text>
                 <Space wrap style={{ width: '100%', gap: '4px' }}>
@@ -264,7 +264,7 @@ const ArtEditorPanel = ({
 
               {/* 线条透明度 */}
               <div style={{ marginTop: '12px' }}>
-                <Text type="secondary" style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
+                <Text style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
                   线条透明度: {Math.round(currentLineAlpha * 100)}%
                 </Text>
                 <Slider
