@@ -230,8 +230,8 @@ const TextEditor = ({
     if (currentTextId) {
       const currentText = existingTexts.find(text => text.id === currentTextId);
       if (currentText) {
-        setTextProperties(prev => ({ 
-          ...prev, 
+        setTextProperties(prev => ({
+          ...prev,
           ...currentText,
           // 兼容旧文字（无 textDirection 时默认横向）
           textDirection: currentText.textDirection || 'horizontal'
@@ -391,45 +391,45 @@ const TextEditor = ({
         }
       >
         {/* 新增：文本方向选择（横/竖） */}
-        <div style={{ 
-          marginBottom: '12px', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '8px', 
-          flexWrap: 'nowrap', 
+        <div style={{
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'nowrap',
           height: '32px', // 固定高度，锁住对齐基准
           overflow: 'hidden' // 隐藏任何溢出元素，避免换行
         }}>
-          <span style={{ 
-            fontSize: '14px', 
-            color: '#666', 
-            width: '65px', 
+          <span style={{
+            fontSize: '14px',
+            color: '#666',
+            width: '65px',
             textAlign: 'right',
-            whiteSpace: 'nowrap', 
-            lineHeight: '32px', 
+            whiteSpace: 'nowrap',
+            lineHeight: '32px',
             padding: '0',
             margin: '0',
             flexShrink: 0 // 禁止标签被压缩
           }}>
-          Direction:
+            Direction:
           </span>
           {/* Radio 组：强制横向，紧贴标签 */}
           <Radio.Group
             value={textDirection}
             onChange={handleDirectionChange}
-            style={{ 
-              display: 'flex', 
-              gap: '16px', 
-              alignItems: 'center', 
+            style={{
+              display: 'flex',
+              gap: '16px',
+              alignItems: 'center',
               height: '32px',
               flexShrink: 0, // 禁止 Radio 组被压缩
               margin: '0'
             }}
           >
             {/* 单个 Radio：消除内边距，精准对齐 */}
-            <Radio value="horizontal" style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <Radio value="horizontal" style={{
+              display: 'flex',
+              alignItems: 'center',
               gap: '1px',
               lineHeight: '32px',
               padding: '0',
@@ -439,9 +439,9 @@ const TextEditor = ({
             }}>
               <LayoutOutlined style={{ fontSize: '14px' }} /> Horizontal
             </Radio>
-            <Radio value="vertical" style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <Radio value="vertical" style={{
+              display: 'flex',
+              alignItems: 'center',
               gap: '1px',
               lineHeight: '32px',
               padding: '0',
@@ -659,6 +659,7 @@ const TextEditor = ({
               size="small"
               style={{ width: '80px' }}
             />
+            <div style={{ marginLeft: '8px', marginRight: '8px' }}>Inches</div>
           </div>
         </div>
 
