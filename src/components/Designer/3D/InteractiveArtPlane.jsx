@@ -2,14 +2,42 @@
 import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, useLayoutEffect, useMemo } from 'react';
 import { TransformControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { floodFill } from './utils';
+import { floodFill } from './utils'; // 确保 utils.js 已经更新
+
+/**
+ * 辅助函数：将颜色字符串解析为 [r, g, b, a] 数组 (0-255)
+ * 解决了 THREE.Color 丢失 Alpha 通道的问题
+ */
+const parseColorToRGBA = (colorStr) => {
+  if (!colorStr) return [66, 133, 244, 255]; // 默认蓝色
+
+  // 1. 显式处理透明关键字和全透明 RGBA
+  if (colorStr === 'transparent' || colorStr === 'rgba(0, 0, 0, 0)') {
+    return [0, 0, 0, 0];
+  }
+
+  // 2. 处理 rgba(r, g, b, a) 字符串
+  if (typeof colorStr === 'string' && colorStr.startsWith('rgba')) {
+    const parts = colorStr.match(/(\d+(\.\d+)?)/g);
+    if (parts && parts.length >= 4) {
+      return [
+        parseInt(parts[0], 10),
+        parseInt(parts[1], 10),
+        parseInt(parts[2], 10),
+        Math.round(parseFloat(parts[3]) * 255) // 将 0-1 的 alpha 转为 0-255
+      ];
+    }
+  }
+
+  // 3. 回退：处理 hex 或 rgb (不带 alpha)，默认 alpha 为 255
+  const c = new THREE.Color(colorStr);
+  return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255), 255];
+};
 
 /**
  * 辅助函数：整体填充所有封闭区域
- * 逻辑：从画布边缘开始进行 BFS (广度优先搜索) 标记“外部”区域。
- * 所有未被标记为“外部”且不是线条的区域，即为“内部封闭区域”，统一填充颜色。
  */
-const globalFill = (context, canvas, originalData, rgbColor) => {
+const globalFill = (context, canvas, originalData, rgbaColor) => {
   const width = canvas.width;
   const height = canvas.height;
   const currentImageData = context.getImageData(0, 0, width, height);
@@ -23,28 +51,24 @@ const globalFill = (context, canvas, originalData, rgbColor) => {
   const getIdx = (x, y) => y * width + x;
 
   // 判断是否为线条像素
-
   const isLine = (x, y) => {
     const i = (y * width + x) * 4;
     return oData[i] < 100 && oData[i + 1] < 100 && oData[i + 2] < 100 && oData[i + 3] > 10;
   };
 
-  // 检查并添加到队列的辅助函数
   const checkAndAdd = (x, y) => {
     if (x < 0 || x >= width || y < 0 || y >= height) return;
     const idx = getIdx(x, y);
-    if (visited[idx] === 1) return; // 已访问过
+    if (visited[idx] === 1) return;
 
-    visited[idx] = 1; // 标记为已访问
+    visited[idx] = 1;
 
-    // 如果不是线条，说明是连通的“外部”空间，继续加入队列扩散
-    // 如果是线条，虽然标记为已访问（作为边界），但不加入队列，停止扩散
     if (!isLine(x, y)) {
       queue.push({ x, y });
     }
   };
 
-  // 1. 初始化：将画布四周边缘作为“外部”的起始点
+  // 1. 初始化边界
   for (let x = 0; x < width; x++) {
     checkAndAdd(x, 0);
     checkAndAdd(x, height - 1);
@@ -54,7 +78,7 @@ const globalFill = (context, canvas, originalData, rgbColor) => {
     checkAndAdd(width - 1, y);
   }
 
-  // 2. BFS 扩散，标记所有与边缘连通的空白区域为“外部”
+  // 2. BFS 扩散
   let head = 0;
   while (head < queue.length) {
     const { x, y } = queue[head++];
@@ -64,19 +88,20 @@ const globalFill = (context, canvas, originalData, rgbColor) => {
     checkAndAdd(x, y - 1);
   }
 
-  // 3. 遍历所有像素，填充“内部”区域
-  // 内部区域定义：未被 visited 标记（说明不与边缘连通） 且 不是线条
+  // 3. 遍历并填充内部区域
+  // 【关键修复】：应用 rgbaColor 的 alpha 通道
+  const [r, g, b, a] = rgbaColor;
+
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = getIdx(x, y);
-      // 如果 visited[idx] 仍为 0，说明 BFS 没走到这里，它被线条包围在内部
-      if (visited[idx] === 0) {
+      if (visited[idx] === 0) { // 内部区域
         if (!isLine(x, y)) {
           const i = idx * 4;
-          data[i] = rgbColor[0];
-          data[i + 1] = rgbColor[1];
-          data[i + 2] = rgbColor[2];
-          data[i + 3] = 255; // 填实
+          data[i] = r;
+          data[i + 1] = g;
+          data[i + 2] = b;
+          data[i + 3] = a; // <--- 之前这里是 255，现在改为变量 a
         }
       }
     }
@@ -86,10 +111,6 @@ const globalFill = (context, canvas, originalData, rgbColor) => {
 };
 
 
-/**
- * InteractiveArtPlane 提供艺术图层的加载、TransformControls 以及填色操作。
- * 所有 2D 编辑都在隐藏 canvas 中完成，再实时映射到平面纹理。
- */
 const InteractiveArtPlane = forwardRef(({
   art,
   isSelected,
@@ -98,16 +119,15 @@ const InteractiveArtPlane = forwardRef(({
   transformMode,
   fillColor,
   isFillModeActive,
-  surfaceZ // 新增：接收从 Scene 传入的表面 Z 坐标
+  surfaceZ
 }, ref) => {
   const meshRef = useRef();
   const controlRef = useRef();
   const [canvasTexture, setCanvasTexture] = useState(null);
-  // 修改：初始值设为 null，以区分“未加载”和“默认正方形”
   const [aspectRatio, setAspectRatio] = useState(null);
   const lastScaleRef = useRef(null);
   const isInitialLoadRef = useRef(true);
-  const [dimensionsLabel, setDimensionsLabel] = useState({ width: 0, height: 0 }); // 用于显示尺寸
+  const [dimensionsLabel, setDimensionsLabel] = useState({ width: 0, height: 0 });
 
   const artCanvasRef = useRef({
     canvas: null,
@@ -115,16 +135,9 @@ const InteractiveArtPlane = forwardRef(({
     originalData: null
   });
 
-  // 为每个图案实例生成一个微小的随机 Z 偏移，避免重叠时闪烁 (Z-fighting)
-  // 范围：0.0001 ~ 0.001
   const uniqueOffset = useMemo(() => Math.random() * 0.0009 + 0.0001, []);
-
-
-  // 正值 (+): 图案向碑体内部移动 (更深)
-  // 负值 (-): 图案向碑体外部移动 (更凸出)
   const manualOffset = 0.005;
 
-  // 暴露当前画布快照，供外部保存/导出
   useImperativeHandle(ref, () => ({
     getCanvasDataURL: () => {
       const { canvas } = artCanvasRef.current;
@@ -135,18 +148,13 @@ const InteractiveArtPlane = forwardRef(({
     }
   }), [artCanvasRef.current?.canvas]);
 
-
-  // 切换艺术品时，允许缩放逻辑重新运行一次
-  // 选中状态下才允许 TransformControls 操作，模式由面板控制
   useEffect(() => {
     isInitialLoadRef.current = true;
-    setAspectRatio(null); // 重置比例，防止复用旧值
+    setAspectRatio(null);
   }, [art.id, art.imagePath]);
 
-
-  // 根据 imagePath / modifiedImageData 生成离屏 canvas 与 CanvasTexture
+  // 加载图片逻辑
   useEffect(() => {
-    // 保持 initialLoad 为 true，直到获取到 aspect ratio
     isInitialLoadRef.current = true;
 
     if (art.modifiedImageData) {
@@ -191,7 +199,6 @@ const InteractiveArtPlane = forwardRef(({
       const img = loadedTexture.image;
       if (!img || img.naturalHeight === 0) return;
 
-      // 1. 获取正确的宽高比
       const aspect = img.naturalWidth / img.naturalHeight;
       setAspectRatio(aspect);
 
@@ -218,8 +225,7 @@ const InteractiveArtPlane = forwardRef(({
     };
   }, [art.imagePath, art.modifiedImageData]);
 
-
-  // 线稿再着色：只替换黑色轮廓像素，保留填充区域
+  // 线稿再着色逻辑
   useEffect(() => {
     const { lineColor, lineAlpha } = art.properties || {};
     const safeLineAlpha = lineAlpha ?? 1.0;
@@ -268,43 +274,29 @@ const InteractiveArtPlane = forwardRef(({
     canvasTexture
   ]);
 
-
-  // 将 position/rotation/scale 同步到 mesh，并在首次加载时自适应宽高比
+  // Transform 更新逻辑 (位置/缩放)
   useLayoutEffect(() => {
     if (meshRef.current) {
       const position = art.position || [0, 0, 0];
       const rotation = art.rotation || [0, 0, 0];
 
-      // 优先使用 surfaceZ 确保初始位置贴合
-      // 在此叠加 uniqueOffset 确保每个图案有微小深度差异
-      // 叠加 manualOffset 进行手动微调
       const baseZ = (surfaceZ !== undefined && surfaceZ !== null) ? surfaceZ : position[2];
       const targetZ = baseZ - uniqueOffset + manualOffset;
 
       meshRef.current.position.set(position[0], position[1], targetZ);
       meshRef.current.rotation.set(rotation[0], rotation[1], rotation[2]);
 
-      // 仅在首次加载且 aspect 存在时，根据比例重置 Scale
-      // 修改：增加了 && aspectRatio 判断，确保图片加载完成后才计算比例
       if (isInitialLoadRef.current && aspectRatio) {
         isInitialLoadRef.current = false;
 
-        const baseSize = 0.2; // 默认基准宽度
-
+        const baseSize = 0.2;
         const newScaleX = baseSize;
         const newScaleY = baseSize / aspectRatio;
-
-        // 保留 X 的符号（翻转）
         const currentScaleX = art.scale ? art.scale[0] : 0.2;
         const signX = Math.sign(currentScaleX);
 
-        meshRef.current.scale.set(
-          newScaleX * signX,
-          newScaleY * signX, // Y 也跟随翻转，保持一致（或者你想让 Y 独立？）通常保持一致
-          1 // Z 轴缩放通常为 1
-        );
+        meshRef.current.scale.set(newScaleX * signX, newScaleY * signX, 1);
 
-        // 立即回写正确的比例到状态
         onTransformEnd(art.id, {
           position: [position[0], position[1], targetZ],
           scale: meshRef.current.scale.toArray(),
@@ -312,15 +304,12 @@ const InteractiveArtPlane = forwardRef(({
         }, { replaceHistory: true });
 
       } else if (!isInitialLoadRef.current) {
-        // 如果不是首次加载（例如拖拽、选中、重绘），则使用传入的 scale
         if (art.scale) {
           meshRef.current.scale.set(art.scale[0], art.scale[1], art.scale[2] || 1);
         }
       }
 
-      // 更新初始尺寸显示
       if (meshRef.current) {
-        // 假定 1 unit = 1 meter, 1 meter = 39.37 inches
         const toInches = 39.37;
         const w = Math.abs(meshRef.current.scale.x) * toInches;
         const h = Math.abs(meshRef.current.scale.y) * toInches;
@@ -329,12 +318,10 @@ const InteractiveArtPlane = forwardRef(({
     }
   }, [art.id, art.position, art.scale, art.rotation, aspectRatio, onTransformEnd, surfaceZ, uniqueOffset, manualOffset]);
 
-  // --- 智能贴合核心逻辑 ---
+  // Z轴智能贴合
   useEffect(() => {
     if (surfaceZ !== null && surfaceZ !== undefined) {
-      // 在比较时，要考虑到 uniqueOffset 和 manualOffset
       const currentZ = art.position ? art.position[2] : 0;
-      // 我们希望 currentZ 接近 (surfaceZ - uniqueOffset + manualOffset)
       const targetZ = surfaceZ - uniqueOffset + manualOffset;
 
       if (Math.abs(currentZ - targetZ) > 0.002) {
@@ -351,11 +338,10 @@ const InteractiveArtPlane = forwardRef(({
     }
   }, [surfaceZ, art.position, art.id, onTransformEnd, uniqueOffset, manualOffset]);
 
-
+  // Transform controls setup
   useEffect(() => {
     if (controlRef.current) {
       controlRef.current.mode = transformMode;
-      // 仅当选中且不在填充模式时才启用控制
       controlRef.current.enabled = isSelected && !isFillModeActive;
       if (transformMode === 'rotate') {
         controlRef.current.showX = false;
@@ -371,8 +357,7 @@ const InteractiveArtPlane = forwardRef(({
         controlRef.current.showZ = false;
       }
     }
-  }, [isSelected, transformMode, isFillModeActive]); // 添加 isFillModeActive 依赖
-
+  }, [isSelected, transformMode, isFillModeActive]);
 
   const onTransformEndHandler = () => {
     lastScaleRef.current = null;
@@ -390,7 +375,6 @@ const InteractiveArtPlane = forwardRef(({
       lastScaleRef.current = [...meshRef.current.scale.toArray()];
     }
   };
-  // 锁定平面厚度（Z 缩放）并实时更新尺寸标签
   const onTransformChangeHandler = () => {
     if (meshRef.current) {
       if (controlRef.current.mode === 'scale') {
@@ -402,9 +386,6 @@ const InteractiveArtPlane = forwardRef(({
           scale.z = lastScale[2] || 1;
         }
       }
-
-      // 实时更新尺寸
-      // 假定 1 unit = 1 meter, 1 meter = 39.37 inches
       const toInches = 39.37;
       const w = Math.abs(meshRef.current.scale.x) * toInches;
       const h = Math.abs(meshRef.current.scale.y) * toInches;
@@ -412,7 +393,6 @@ const InteractiveArtPlane = forwardRef(({
     }
   };
 
-  // 只有被选中且不处于填充模式时，才显示辅助控件
   const showHelpers = isSelected && !isFillModeActive;
 
   return (
@@ -427,9 +407,6 @@ const InteractiveArtPlane = forwardRef(({
             onChange={onTransformChangeHandler}
             mode={transformMode}
           />
-          {/* 显示尺寸标签 */}
-          <group position={art.position}>
-          </group>
         </>
       )}
       <mesh
@@ -439,14 +416,16 @@ const InteractiveArtPlane = forwardRef(({
           if (isSelected && isFillModeActive) {
             const { canvas, context, originalData } = artCanvasRef.current;
             if (canvas && context && originalData && canvasTexture) {
-              const rgbColor = new THREE.Color(fillColor || '#4285F4')
-                .toArray()
-                .map(c => Math.round(c * 255));
+
+              // 【关键修复】：使用自定义解析器获取 [r, g, b, a]
+              const rgbaColor = parseColorToRGBA(fillColor || '#4285F4');
 
               if (e.shiftKey) {
                 if (e.uv) {
                   const pixelX = Math.floor(e.uv.x * canvas.width);
                   const pixelY = Math.floor((1 - e.uv.y) * canvas.height);
+
+                  // 传递带有 alpha 的颜色数组给 floodFill
                   floodFill(
                     context,
                     canvas,
@@ -454,15 +433,16 @@ const InteractiveArtPlane = forwardRef(({
                     canvasTexture,
                     pixelX,
                     pixelY,
-                    rgbColor
+                    rgbaColor
                   );
                 }
               } else {
+                // 传递带有 alpha 的颜色数组给 globalFill
                 globalFill(
                   context,
                   canvas,
                   originalData,
-                  rgbColor
+                  rgbaColor
                 );
               }
 
@@ -485,13 +465,12 @@ const InteractiveArtPlane = forwardRef(({
           opacity={canvasTexture ? 1.0 : 0.8}
           side={THREE.DoubleSide}
           polygonOffset={true}
-          polygonOffsetFactor={-1} // 基础偏移
+          polygonOffsetFactor={-1}
           polygonOffsetUnits={-1}
           depthTest={true}
-          depthWrite={false} // 重要：半透明物体通常关闭 depthWrite 以正确混合
+          depthWrite={false}
         />
 
-        {/* 当被选中且不在填充模式时，显示尺寸标签和蓝色边框 */}
         {showHelpers && (
           <>
             <Html position={[0.6, 0.6, 0]} center style={{ pointerEvents: 'none' }}>
