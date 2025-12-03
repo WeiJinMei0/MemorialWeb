@@ -10,9 +10,10 @@ import {
   Row,
   Col,
   Card,
-  message,// 导入 message
+  message,
   Tooltip,
-  Popover
+  Popover,
+  Radio // 导入 Radio 组件用于选择方向
 } from 'antd';
 import {
   PlusOutlined,
@@ -20,40 +21,37 @@ import {
   AlignLeftOutlined,
   AlignCenterOutlined,
   AlignRightOutlined,
-  SaveOutlined, // 导入保存图标
-  CloseOutlined, // 新增：关闭图标
-  EditOutlined,// 新增：编辑图标
-  BoldOutlined,    // 加粗图标
-  ItalicOutlined,  // 斜体图标
-  PlusCircleOutlined,// 加号图标
+  SaveOutlined,
+  CloseOutlined,
+  EditOutlined,
+  BoldOutlined,
+  ItalicOutlined,
+  PlusCircleOutlined,
   DeleteOutlined,
-  DragOutlined, // 移动图标
-  RotateRightOutlined, // 旋转图标
-  RedoOutlined,// 90度图标
+  DragOutlined,
+  RotateRightOutlined,
+  RedoOutlined,
   EyeOutlined,
-  EyeInvisibleOutlined, // 闭眼图标
-  FontSizeOutlined, // 增加字体图标
-  ColumnHeightOutlined, // 增加行高图标
-  ExpandOutlined // 增加字间距图标
+  EyeInvisibleOutlined,
+  FontSizeOutlined,
+  ColumnHeightOutlined,
+  ExpandOutlined,
+  LayoutOutlined, // 新增：文本方向图标
+  VerticalAlignTopOutlined // 新增：竖排图标
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Canvas } from '@react-three/fiber';
 import { Text3D } from '@react-three/drei';
 import './TextEditor.css'
-import { Radio } from 'antd'; // 引入 Radio 组件
+
 // --- 辅助函数：解析字体名称 ---
-// 假设命名规则为 "{Family} {Variant}"，Variant 可能是 Regular, Bold, Italic, Bold Italic
 const getFontFamilyInfo = (fontName) => {
   if (!fontName) return { family: '', bold: false, italic: false };
-
-  // 按照后缀长度优先匹配，防止 "Bold Italic" 被匹配成 "Bold"
   if (fontName.endsWith(" Bold Italic")) return { family: fontName.replace(" Bold Italic", ""), bold: true, italic: true };
   if (fontName.endsWith(" Bold")) return { family: fontName.replace(" Bold", ""), bold: true, italic: false };
   if (fontName.endsWith(" Italic")) return { family: fontName.replace(" Italic", ""), bold: false, italic: true };
   if (fontName.endsWith(" Regular")) return { family: fontName.replace(" Regular", ""), bold: false, italic: false };
-  if (fontName.endsWith(" Normal")) return { family: fontName.replace(" Normal", ""), bold: false, italic: false }; // 处理个别命名
-
-  // 如果没有标准后缀，默认视为 Regular，且 family 就是它本身
+  if (fontName.endsWith(" Normal")) return { family: fontName.replace(" Normal", ""), bold: false, italic: false };
   return { family: fontName, bold: false, italic: false };
 };
 
@@ -83,20 +81,21 @@ const TextEditor = ({
   monuments,
   isEditing,
   fontOptions,
-  onSaveTextToOptions,// 1. 接收新的 prop
-  onClose, // 新增：关闭回调函数
-  getFontPath, // 2. 接收 getFontPath 函数
-  transformMode, // 接收
-  setTransformMode, // 接收
-  onRotate90, // 接收
+  onSaveTextToOptions,
+  onClose,
+  getFontPath,
+  transformMode,
+  setTransformMode,
+  onRotate90,
 }) => {
   const { t } = useTranslation();
-  // 新增：定义缺失的状态
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
-  // 新增：控制按钮是否可用（有些字体可能没有粗体或斜体变种）
   const [canBold, setCanBold] = useState(true);
   const [canItalic, setCanItalic] = useState(true);
+
+  // 新增：文本方向状态（horizontal=横向，vertical=竖向）
+  const [textDirection, setTextDirection] = useState('horizontal');
 
   const FontPreviewTooltipContent = ({ font }) => {
     const previewText = font.previewText || (font.isChinese ? '示例Aa' : 'Aa');
@@ -108,7 +107,6 @@ const TextEditor = ({
           camera={{ position: [0, 0, 10], zoom: 60 }}
           gl={{ antialias: true }}
           style={{ background: '#ffffff' }}
-
         >
           <color attach="background" args={['#ffffff']} />
           <ambientLight intensity={0.8} />
@@ -135,9 +133,8 @@ const TextEditor = ({
       </div>
     );
   };
-  // 在 TextEditor 组件内部添加这个组件
+
   const CustomColorPanel = () => {
-    // 定义色系 - 简化版，每个色系5个颜色
     const colorRamps = {
       red: ['#FF9999', '#FF6666', '#FF3333', '#FF0000', '#CC0000'],
       gold: ['#FFE5B3', '#FFD699', '#FFC266', '#FFB033', '#CC8A00'],
@@ -148,109 +145,31 @@ const TextEditor = ({
 
     return (
       <div style={{ width: 240 }}>
-        {/* 色系选择 */}
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>标准色</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 8 }}>
-            {/* 红色系 */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {colorRamps.red.map((color, index) => (
-                <div
-                  key={`red-${index}`}
-                  style={{
-                    width: 24,
-                    height: 24,
-                    backgroundColor: color,
-                    borderRadius: 2,
-                    cursor: 'pointer',
-                    border: color === '#E6E6E6' ? '1px solid #d9d9d9' : 'none',
-                    boxShadow: textProperties.vcutColor === color ? '0 0 0 2px #1890ff' : 'none'
-                  }}
-                  onClick={() => handlePropertyChange('vcutColor', color)}
-                />
-              ))}
-            </div>
-            {/* 金色系 */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {colorRamps.gold.map((color, index) => (
-                <div
-                  key={`gold-${index}`}
-                  style={{
-                    width: 24,
-                    height: 24,
-                    backgroundColor: color,
-                    borderRadius: 2,
-                    cursor: 'pointer',
-                    border: color === '#E6E6E6' ? '1px solid #d9d9d9' : 'none',
-                    boxShadow: textProperties.vcutColor === color ? '0 0 0 2px #1890ff' : 'none'
-                  }}
-                  onClick={() => handlePropertyChange('vcutColor', color)}
-                />
-              ))}
-            </div>
-
-            {/* 蓝色系 */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {colorRamps.blue.map((color, index) => (
-                <div
-                  key={`blue-${index}`}
-                  style={{
-                    width: 24,
-                    height: 24,
-                    backgroundColor: color,
-                    borderRadius: 2,
-                    cursor: 'pointer',
-                    border: color === '#E6E6E6' ? '1px solid #d9d9d9' : 'none',
-                    boxShadow: textProperties.vcutColor === color ? '0 0 0 2px #1890ff' : 'none'
-                  }}
-                  onClick={() => handlePropertyChange('vcutColor', color)}
-                />
-              ))}
-            </div>
-
-            {/* 绿色系 */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {colorRamps.green.map((color, index) => (
-                <div
-                  key={`green-${index}`}
-                  style={{
-                    width: 24,
-                    height: 24,
-                    backgroundColor: color,
-                    borderRadius: 2,
-                    cursor: 'pointer',
-                    border: color === '#E6E6E6' ? '1px solid #d9d9d9' : 'none',
-                    boxShadow: textProperties.vcutColor === color ? '0 0 0 2px #1890ff' : 'none'
-                  }}
-                  onClick={() => handlePropertyChange('vcutColor', color)}
-                />
-              ))}
-            </div>
-
-            {/* 灰色系 */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {colorRamps.gray.map((color, index) => (
-                <div
-                  key={`gray-${index}`}
-                  style={{
-                    width: 24,
-                    height: 24,
-                    backgroundColor: color,
-                    borderRadius: 2,
-                    cursor: 'pointer',
-                    border: color === '#E6E6E6' ? '1px solid #d9d9d9' : 'none',
-                    boxShadow: textProperties.vcutColor === color ? '0 0 0 2px #1890ff' : 'none'
-                  }}
-                  onClick={() => handlePropertyChange('vcutColor', color)}
-                />
-              ))}
-            </div>
+            {Object.values(colorRamps).map((ramp, rampIndex) => (
+              <div key={`ramp-${rampIndex}`} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {ramp.map((color, index) => (
+                  <div
+                    key={`color-${rampIndex}-${index}`}
+                    style={{
+                      width: 24,
+                      height: 24,
+                      backgroundColor: color,
+                      borderRadius: 2,
+                      cursor: 'pointer',
+                      border: color === '#E6E6E6' ? '1px solid #d9d9d9' : 'none',
+                      boxShadow: textProperties.vcutColor === color ? '0 0 0 2px #1890ff' : 'none'
+                    }}
+                    onClick={() => handlePropertyChange('vcutColor', color)}
+                  />
+                ))}
+              </div>
+            ))}
           </div>
         </div>
-
         <Divider style={{ margin: '12px 0' }} />
-
-        {/* 自定义颜色选择器 */}
         <div>
           <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>自定义颜色</div>
           <ColorPicker
@@ -264,10 +183,12 @@ const TextEditor = ({
       </div>
     );
   };
+
+  // 在文本属性中添加 textDirection（同步到主程序）
   const [textProperties, setTextProperties] = useState({
     content: '',
     font: 'helvetiker_regular.typeface',
-    size: 6,
+    size: 3,
     alignment: 'center',
     lineSpacing: 1.2,
     kerning: 0,
@@ -276,48 +197,47 @@ const TextEditor = ({
     vcutColor: '#FFFFFF',
     frostIntensity: 0.8,
     polishBlend: 0.5,
-
+    textDirection: 'horizontal' // 默认横向
   });
 
-  // 新增：处理关闭面板
   const handleClose = () => {
     if (onClose) {
       onClose();
     }
   };
-  // 雕刻效果按钮状态
+
   const [engraveTypes, setEngraveTypes] = useState({
     vcut: false,
     frost: false,
     polish: false
   });
-  // --- 核心逻辑：监听字体变化，更新按钮状态 ---
+
+  // 监听字体变化，更新按钮状态
   useEffect(() => {
     if (textProperties.font && fontOptions.length > 0) {
       const { family, bold, italic } = getFontFamilyInfo(textProperties.font);
-
-      // 1. 更新当前 UI 状态
       setIsBold(bold);
       setIsItalic(italic);
-
-      // 2. 检查是否存在目标变体，决定是否禁用按钮
-      // 例如：当前是 Regular，我想切换 Bold -> 检查 "Family Bold" 是否在列表中
-      // 例如：当前是 Italic，我想切换 Bold -> 检查 "Family Bold Italic" 是否在列表中
       const targetBoldName = constructFontName(family, !bold, italic);
       const targetItalicName = constructFontName(family, bold, !italic);
-
       setCanBold(fontOptions.some(f => f.name === targetBoldName));
       setCanItalic(fontOptions.some(f => f.name === targetItalicName));
     }
   }, [textProperties.font, fontOptions]);
 
-  // 当选中文字变化时更新表单
-  // 依赖项同步逻辑...
+  // 选中文字变化时，同步文本方向状态
   useEffect(() => {
     if (currentTextId) {
       const currentText = existingTexts.find(text => text.id === currentTextId);
       if (currentText) {
-        setTextProperties(prev => ({ ...prev, ...currentText }));
+        setTextProperties(prev => ({ 
+          ...prev, 
+          ...currentText,
+          // 兼容旧文字（无 textDirection 时默认横向）
+          textDirection: currentText.textDirection || 'horizontal'
+        }));
+        // 🔥 同步文本方向到单选框
+        setTextDirection(currentText.textDirection || 'horizontal');
         setEngraveTypes({
           vcut: currentText.engraveType === 'vcut',
           frost: currentText.engraveType === 'frost',
@@ -332,8 +252,6 @@ const TextEditor = ({
       ...prev,
       [property]: value
     }));
-
-    // 实时更新选中的文字
     if (currentTextId) {
       onUpdateText(currentTextId, { [property]: value });
     }
@@ -346,45 +264,31 @@ const TextEditor = ({
       polish: false,
       [type]: true
     };
-
     setEngraveTypes(newEngraveTypes);
     handlePropertyChange('engraveType', type);
   };
 
   const handleAddText = () => {
-
     if (!textProperties.content.trim()) {
-      message.error('请输入文字内容');
+      message.error('Enter Text Content');
       return;
     }
-    // 设置固定的文本内容
-    //const fixedTextContent = "Text";
-
-    // 更新文本属性状态
-    const newTextProperties = {
-      ...textProperties,
-      //content: fixedTextContent
-    };
-
-    setTextProperties(newTextProperties);
-
     const targetMonumentId = monuments.length > 0 ? monuments[0].id : null;
     if (!targetMonumentId) {
       message.error('请先添加一个主碑');
       return;
     }
-
-
+    // 🔥 新增：添加文字时携带文本方向
     onAddText({
       ...textProperties,
-      monumentId: targetMonumentId
+      monumentId: targetMonumentId,
+      textDirection: textDirection // 传递选中的横/竖方向
     });
-
-    // 重置表单
+    // 重置表单（方向保留默认横向）
     setTextProperties({
       content: '',
       font: 'Arial',
-      size: 6,
+      size: 3,
       alignment: 'center',
       lineSpacing: 1.2,
       kerning: 0,
@@ -393,8 +297,11 @@ const TextEditor = ({
       vcutColor: '#000000',
       frostIntensity: 0.8,
       polishBlend: 0.5,
-      thickness: 0.02
+      thickness: 0.02,
+      textDirection: 'horizontal'
     });
+    // 重置方向选择为横向
+    setTextDirection('horizontal');
   };
 
   const handleDeleteText = () => {
@@ -402,33 +309,38 @@ const TextEditor = ({
       onDeleteText(currentTextId);
     }
   };
+
   const inputRef = useRef(null);
 
-  // --- 修改：处理斜体点击 ---
   const handleItalicClick = () => {
     const { family, bold, italic } = getFontFamilyInfo(textProperties.font);
-    const newFontName = constructFontName(family, bold, !italic); // 切换 Italic 状态
-
+    const newFontName = constructFontName(family, bold, !italic);
     if (fontOptions.some(f => f.name === newFontName)) {
       handlePropertyChange('font', newFontName);
-      // UI 状态会在 useEffect 中自动更新
     } else {
       message.warning(`当前字体 "${family}" 不支持斜体`);
     }
   };
-  // --- 修改：处理加粗点击 ---
+
   const handleBoldClick = () => {
     const { family, bold, italic } = getFontFamilyInfo(textProperties.font);
-    const newFontName = constructFontName(family, !bold, italic); // 切换 Bold 状态
-
+    const newFontName = constructFontName(family, !bold, italic);
     if (fontOptions.some(f => f.name === newFontName)) {
       handlePropertyChange('font', newFontName);
-      // UI 状态会在 useEffect 中自动更新
     } else {
       message.warning(`当前字体 "${family}" 不支持加粗`);
     }
   };
 
+  // 🔥 关键新增：切换文本方向（同步到状态和属性）
+  const handleDirectionChange = (e) => {
+    const value = e.target.value;
+    setTextDirection(value);
+    // 编辑已有文字时，实时更新方向
+    if (currentTextId) {
+      handlePropertyChange('textDirection', value);
+    }
+  };
 
   const renderEngraveTypeButton = (type, label, icon) => {
     const isActive = engraveTypes[type];
@@ -478,13 +390,78 @@ const TextEditor = ({
           />
         }
       >
-        {/* 文字内容 */}
+        {/* 新增：文本方向选择（横/竖） */}
+        <div style={{ 
+          marginBottom: '12px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '8px', 
+          flexWrap: 'nowrap', 
+          height: '32px', // 固定高度，锁住对齐基准
+          overflow: 'hidden' // 隐藏任何溢出元素，避免换行
+        }}>
+          <span style={{ 
+            fontSize: '14px', 
+            color: '#666', 
+            width: '65px', 
+            textAlign: 'right',
+            whiteSpace: 'nowrap', 
+            lineHeight: '32px', 
+            padding: '0',
+            margin: '0',
+            flexShrink: 0 // 禁止标签被压缩
+          }}>
+          Direction:
+          </span>
+          {/* Radio 组：强制横向，紧贴标签 */}
+          <Radio.Group
+            value={textDirection}
+            onChange={handleDirectionChange}
+            style={{ 
+              display: 'flex', 
+              gap: '16px', 
+              alignItems: 'center', 
+              height: '32px',
+              flexShrink: 0, // 禁止 Radio 组被压缩
+              margin: '0'
+            }}
+          >
+            {/* 单个 Radio：消除内边距，精准对齐 */}
+            <Radio value="horizontal" style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '1px',
+              lineHeight: '32px',
+              padding: '0',
+              margin: '0',
+              height: '32px',
+              minWidth: '100px' // 固定最小宽度，避免挤压
+            }}>
+              <LayoutOutlined style={{ fontSize: '14px' }} /> Horizontal
+            </Radio>
+            <Radio value="vertical" style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '1px',
+              lineHeight: '32px',
+              padding: '0',
+              margin: '0',
+              height: '32px',
+              minWidth: '100px'
+            }}>
+              <VerticalAlignTopOutlined style={{ fontSize: '14px' }} /> Vertical
+            </Radio>
+          </Radio.Group>
+        </div>
+
+
+        {/* 文字内容（样式不变，输入的内容会根据方向在主程序渲染） */}
         <div style={{ marginBottom: '12px' }}>
           <Input.TextArea
             ref={inputRef}
             value={textProperties.content}
             onChange={(e) => handlePropertyChange('content', e.target.value)}
-            placeholder="输入文字内容"
+            placeholder="Enter Text Content"
             rows={2}
             size="small"
           />
@@ -528,7 +505,6 @@ const TextEditor = ({
               flex: 1
             }}
           />
-
           <Button
             type="default"
             size="small"
@@ -548,7 +524,8 @@ const TextEditor = ({
             style={{ flex: 1 }}
           />
         </Space.Compact>
-        {/* 变换控制区域 - 协调按钮设计 */}
+
+        {/* 变换控制区域 */}
         <div style={{
           marginBottom: 12,
           background: '#f9f9f9',
@@ -559,23 +536,20 @@ const TextEditor = ({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            gap: 8 // 添加间距确保按钮不会太挤
+            gap: 8
           }}>
             <span style={{
               fontSize: 12,
               color: '#666',
-              minWidth: 60 // 确保标签宽度固定
+              minWidth: 60
             }}>
               Operating Mode:
             </span>
-
-            {/* 操作模式按钮组 */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 8 // 按钮之间的间距
+              gap: 8
             }}>
-              {/* 移动按钮 */}
               <Tooltip title="移动 (T)">
                 <Button
                   size="small"
@@ -583,8 +557,8 @@ const TextEditor = ({
                   icon={<DragOutlined />}
                   onClick={() => setTransformMode && setTransformMode('translate')}
                   style={{
-                    width: 32, // 固定宽度
-                    height: 32, // 固定高度
+                    width: 32,
+                    height: 32,
                     padding: 0,
                     display: 'flex',
                     alignItems: 'center',
@@ -593,8 +567,6 @@ const TextEditor = ({
                   }}
                 />
               </Tooltip>
-
-              {/* 旋转按钮 */}
               <Tooltip title="旋转 (R)">
                 <Button
                   size="small"
@@ -602,8 +574,8 @@ const TextEditor = ({
                   icon={<RotateRightOutlined />}
                   onClick={() => setTransformMode && setTransformMode('rotate')}
                   style={{
-                    width: 32, // 固定宽度
-                    height: 32, // 固定高度
+                    width: 32,
+                    height: 32,
                     padding: 0,
                     display: 'flex',
                     alignItems: 'center',
@@ -612,8 +584,6 @@ const TextEditor = ({
                   }}
                 />
               </Tooltip>
-
-              {/* 90度旋转按钮 */}
               <Tooltip title="向右旋转 90°">
                 <Button
                   size="small"
@@ -621,8 +591,8 @@ const TextEditor = ({
                   onClick={onRotate90}
                   disabled={!currentTextId}
                   style={{
-                    width: 32, // 固定宽度
-                    height: 32, // 固定高度
+                    width: 32,
+                    height: 32,
                     padding: 0,
                     display: 'flex',
                     alignItems: 'center',
@@ -635,9 +605,8 @@ const TextEditor = ({
           </div>
         </div>
 
-        {/* 字体和大小 - 紧凑垂直布局 */}
+        {/* 字体和大小 */}
         <div style={{ marginBottom: '12px' }}>
-          {/* 字体选择 - 单独一行 */}
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{
               fontSize: '12px',
@@ -670,8 +639,6 @@ const TextEditor = ({
               ))}
             </Select>
           </div>
-
-          {/* 大小输入 - 单独一行 */}
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <span style={{
               fontSize: '12px',
@@ -695,7 +662,7 @@ const TextEditor = ({
           </div>
         </div>
 
-        {/* 对齐方式 - 紧凑 */}
+        {/* 对齐方式 */}
         <div style={{ marginBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{
@@ -738,10 +705,9 @@ const TextEditor = ({
           </div>
         </div>
 
-        {/* 间距控制 - 紧凑水平布局 */}
+        {/* 间距控制 */}
         <div style={{ marginBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* 字距控制 */}
             <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
               <span style={{
                 fontSize: '12px',
@@ -762,8 +728,6 @@ const TextEditor = ({
                 style={{ flex: 1 }}
               />
             </div>
-
-            {/* 行距控制 */}
             <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
               <span style={{
                 fontSize: '12px',
@@ -788,7 +752,7 @@ const TextEditor = ({
           </div>
         </div>
 
-        {/* 弯曲程度 - 紧凑 */}
+        {/* 弯曲程度 */}
         <div style={{ marginBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{
@@ -821,7 +785,7 @@ const TextEditor = ({
 
         <Divider style={{ margin: '8px 0' }} />
 
-        {/* 雕刻效果 - 紧凑 */}
+        {/* 雕刻效果 */}
         <div style={{ marginBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{
@@ -888,8 +852,6 @@ const TextEditor = ({
                       )}
                     </Button>
                   ))}
-
-                  {/* 自定义颜色按钮 */}
                   <Popover
                     content={<CustomColorPanel />}
                     trigger="click"
@@ -912,8 +874,6 @@ const TextEditor = ({
                     </Button>
                   </Popover>
                 </div>
-
-                {/* 当前颜色显示 */}
                 {textProperties.vcutColor && !['#000000', '#FFFFFF', '#FFD700', '#FF0000'].includes(textProperties.vcutColor) && (
                   <div style={{ fontSize: '11px', color: '#666', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>当前:</span>

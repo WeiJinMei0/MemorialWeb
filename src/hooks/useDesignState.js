@@ -268,7 +268,7 @@ export const useDesignState = () => {
     const base = {
       id: 'base-1',
       type: 'base',
-      polish: 'P5',
+      polish: 'PT',
       color,
       // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
       modelPath: "/models/Bases/Base.glb",
@@ -322,7 +322,7 @@ export const useDesignState = () => {
         const base = {
           id: `base-${Date.now()}`,
           type: 'base',
-          polish: 'P5',
+          polish: 'PT',
           color,
           modelPath: "/models/Bases/Base.glb", //
           texturePath: "", //
@@ -359,7 +359,7 @@ export const useDesignState = () => {
       const base = {
         id: `base-${Date.now()}`,
         type: 'base',
-        polish: 'P5',
+        polish: 'PT',
         color: prev.currentMaterial,
         // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
         modelPath: "/models/Bases/Base.glb",
@@ -389,7 +389,7 @@ export const useDesignState = () => {
       const subBase = {
         id: `subbase-${Date.now()}`,
         type: 'subBase',
-        polish: 'P5',
+        polish: 'PT',
         color: prev.currentMaterial,
         // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
         modelPath: "/models/Bases/Base.glb",

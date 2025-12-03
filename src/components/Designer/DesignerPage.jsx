@@ -827,17 +827,9 @@ const DesignerPage = () => {
             monuments={designState.monuments}
             isEditing={isTextEditing}
             fontOptions={fontOptions}
-            onClose={() => {
-              setActiveTool(null);
-              setIsTextEditing(false);
-              setCurrentTextId(null);
-              // 清除所有文字的选中状态
-              designState.textElements.forEach(text => {
-                setTextSelected(text.id, false);
-              });
-            }}
-            onSaveTextToOptions={handleSaveTextToOptions} // <-- 传递 prop
+            // 修复：移除冗余的内联 onClose，直接使用 handleCloseTextEditor
             onClose={handleCloseTextEditor}
+            onSaveTextToOptions={handleSaveTextToOptions} // <-- 传递 prop
           />
         );
       default:
@@ -984,7 +976,7 @@ const DesignerPage = () => {
       switch (elementType) {
         case 'monument': return productFamilies[element.family]?.polishOptions || ['P5'];
         case 'base':
-        case 'subBase': return basePolishOptions || ['P5'];
+        case 'subBase': return basePolishOptions || ['PT'];
         default: return [];
       }
     };
@@ -1162,7 +1154,7 @@ const DesignerPage = () => {
   // --- 渲染 ---
   return (
     <Layout className="main-content-layout">
-      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={280} className="toolbar-sider">
+      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={190} className="toolbar-sider">
         <Toolbar tools={tools} activeTool={activeTool} onToolSelect={handleToolSelect} />
         {!collapsed && (
           <div className="material-section">

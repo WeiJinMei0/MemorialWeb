@@ -51,7 +51,7 @@
 /* 响应式设计 */
 @media (max-width: 768px) {
   .toolbar-menu .ant-menu-item {
-    height: 50px;
+    height: 60px;
     line-height: 50px;
     padding: 0 12px !important;
   }

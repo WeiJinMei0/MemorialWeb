@@ -3,7 +3,8 @@ import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useThree } from '@react-three/fiber';
 import { Text3D, TransformControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry';
+// 修复：添加 .js 后缀以解决模块解析错误
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { extend } from '@react-three/fiber';
 import Model from './Model';
 
@@ -24,7 +25,8 @@ const EnhancedTextElement = ({
   isTextEditing,
   getFontPath,
   modelRefs,
-  globalTransformMode // 2. 接收全局变换模式
+  globalTransformMode, // 2. 接收全局变换模式
+  surfaceZ // 接收从父组件传入的自动计算表面 Z 坐标
 }) => {
   const textRef = useRef();
   const transformControlsRef = useRef();
@@ -42,6 +44,9 @@ const EnhancedTextElement = ({
   // 4. 新增：旋转角度状态  
   const [currentRotationDeg, setCurrentRotationDeg] = useState(0);
   const [isRotating, setIsRotating] = useState(false);
+
+  // 🔥 新增：从 text 中获取 textDirection（默认横向）
+  const textDirection = text.textDirection || 'horizontal';
 
   // 字体路径解析：兼容传入 name 或完整版路径
   const localGetFontPath = useCallback((nameOrPath) => {
@@ -128,6 +133,7 @@ const EnhancedTextElement = ({
     }
   }, [monument, text.position, text.rotation, modelRefs, isDragging]);
 
+  // 初始化默认位置逻辑 (保留，仅在首次加载无位置时触发)
   useEffect(() => {
     const isDefault = Array.isArray(text.position)
       ? (text.position[0] === 0 && text.position[1] === 0 && text.position[2] === 0)
@@ -136,6 +142,18 @@ const EnhancedTextElement = ({
 
     let rafId;
     const tryInit = () => {
+      // 优先使用传入的 surfaceZ
+      if (surfaceZ !== null && surfaceZ !== undefined) {
+        if (onTextPositionChange) {
+          // 这里需要先获取碑体信息做初步转换，但作为初始化，我们可以暂时依赖后续的 Sync Z 逻辑来修正精确位置
+          // 或者简单赋予一个合理的初始值，让后续逻辑接管
+          onTextPositionChange(text.id, [0, 0.3, 0], { replaceHistory: true });
+          setHasInitPosition(true);
+        }
+        return;
+      }
+
+      // 降级到旧逻辑
       const monumentMesh = modelRefs.current[monument.id]?.getMesh();
       if (!monumentMesh) { rafId = requestAnimationFrame(tryInit); return; }
       monumentMesh.updateWorldMatrix(true, false);
@@ -143,20 +161,80 @@ const EnhancedTextElement = ({
       const size = new THREE.Vector3();
       box.getSize(size);
       if (size.z <= 0) { rafId = requestAnimationFrame(tryInit); return; }
-      const surfaceZ = computeSurfaceZ(size.z, text.engraveType);
-      const xLocal = 0;
-      const yLocal = 0.3;
+      const surfaceZ_calc = computeSurfaceZ(size.z, text.engraveType);
       if (onTextPositionChange) {
-        onTextPositionChange(text.id, [xLocal, yLocal, surfaceZ], { replaceHistory: true });
+        onTextPositionChange(text.id, [0, 0.3, surfaceZ_calc], { replaceHistory: true });
         setHasInitPosition(true);
       }
     };
     tryInit();
     return () => { if (rafId) cancelAnimationFrame(rafId); };
-  }, [monument, text.id, text.position, text.engraveType, onTextPositionChange, modelRefs, computeSurfaceZ, hasInitPosition]);
+  }, [monument, text.id, text.position, text.engraveType, onTextPositionChange, modelRefs, computeSurfaceZ, hasInitPosition, surfaceZ]);
 
+  // 同步表面高度逻辑 (Sync Z)
   useEffect(() => {
     if (!monument) return;
+
+    // 如果父组件传入了精确的 surfaceZ (基于 bounding box min.z)，直接使用它
+    // 这与 Art pattern 的逻辑保持一致，解决了碑体厚度改变时文字漂移或嵌入的问题
+    if (surfaceZ !== null && surfaceZ !== undefined) {
+      const monumentMesh = modelRefs.current[monument.id]?.getMesh();
+      if (!monumentMesh) return;
+
+      // 1. 获取碑体当前的世界矩阵属性 (位置、旋转、缩放)
+      monumentMesh.updateWorldMatrix(true, false);
+      const worldPos = new THREE.Vector3();
+      const worldQuat = new THREE.Quaternion();
+      const worldScale = new THREE.Vector3();
+      monumentMesh.matrixWorld.decompose(worldPos, worldQuat, worldScale);
+
+      // 2. 获取当前文字的局部坐标
+      const currentLocal = Array.isArray(text.position) ? [...text.position] : [0, 0, 0];
+
+      // 3. 计算文字当前的“理论”世界坐标 (保持其 X/Y 相对位置)
+      const currentLocalVec = new THREE.Vector3(currentLocal[0] || 0, currentLocal[1] || 0, currentLocal[2] || 0);
+      const currentWorldVec = currentLocalVec.clone()
+        .multiply(worldScale)
+        .applyQuaternion(worldQuat)
+        .add(worldPos);
+
+      // 4. 计算目标 World Z
+      // 我们希望文字的“前表面”对齐到 surfaceZ。
+      // 由于 180度翻转，文字的几何体实际上是从 Origin 向 -Z (相机方向) 延伸 thickness 距离。
+      // 因此，前表面位置 = Origin - thickness。
+      // 要让 前表面 = surfaceZ，则 Origin = surfaceZ + thickness。
+      const thickness = text.thickness || 0.02;
+
+
+      // 正值 (+): 文字向碑体内部移动 (更深)
+      // 负值 (-): 文字向碑体外部移动 (更凸出)
+      const manualOffset = 0.005;
+
+      const targetWorldZ = surfaceZ + thickness + manualOffset;
+
+      // 5. 判断是否需要更新 (比较世界坐标 Z 与目标 Z)
+      if (Math.abs(currentWorldVec.z - targetWorldZ) > 0.001) {
+
+        // 6. 将世界坐标 Z 强制修正为计算出的目标值
+        const targetWorldVec = currentWorldVec.clone();
+        targetWorldVec.z = targetWorldZ;
+
+        // 7. 逆向计算：将修正后的世界坐标转换回局部坐标
+        // Local = (World - MonumentPos) * InverseQuat / Scale
+        const targetLocalVec = targetWorldVec.clone()
+          .sub(worldPos)
+          .applyQuaternion(worldQuat.clone().invert())
+          .divide(worldScale);
+
+        // 8. 更新状态 (只更新 Z，保留 X 和 Y 以防微小浮点漂移)
+        if (onTextPositionChange) {
+          onTextPositionChange(text.id, [currentLocal[0], currentLocal[1], targetLocalVec.z]);
+        }
+      }
+      return;
+    }
+
+    // 降级：旧的计算逻辑 (依赖模型尺寸和原点假设)
     let rafId;
     const applyZ = () => {
       const monumentMesh = modelRefs.current[monument.id]?.getMesh();
@@ -175,7 +253,7 @@ const EnhancedTextElement = ({
     };
     applyZ();
     return () => { if (rafId) cancelAnimationFrame(rafId); };
-  }, [monument, text.id, text.engraveType, onTextPositionChange, modelRefs, computeSurfaceZ]);
+  }, [monument, text.id, text.position, text.engraveType, text.thickness, onTextPositionChange, modelRefs, computeSurfaceZ, surfaceZ]);
 
   useEffect(() => {
     let rafId;
@@ -252,27 +330,63 @@ const EnhancedTextElement = ({
     }
   }, [monumentMaterial, text.engraveType, text.vcutColor, text.frostIntensity, text.polishBlend]);
 
+  //  阴影材质（用于 V-Cut 凹陷效果）
+  // 颜色黑色，半透明，用于模拟边缘阴影
+  const shadowMaterial = useMemo(() => {
+    return new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.5, //  增加透明度以加深阴影 (原0.4 -> 0.75)
+      side: THREE.FrontSide
+    });
+  }, []);
+
+  //  新增：竖排文字的偏移计算（兼容对齐方式）
   useEffect(() => {
     const refs = lineRefs.current;
     if (!refs || refs.length === 0) return;
-    const metrics = refs.map((mesh) => {
-      if (!mesh || !mesh.geometry) return { width: 0, centerX: 0 };
-      mesh.geometry.computeBoundingBox();
-      const bb = mesh.geometry.boundingBox;
-      if (!bb) return { width: 0, centerX: 0 };
-      return { width: bb.max.x - bb.min.x, centerX: (bb.max.x + bb.min.x) / 2 };
-    });
-    const maxWidth = metrics.reduce((m, v) => Math.max(m, v.width), 0);
-    const newOffsets = metrics.map((m) => {
-      let desiredCenter = 0;
-      if (text.alignment === 'left') desiredCenter = -maxWidth / 2 + m.width / 2;
-      else if (text.alignment === 'right') desiredCenter = maxWidth / 2 - m.width / 2;
-      else desiredCenter = 0; // center
-      const x = desiredCenter - m.centerX;
-      return { x };
-    });
-    setLineOffsets(newOffsets);
-  }, [text.content, text.size, text.kerning, text.lineSpacing, text.alignment]);
+
+    // 区分横/竖排计算偏移
+    if (textDirection === 'horizontal') {
+      // 原有横向偏移逻辑（保持不变）
+      const metrics = refs.map((mesh) => {
+        if (!mesh || !mesh.geometry) return { width: 0, centerX: 0 };
+        mesh.geometry.computeBoundingBox();
+        const bb = mesh.geometry.boundingBox;
+        if (!bb) return { width: 0, centerX: 0 };
+        return { width: bb.max.x - bb.min.x, centerX: (bb.max.x + bb.min.x) / 2 };
+      });
+      const maxWidth = metrics.reduce((m, v) => Math.max(m, v.width), 0);
+      const newOffsets = metrics.map((m) => {
+        let desiredCenter = 0;
+        if (text.alignment === 'left') desiredCenter = -maxWidth / 2 + m.width / 2;
+        else if (text.alignment === 'right') desiredCenter = maxWidth / 2 - m.width / 2;
+        else desiredCenter = 0; // center
+        const x = desiredCenter - m.centerX;
+        return { x };
+      });
+      setLineOffsets(newOffsets);
+    } else {
+      // 竖排偏移逻辑（按对齐方式调整X轴）
+      const metrics = refs.map((mesh) => {
+        if (!mesh || !mesh.geometry) return { height: 0, centerY: 0 };
+        mesh.geometry.computeBoundingBox();
+        const bb = mesh.geometry.boundingBox;
+        if (!bb) return { height: 0, centerY: 0 };
+        return { height: bb.max.y - bb.min.y, centerY: (bb.max.y + bb.min.y) / 2 };
+      });
+      const maxHeight = metrics.reduce((m, v) => Math.max(m, v.height), 0);
+      const newOffsets = metrics.map((m) => {
+        let desiredX = 0;
+        // 竖排时：alignment 控制水平对齐（left/center/right）
+        if (text.alignment === 'left') desiredX = -maxHeight / 2 + m.height / 2;
+        else if (text.alignment === 'right') desiredX = maxHeight / 2 - m.height / 2;
+        else desiredX = 0; // center
+        return { x: desiredX };
+      });
+      setLineOffsets(newOffsets);
+    }
+  }, [text.content, text.size, text.kerning, text.lineSpacing, text.alignment, textDirection]);
 
   const handleClick = useCallback((event) => {
     event.stopPropagation();
@@ -353,12 +467,38 @@ const EnhancedTextElement = ({
       const charAngleIncrement = (charWidth + fontSize * kerningUnit) / radius;
       currentAngle += charAngleIncrement;
 
+      //  调整阴影层偏移：向左上角移动更多，使凹陷更明显
+      const shadowOffsetX = -0.003; // 增加偏移量 (原 -0.002)
+      const shadowOffsetY = 0.003;  // 增加偏移量 (原 0.002)
+      const shadowOffsetZ = -0.003; // 稍微靠后
+
       return (
         <group
           key={index}
           position={[x, finalY, 0]}
           rotation={[0, 0, rotationZ]}
         >
+          {/*  阴影层 (V-Cut Only) */}
+          {text.engraveType === 'vcut' && (
+            <Text3D
+              font={localGetFontPath(text.font)}
+              size={fontSize}
+              height={text.thickness || 0.02}
+              letterSpacing={0}
+              curveSegments={8} // 降低阴影精度以提高性能
+              bevelEnabled={true}
+              bevelThickness={0.002}
+              bevelSize={0.002}
+              bevelOffset={0}
+              bevelSegments={3}
+              material={shadowMaterial}
+              position={[shadowOffsetX, shadowOffsetY, shadowOffsetZ]}
+            >
+              {char}
+            </Text3D>
+          )}
+
+          {/* 主文字 */}
           <Text3D
             font={localGetFontPath(text.font)}
             size={fontSize}
@@ -379,40 +519,128 @@ const EnhancedTextElement = ({
     });
   };
 
-  // 常规排版：分行渲染并根据 lineOffsets 做对齐
+  //  核心修改：常规排版（支持横/竖排切换 + 阴影）
   const renderNormalText = () => {
     const content = text.content || 'Text';
-    const lines = content.split('\n');
     const fontSize = text.size * 0.0254;
     const lineGap = fontSize * (text.lineSpacing || 1.2);
-    return (
-      <group>
-        {lines.map((ln, idx) => (
-          <Text3D
-            key={idx}
-            ref={(el) => (lineRefs.current[idx] = el)}
-            font={localGetFontPath(text.font)}
-            size={fontSize}
-            letterSpacing={text.kerning * 0.001}
-            height={text.thickness || 0.02}
-            curveSegments={8}
-            bevelEnabled={true}
-            bevelThickness={0.002}
-            bevelSize={0.002}
-            bevelOffset={0}
-            bevelSegments={3}
-            material={textMaterial}
-            position={[
-              lineOffsets[idx]?.x || 0,
-              -idx * lineGap + ((lines.length - 1) * lineGap) / 2,
-              0
-            ]}
-          >
-            {ln || ' '}
-          </Text3D>
-        ))}
-      </group>
-    );
+
+    //  调整阴影层偏移：向左上角移动更多
+    const shadowOffsetX = -0.0035; // 增加偏移量 (原 -0.002)
+    const shadowOffsetY = 0.0035;  // 增加偏移量 (原 0.002)
+    const shadowOffsetZ = -0.001; // 稍微靠后
+
+    if (textDirection === 'horizontal') {
+      // 原有横向排版
+      const lines = content.split('\n');
+      return (
+        <group>
+          {lines.map((ln, idx) => (
+            <group
+              key={idx}
+              position={[
+                lineOffsets[idx]?.x || 0,
+                -idx * lineGap + ((lines.length - 1) * lineGap) / 2,
+                0
+              ]}
+            >
+              {/*  阴影层 (V-Cut Only) */}
+              {text.engraveType === 'vcut' && (
+                <Text3D
+                  font={localGetFontPath(text.font)}
+                  size={fontSize}
+                  letterSpacing={text.kerning * 0.001}
+                  height={text.thickness || 0.02}
+                  curveSegments={8}
+                  bevelEnabled={true}
+                  bevelThickness={0.002}
+                  bevelSize={0.002}
+                  bevelOffset={0}
+                  bevelSegments={3}
+                  material={shadowMaterial}
+                  position={[shadowOffsetX, shadowOffsetY, shadowOffsetZ]}
+                >
+                  {ln || ' '}
+                </Text3D>
+              )}
+
+              {/* 主文字 */}
+              <Text3D
+                ref={(el) => (lineRefs.current[idx] = el)}
+                font={localGetFontPath(text.font)}
+                size={fontSize}
+                letterSpacing={text.kerning * 0.001}
+                height={text.thickness || 0.02}
+                curveSegments={8}
+                bevelEnabled={true}
+                bevelThickness={0.002}
+                bevelSize={0.002}
+                bevelOffset={0}
+                bevelSegments={3}
+                material={textMaterial}
+              >
+                {ln || ' '}
+              </Text3D>
+            </group>
+          ))}
+        </group>
+      );
+    } else {
+      // 竖排排版
+      const chars = content.replace(/\n/g, '').split('');
+      return (
+        <group>
+          {chars.map((char, idx) => (
+            <group
+              key={idx}
+              position={[
+                lineOffsets[idx]?.x || 0, // 按对齐方式调整X轴
+                -idx * lineGap + ((chars.length - 1) * lineGap) / 2, // Y轴逐字下移
+                0
+              ]}
+            >
+              {/*  阴影层 (V-Cut Only) */}
+              {text.engraveType === 'vcut' && (
+                <Text3D
+                  font={localGetFontPath(text.font)}
+                  size={fontSize}
+                  letterSpacing={text.kerning * 0.001}
+                  height={text.thickness || 0.02}
+                  curveSegments={8}
+                  bevelEnabled={true}
+                  bevelThickness={0.002}
+                  bevelSize={0.002}
+                  bevelOffset={0}
+                  bevelSegments={3}
+                  material={shadowMaterial}
+                  position={[shadowOffsetX, shadowOffsetY, shadowOffsetZ]}
+                >
+                  {char || ' '}
+                </Text3D>
+              )}
+
+              {/* 主文字 */}
+              <Text3D
+                ref={(el) => (lineRefs.current[idx] = el)}
+                font={localGetFontPath(text.font)}
+                size={fontSize}
+                letterSpacing={text.kerning * 0.001}
+                height={text.thickness || 0.02}
+                curveSegments={8}
+                bevelEnabled={true}
+                bevelThickness={0.002}
+                bevelSize={0.002}
+                bevelOffset={0}
+                bevelSegments={3}
+                material={textMaterial}
+              >
+                {char || ' '}
+              </Text3D>
+            </group>
+          ))}
+        </group>
+      );
+    }
   };
 
   // 统一入口，根据 curveAmount 决定使用哪种渲染
@@ -468,9 +696,9 @@ const EnhancedTextElement = ({
               setIsRotating(false);
             }
           }}
-          // 9. 修改：仅在旋转时更新角度
+          //仅在旋转时更新角度，移除 writeBackPoseToState，解决卡顿
           onObjectChange={() => {
-            writeBackPoseToState();
+            // writeBackPoseToState(); // <--- 移除了这行，避免每帧重渲染
             if (mode === 'rotate' && groupRef.current) {
               const rotZ = groupRef.current.rotation.z;
               let deg = (rotZ * 180) / Math.PI;
@@ -481,6 +709,7 @@ const EnhancedTextElement = ({
           }}
 
           onMouseUp={() => {
+            // 确保在松开鼠标时回写最终位置
             writeBackPoseToState();
             controls && (controls.enabled = true);
             setIsDragging(false);

@@ -8,7 +8,7 @@ import { getColorValue } from './utils';
 
 /**
  * Model 负责加载 GLB、绑定贴图、回传尺寸并兼容拖拽/填色模式。
- * 之所以封装在一个组件里，是为了让碑体/底座/配件共享完全一致的装配流程。
+ * 修正了尺寸映射：Width 对应 Z (厚度), Height 对应 Y (高度)
  */
 const Model = forwardRef(({
   modelPath,
@@ -35,7 +35,6 @@ const Model = forwardRef(({
   const [hasReportedDimensions, setHasReportedDimensions] = useState(false);
 
   // 底座状态
-  // 存储多材质底座（surfaceA/B/C）的网格引用，便于动态替换贴图
   const [multiTextureParts, setMultiTextureParts] = useState({
     surfaceA: null,
     surfaceB_meshes: [],
@@ -47,17 +46,14 @@ const Model = forwardRef(({
     natural: null
   });
 
-  // 单例 TextureLoader，避免每次渲染都 new
   const textureLoaderRef = useRef(new THREE.TextureLoader());
 
-  // 暴露 mesh 与原始尺寸，供外层重新定位或渲染辅助线
   useImperativeHandle(ref, () => ({
     getMesh: () => meshRef.current,
     getDimensions: () => originalDimensions
   }));
 
-  // 加载底座/碑体贴图 (isMultiTextureBase 模式)
-  // 根据颜色一次性预加载多种抛光方式贴图，供底座/碑体切换
+  // 加载底座/碑体贴图
   useEffect(() => {
     if (!isMultiTextureBase) return;
 
@@ -79,9 +75,7 @@ const Model = forwardRef(({
       const tex = textureLoaderRef.current.load(
         `/textures/Bases/${colorFolder}/${name}.jpg`,
         (t) => {
-          // --- 修改：使用线性颜色空间 (Linear / NoColorSpace) ---
           t.colorSpace = THREE.NoColorSpace;
-
           t.flipY = false;
           t.wrapS = THREE.RepeatWrapping;
           t.wrapT = THREE.RepeatWrapping;
@@ -104,7 +98,7 @@ const Model = forwardRef(({
     };
   }, [isMultiTextureBase, color]);
 
-  // 加载模型与基本材质，兼容多贴图底座与普通模型
+  // 加载模型与基本材质
   useEffect(() => {
     let isMounted = true;
     let currentSceneObject = null;
@@ -112,7 +106,6 @@ const Model = forwardRef(({
 
     const loadModel = async () => {
       try {
-        // 清理旧模型逻辑
         if (sceneObjectRef.current && scene) {
           scene.remove(sceneObjectRef.current);
           sceneObjectRef.current.traverse((child) => {
@@ -152,7 +145,13 @@ const Model = forwardRef(({
         const box = new THREE.Box3().setFromObject(clonedScene);
         const size = new THREE.Vector3();
         box.getSize(size);
+
+        // 【关键修正】：确保尺寸映射正确
+        // Length -> X
+        // Width  -> Z (厚度/Depth)
+        // Height -> Y (高度/Up)
         const originalDims = { length: size.x, width: size.z, height: size.y };
+
         if (!isMounted) return;
         setOriginalDimensions(originalDims);
 
@@ -163,7 +162,6 @@ const Model = forwardRef(({
         }
 
         if (isMultiTextureBase) {
-          // **底座/碑体逻辑**
           const parts = { surfaceA: null, surfaceB_meshes: [], surfaceC_meshes: [] };
           clonedScene.traverse((child) => {
             if (child.isMesh) {
@@ -185,16 +183,12 @@ const Model = forwardRef(({
           });
           if (isMounted) setMultiTextureParts(parts);
         } else {
-          // **普通单贴图逻辑**
           const textureLoader = new THREE.TextureLoader();
           clonedScene.traverse((child) => {
             if (child.isMesh) {
               textureLoader.load(texturePath, (texture) => {
                 if (!isMounted) return;
-
-                // --- 修改：使用线性颜色空间 ---
                 texture.colorSpace = THREE.NoColorSpace;
-
                 child.material = new THREE.MeshStandardMaterial({
                   map: texture,
                   roughness: 0.7,
@@ -235,7 +229,7 @@ const Model = forwardRef(({
     };
   }, [modelPath, color, texturePath, scene, isMultiTextureBase]);
 
-  // 底座/碑体 动态贴图应用（根据 polish 等参数实时切换）
+  // 动态贴图应用
   useEffect(() => {
     if (!isMultiTextureBase || !polish || !baseTextures.polished || !multiTextureParts.surfaceA) {
       return;
@@ -252,7 +246,6 @@ const Model = forwardRef(({
       texB_group = (polish === 'PT') ? natural : polished;
       texC_group = (polish === 'P5') ? polished : natural;
     } else {
-      // Monument logic...
       switch (polish) {
         case 'P2': texA = polished; texB_group = natural; texC_group = natural; break;
         case 'P3': texA = polished; texB_group = natural; texC_group = polished; break;
@@ -263,7 +256,6 @@ const Model = forwardRef(({
 
     if (surfaceA) {
       surfaceA.material.map = texA.clone();
-      // --- 修改：确保 Clone 后保持线性空间 ---
       surfaceA.material.map.colorSpace = THREE.NoColorSpace;
       surfaceA.material.map.needsUpdate = true;
       surfaceA.material.needsUpdate = true;
@@ -283,7 +275,6 @@ const Model = forwardRef(({
 
   }, [isMultiTextureBase, polish, baseTextures, multiTextureParts, modelPath]);
 
-  // 缩放逻辑：依赖 props position/dimensions，把世界坐标与缩放拉回模型
   useLayoutEffect(() => {
     const currentModel = sceneObjectRef.current || model;
     if (currentModel && position) {
@@ -294,16 +285,22 @@ const Model = forwardRef(({
     }
   }, [position, model]);
 
-  useEffect(() => {
+  // 缩放逻辑修正：改用 useLayoutEffect 确保在父组件测量前应用缩放
+  useLayoutEffect(() => {
     if (meshRef.current && originalDimensions) {
       const scaleX = originalDimensions.length === 0 ? 1 : dimensions.length / originalDimensions.length;
+      // Height -> Y
       const scaleY = originalDimensions.height === 0 ? 1 : dimensions.height / originalDimensions.height;
+      // Width -> Z
       const scaleZ = originalDimensions.width === 0 ? 1 : dimensions.width / originalDimensions.width;
+
       meshRef.current.scale.set(scaleX, scaleY, scaleZ);
+      // 强制更新矩阵，确保后续测量准确
+      meshRef.current.updateMatrix();
+      meshRef.current.updateWorldMatrix(true, true);
     }
   }, [dimensions, originalDimensions]);
 
-  // 防拉伸逻辑：在缩放模型后同步调整贴图 repeat/offset，避免材质被拉伸
   useFrame(() => {
     if (!isMultiTextureBase || !meshRef.current || !multiTextureParts.surfaceA) return;
 
@@ -325,6 +322,7 @@ const Model = forwardRef(({
       surfaceB_meshes.forEach(applyScale);
       surfaceC_meshes.forEach(applyScale);
     } else {
+      // Monument logic
       if (surfaceA && surfaceA.material.map) { surfaceA.material.map.repeat.set(sx, sy); surfaceA.material.map.offset.set((1 - sx) / 2, (1 - sy) / 2); }
       surfaceB_meshes.forEach(mesh => { if (mesh && mesh.material.map) { mesh.material.map.repeat.set(sz, sy); mesh.material.map.offset.set((1 - sz) / 2, (1 - sy) / 2); } });
       surfaceC_meshes.forEach(mesh => { if (mesh && mesh.material.map) { mesh.material.map.repeat.set(sx, sz); mesh.material.map.offset.set((1 - sx) / 2, (1 - sz) / 2); } });

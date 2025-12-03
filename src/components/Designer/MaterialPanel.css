@@ -1,15 +1,14 @@
 /* MaterialPanel.css */
 
 .material-panel {
-  width: 100%;
-  padding: 10px;
+  padding: 12px;
 }
 
 .materials-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   /* 强制两列布局，类似参考图 */
-  gap: 16px;
+  gap: 8px;
   /* 增加间距 */
 }
 
@@ -79,13 +78,13 @@
   position: absolute;
   bottom: 115%;
   /* 位置稍微抬高 */
-  left: 50%;
+  left: 70%;
   transform: translateX(-50%);
   background: white;
   padding: 10px;
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  width: 260px;
+  width: 120px;
   /* 宽度显著增加 */
   z-index: 100;
   pointer-events: none;
@@ -106,12 +105,8 @@
 
 .preview-image {
   width: 100%;
-  height: 160px;
+  height: 100%;
   /* 图片高度增加 */
-  overflow: hidden;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  background-color: #eee;
 }
 
 .preview-image img {

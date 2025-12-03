@@ -1,5 +1,5 @@
 // src/components/Designer/3d/MonumentScene.jsx
-import React, { forwardRef, useRef, useMemo, useEffect, useCallback, useImperativeHandle } from 'react';
+import React, { forwardRef, useRef, useMemo, useEffect, useCallback, useImperativeHandle, useState, useLayoutEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -8,6 +8,36 @@ import Model from './Model.jsx';
 import Vase3D from './Vase3D.jsx';
 import InteractiveArtPlane from './InteractiveArtPlane.jsx';
 import EnhancedTextElement from './EnhancedTextElement.jsx';
+
+/**
+ * 碑体辅助网格组件
+ * 显示在碑体表面，用于对齐和定位
+ */
+const MonumentGrid = ({ width, height, position }) => {
+  if (!width || !height) return null;
+
+  // 1 英寸 = 0.0254 米
+  const INCH_IN_METERS = 0.0254;
+
+  // 确保网格足够大以覆盖长宽中较大的一边
+  const size = Math.max(width, height) * 3;
+
+  // 计算细分数，使得每个格子大约是 1 英寸
+  // 向上取整以确保格子不会比 1 英寸大
+  const divisions = Math.ceil(size / INCH_IN_METERS);
+
+  // 重新计算实际覆盖的大小，使其是 inch 的整数倍，保证对齐
+  const actualSize = divisions * INCH_IN_METERS;
+
+  return (
+    <group position={position} rotation={[Math.PI / 2, 0, 0]}>
+      <gridHelper
+        args={[actualSize, divisions, 0x1890ff, 0xdddddd]}
+        position={[0, 0, 0]}
+      />
+    </group>
+  );
+};
 
 /**
  * MonumentScene 是 3D 画布的聚合层：负责布置模型、文字、花瓶与艺术画板，
@@ -49,7 +79,7 @@ const MonumentScene = forwardRef(({
   // 点击空白处时清空所有选中状态，避免残留 gizmo
   const handleSceneClick = (e) => {
     // 使用 nativeEvent 获取原生 DOM 事件
-    if (e.Event.target.tagName === 'CANVAS' && !isFillModeActive) {
+    if (e.Event?.target?.tagName === 'CANVAS' && !isFillModeActive) {
       onArtElementSelect(null);
       if (isTextEditing && onTextSelect) {
         onTextSelect(null);
@@ -72,11 +102,6 @@ const MonumentScene = forwardRef(({
       console.error('Scene drop failed:', error);
     }
   }, [onSceneDrop]);
-
-  const handleSceneDragOver = useCallback((e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
-  }, []);
 
   const handleSelectArtPlane = useCallback((artId) => {
     onArtElementSelect(artId);
@@ -247,6 +272,38 @@ const MonumentScene = forwardRef(({
     }
   };
 
+  // --- 智能贴合核心逻辑 ---
+  // 使用 BoundingBox 直接测量真实的前表面位置，避免因模型原点偏差导致的计算错误。
+  const [autoSurfaceZ, setAutoSurfaceZ] = useState(null);
+  const mainMonument = designState.monuments[0];
+
+  useLayoutEffect(() => {
+    if (!mainMonument) return;
+    const modelRef = modelRefs.current[mainMonument.id];
+    if (!modelRef) return;
+
+    const mesh = modelRef.getMesh();
+    if (!mesh) return;
+
+    // 确保矩阵是最新的 (特别是缩放后)
+    mesh.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(mesh);
+
+    // 相机在 z = -3，看向原点。物体在 z ~ -0.1。
+    // 离相机最近的面是 Z 值最小的面 (min.z)。
+    // 我们给一个微小的负偏移 (-0.005) 让图案浮在表面之前。
+    // 使用 BBox min.z 可以保证无论模型原点在哪里，我们都能找到物理上的前表面。
+    const newZ = box.min.z - 0.005;
+
+    // 只有当变化显著时才更新状态，避免微小浮动导致循环渲染
+    if (autoSurfaceZ === null || Math.abs(newZ - autoSurfaceZ) > 0.001) {
+      setAutoSurfaceZ(newZ);
+    }
+  }, [mainMonument, designState.monuments, autoSurfaceZ]); // 依赖 monuments 变化 (包含 dimensions)
+
+  // 检查是否显示网格：只要有选中的图案或文字，且主碑体存在
+  const showGrid = (selectedElementId !== null || currentTextId !== null) && mainMonument && autoSurfaceZ !== null;
+
   return (
     <group ref={sceneRef} onClick={handleSceneClick}>
 
@@ -295,6 +352,12 @@ const MonumentScene = forwardRef(({
 
       {designState.monuments.map(monument => {
         const monumentTexts = designState.textElements.filter(text => text.monumentId === monument.id);
+        const pos = positions[monument.id] || [0, 0, 0];
+
+        // 只有主碑体才传递自动计算的 surfaceZ，避免多碑体时位置错乱
+        const isMainMonument = designState.monuments.length > 0 && monument.id === designState.monuments[0].id;
+        const effectiveSurfaceZ = isMainMonument ? autoSurfaceZ : null;
+
         return (
           <React.Fragment key={`monument-${monument.id}`}>
             <Model
@@ -303,7 +366,7 @@ const MonumentScene = forwardRef(({
               modelPath={monument.modelPath}
               isMultiTextureBase={true}
               polish={monument.polish}
-              position={positions[monument.id] || [0, 0, 0]}
+              position={pos}
               dimensions={monument.dimensions}
               color={monument.color}
               onDimensionsChange={(dims) => handleModelLoad(monument.id, 'monument', dims)}
@@ -324,11 +387,25 @@ const MonumentScene = forwardRef(({
                 getFontPath={getFontPath}
                 modelRefs={modelRefs}
                 globalTransformMode={transformMode}
+                surfaceZ={effectiveSurfaceZ} // 传入 autoSurfaceZ 以实现文字位置同步
               />
             ))}
           </React.Fragment>
         );
       })}
+
+      {/* 显示辅助网格: 仅当有选中项且主碑体位置确定时显示 */}
+      {showGrid && positions[mainMonument.id] && (
+        <MonumentGrid
+          width={mainMonument.dimensions.length}
+          height={mainMonument.dimensions.height}
+          position={[
+            positions[mainMonument.id][0],
+            positions[mainMonument.id][1],
+            autoSurfaceZ // 确保网格也在同一平面
+          ]}
+        />
+      )}
 
       {designState.vases.map(vase => (
         <Vase3D
@@ -353,6 +430,7 @@ const MonumentScene = forwardRef(({
           transformMode={transformMode}
           fillColor={fillColor}
           isFillModeActive={isFillModeActive}
+          surfaceZ={autoSurfaceZ} // 传入自动计算的表面 Z 坐标
         />
       ))}
 
@@ -368,7 +446,7 @@ const MonumentScene = forwardRef(({
       <directionalLight position={[-10, 0, 0]} intensity={0.4} />
       <directionalLight position={[10, 0, 0]} intensity={0.4} />
 
-      <axesHelper args={[5]} />
+      {/* <axesHelper args={[5]} /> */}
 
     </group>
   );
