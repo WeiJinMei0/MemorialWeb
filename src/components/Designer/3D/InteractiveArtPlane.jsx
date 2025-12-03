@@ -355,7 +355,8 @@ const InteractiveArtPlane = forwardRef(({
   useEffect(() => {
     if (controlRef.current) {
       controlRef.current.mode = transformMode;
-      controlRef.current.enabled = isSelected;
+      // 仅当选中且不在填充模式时才启用控制
+      controlRef.current.enabled = isSelected && !isFillModeActive;
       if (transformMode === 'rotate') {
         controlRef.current.showX = false;
         controlRef.current.showY = false;
@@ -370,7 +371,7 @@ const InteractiveArtPlane = forwardRef(({
         controlRef.current.showZ = false;
       }
     }
-  }, [isSelected, transformMode]);
+  }, [isSelected, transformMode, isFillModeActive]); // 添加 isFillModeActive 依赖
 
 
   const onTransformEndHandler = () => {
@@ -411,9 +412,12 @@ const InteractiveArtPlane = forwardRef(({
     }
   };
 
+  // 只有被选中且不处于填充模式时，才显示辅助控件
+  const showHelpers = isSelected && !isFillModeActive;
+
   return (
     <group ref={ref}>
-      {isSelected && (
+      {showHelpers && (
         <>
           <TransformControls
             ref={controlRef}
@@ -423,7 +427,7 @@ const InteractiveArtPlane = forwardRef(({
             onChange={onTransformChangeHandler}
             mode={transformMode}
           />
-          {/* 显示尺寸标签 (移除了原来的局部 gridHelper) */}
+          {/* 显示尺寸标签 */}
           <group position={art.position}>
           </group>
         </>
@@ -487,8 +491,8 @@ const InteractiveArtPlane = forwardRef(({
           depthWrite={false} // 重要：半透明物体通常关闭 depthWrite 以正确混合
         />
 
-        {/* 当被选中时，显示尺寸标签和蓝色边框，但移除内部的 gridHelper */}
-        {isSelected && (
+        {/* 当被选中且不在填充模式时，显示尺寸标签和蓝色边框 */}
+        {showHelpers && (
           <>
             <Html position={[0.6, 0.6, 0]} center style={{ pointerEvents: 'none' }}>
               <div style={{
@@ -504,7 +508,6 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
-            {/* 仅保留外部边框辅助线 */}
             <lineSegments>
               <edgesGeometry args={[new THREE.PlaneGeometry(1, 1)]} />
               <lineBasicMaterial color="#1890ff" linewidth={2} />
