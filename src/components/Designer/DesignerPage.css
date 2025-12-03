@@ -483,16 +483,18 @@
 /* 让页脚主容器横向排列 */
 .footer-content-wrapper {
   display: flex;
-  gap: 16px;
+  justify-content: center; /* 居中排列 */
+  align-items: stretch; /* 让子元素高度一致 */
+  gap: 12px; /* 减少间距，使更紧凑 */
   width: 100%;
   height: 100%;
+  max-width: 1200px; /* 限制最大宽度 */
+  margin: 0 auto; /* 水平居中 */
 }
 
 /* 限制左侧控制区域的宽度，让右侧有空间 */
 .designer-footer .footer-controls {
   flex: 3;
-  min-width: 600px;
-  /* 根据需要调整 */
 }
 
 /* "Recently Saved" 和 "Art Options" 的容器样式 */
