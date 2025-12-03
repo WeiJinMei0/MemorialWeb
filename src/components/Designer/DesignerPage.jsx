@@ -1008,7 +1008,7 @@ const DesignerPage = () => {
   // --- 渲染 ---
   return (
     <Layout className="main-content-layout">
-      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={280} className="toolbar-sider">
+      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={190} className="toolbar-sider">
         <Toolbar tools={tools} activeTool={activeTool} onToolSelect={handleToolSelect} />
         {!collapsed && (
           <div className="material-section">
