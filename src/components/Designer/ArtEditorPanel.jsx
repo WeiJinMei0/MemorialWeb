@@ -257,7 +257,7 @@ const ArtEditorPanel = ({
                 </Space>
                 <Text style={{ fontSize: '11px', display: 'block', marginTop: '8px' }}>
                   {isFillModeActive
-                    ? "启用中：选择颜色后点击区域填充。透明色可用于擦除。"
+                    ? "启用中：点击填充所有封闭区域，按住 Shift 点击填充单个封闭区域。"
                     : "已禁用：点击图案将进行拖动或变换。"}
                 </Text>
               </div>
