@@ -58,10 +58,13 @@ const initialDesignState = {
 const FONT_OPTIONS = [
   // 英文/拉丁字体 (English/Latin Fonts)
   { name: 'Helvetiker', path: '/fonts/helvetiker_regular.typeface.json', cssFamily: 'Helvetica, Arial, sans-serif' },
+  { name: 'Helvetica Medium_Regular', path: '/fonts/Helvetica Medium_Regular.json', cssFamily: 'Helvetica, Arial, sans-serif' },
   { name: 'Arial Regular', path: '/fonts/Arial_Regular.json', cssFamily: 'Arial, Helvetica, sans-serif' },
   { name: 'Arial Bold', path: '/fonts/Arial_Bold.json', cssFamily: 'Arial, Helvetica, sans-serif' },
   { name: 'Arial Italic', path: '/fonts/Arial_Italic.json', cssFamily: 'Arial, Helvetica, sans-serif' },
   { name: 'Arial Bold Italic', path: '/fonts/Arial_Bold Italic.json', cssFamily: 'Arial, Helvetica, sans-serif' },
+  { name: 'Arial Unicode MS_Regular', path: '/fonts/Arial Unicode MS_Regular.json', cssFamily: 'Arial Unicode MS_Regular,  Helvetica, sans-serif' },
+  { name: 'Andale Sans UI_Regular', path: '/fonts/Andale Sans UI_Regular.json', cssFamily: 'Andale Sans UI, Arial, sans-serif' },
   { name: 'Times New Roman Regular', path: '/fonts/Times New Roman_Regular.json', cssFamily: 'Times New Roman, Times, serif' },
   { name: 'Times New Roman Bold', path: '/fonts/Times New Roman_Bold.json', cssFamily: 'Times New Roman, Times, serif' },
   { name: 'Times New Roman Italic', path: '/fonts/Times New Roman_Italic.json', cssFamily: 'Times New Roman, Times, serif' },
@@ -72,9 +75,21 @@ const FONT_OPTIONS = [
   { name: 'Calibri Bold Italic', path: '/fonts/Calibri_Bold Italic.json', cssFamily: 'Calibri, Arial, sans-serif' },
   { name: 'Calibri Light Regular', path: '/fonts/Calibri Light_Regular.json', cssFamily: 'Calibri, Arial, sans-serif' },
   { name: 'Calibri Light Italic', path: '/fonts/Calibri Light_Italic.json', cssFamily: 'Calibri, Arial, sans-serif' },
+  { name: 'Calisto MT_Bold Italic', path: '/fonts/Calisto MT_Bold Italic.json', cssFamily: 'Calisto, Arial, sans-serif' },
+  { name: 'Calisto MT_Bold', path: 'fonts/Calisto MT_Bold.json', cssFamily: 'Calisto MT_Bold,Arial, sans-serif' },
+  { name: 'Calisto MT_Italic', path: 'fonts/Calisto MT_Italic.json', cssFamily: 'Calisto MT_Italic,Arial, sans-serif' },
+  { name: 'Calisto MT_Regular', path: 'fonts/Calisto MT_Regular.json', cssFamily: 'Calisto MT_Regular,Arial, sans-serif' },
+  { name: 'Cambria_Bold Italic', path: 'fonts/Cambria_Bold Italic.json', cssFamily: 'Cambria_Bold Italic,Arial, sans-serif' },
+  { name: 'Cambria_Bold', path: 'fonts/Cambria_Bold.json', cssFamily: 'Cambria_Bold,Arial, sans-serif' },
+  { name: 'Cambria_Italic', path: 'fonts/Cambria_Italic.json', cssFamily: 'Cambria_Italic,Arial, sans-serif' },
+  { name: 'CheltenhamW01-BoldCondensed_Regular', path: 'fonts/CheltenhamW01-BoldCondensed_Regular.json', cssFamily: 'CheltenhamW01-BoldCondensed_Regular,Arial, sans-serif' },
   { name: 'Comic Sans MS Regular', path: '/fonts/Comic Sans MS_Regular.json', cssFamily: 'Comic Sans MS, cursive' },
-  { name: 'EnglishScriptEF_Bold', path: '/fonts/EnglishScriptEF_Bold.json', cssFamily: 'EnglishScriptEF,sans-serif' },
-  { name: 'Palatino Linotype Regular', path: '/fonts/Palatino Linotype_Regular.json', cssFamily: 'Palatino, serif' },
+  { name: 'DRome_Regular', path: '/fonts/DRome_Regular.json', cssFamily: 'DRome, serif' },
+  { name: 'Dusha V5_Regular', path: '/fonts/Dusha V5_Regular.json', cssFamily: 'Dusha V5, serif' },
+  { name: 'Gauranga_Normal', path: '/fonts/Gauranga_Normal.json', cssFamily: 'Gauranga, serif' },
+  //{ name: 'EnglishScriptEF Regular', path: '/fonts/EnglishScriptEF_Regular.json', cssFamily: 'EnglishScriptEF,sans-serif' },
+  // { name: 'EnglishScriptEF_Bold', path: '/fonts/EnglishScriptEF_Bold.json', cssFamily: 'EnglishScriptEF,sans-serif' },
+  //{ name: 'Palatino Linotype Regular', path: '/fonts/Palatino Linotype_Regular.json', cssFamily: 'Palatino, serif' },
   //{ name: 'Palatino Linotype Bold', path: '/fonts/Palatino Linotype_Bold.json', cssFamily: 'Palatino, serif' },
   //{ name: 'Palatino Linotype Italic', path: '/fonts/Palatino Linotype_Italic.json', cssFamily: 'Palatino, serif' },
   //{ name: 'Palatino Linotype Bold Italic', path: '/fonts/Palatino Linotype_Bold Italic.json', cssFamily: 'Palatino, serif' },
@@ -89,7 +104,7 @@ const FONT_OPTIONS = [
   { name: 'Lucida Handwriting Italic', path: '/fonts/Lucida Handwriting_Italic.json', cssFamily: '"Lucida Handwriting", cursive' },
   { name: 'Script MT Bold Regular', path: '/fonts/Script MT Bold_Regular.json', cssFamily: 'cursive' },
   { name: 'SnellRoundhand Script Regular', path: '/fonts/SnellRoundhand Script_Regular.json', cssFamily: 'cursive' },
-  //{ name: 'EnglishScriptEF Regular', path: '/fonts/EnglishScriptEF_Regular.json', cssFamily: 'cursive' },
+
   { name: 'Magnolia Script Regular', path: '/fonts/Magnolia Script_Regular.json', cssFamily: 'cursive' },
   { name: 'Lynda Cursive Normal', path: '/fonts/Lynda Cursive_Normal.json', cssFamily: 'cursive' },
   { name: 'Lynda Cursive Bold', path: '/fonts/Lynda Cursive_Bold.json', cssFamily: 'cursive' },
@@ -116,12 +131,12 @@ const FONT_OPTIONS = [
   // 技术/等宽字体 (Technical/Monospace Fonts)
   { name: 'Square721 BT Roman', path: '/fonts/Square721 BT_Roman.json', cssFamily: 'sans-serif' },
   { name: 'Square721 BT Bold', path: '/fonts/Square721 BT_Bold.json', cssFamily: 'sans-serif' },
-  { name: 'Adobe Gothic Std Bold', path: '/fonts/Adobe Gothic Std B_Bold.json', cssFamily: 'sans-serif' },
   { name: 'City Medium', path: '/fonts/CityDEEMed_Regular.json', cssFamily: 'sans-serif' },
 
   // 中文/汉字字体 (Chinese Fonts)
   { name: '方正楷体', path: '/fonts/FZCuKaiS-R-GB_Regular.json', isChinese: true },
   { name: '方正楷体-Z03', path: '/fonts/FZKai-Z03S_Regular.json', isChinese: true },
+  { name: '楷体', path: 'fonts/KaiTi_Regular.json', isChinese: true },
   { name: '方正隶书', path: '/fonts/FZLiShu II-S06T_Regular.json', isChinese: true },
   { name: '黑体', path: '/fonts/SimHei_Regular.json', isChinese: true },
   { name: '华文隶书', path: '/fonts/STLiti_Regular.json', isChinese: true },
@@ -129,7 +144,8 @@ const FONT_OPTIONS = [
   { name: '华文中宋 粗体', path: '/fonts/STZhongsong_Bold.json', isChinese: true },
   { name: "華康特粗楷體", path: '/fonts/DFKaiXBold-B5_Regular.json', isChinese: true },
   { name: " 腾祥伯当行楷简繁", path: '/fonts/Tensentype XingKaiF_Regular.json', isChinese: true },
-
+  { name: '经典繁毛楷', path: '/fonts/undefined_Regular.json' },
+  { name: '文鼎特毛楷简繁', path: 'AR MaoKaiGBJF HV_Regular.json', isChinese: true },
   // 韩文/谚文字体 (Korean Fonts)
   { name: '고인돌B', path: '/fonts/(한)고인돌B_Regular.json' },
   { name: '볼펜체C', path: '/fonts/(한)볼펜체C_Regular.json' },
@@ -138,12 +154,16 @@ const FONT_OPTIONS = [
   { name: '(환)궁서체_Regular', path: '/fonts/(환)궁서체_Regular.json' },
   { name: '(환)예서(중간)_Regular', path: '/fonts/(환)예서(중간)_Regular.json' },
   { name: '(환)진체(가는)_Regular', path: '/fonts/(환)진체(가는)_Regular.json' },
+  { name: '조선궁서체_Regular', path: '/fonts/조선궁서체_Regular.json' },
+  { name: '태-물감오R_Regular', path: '/fonts/태-물감오R_Regular.json' },
+  // { name: 'Adobe Gothic Std B_Bold', path: '/fonts/Adobe Gothic Std B_Bold.json' },
+  //{ name: 'Adobe Myungjo Std M_Regular', path: '/fonts/Adobe Myungjo Std M_Regular.json' },
 
   // 其他语言字体 (Other Language Fonts)
   { name: 'AmharicGeèzEdit', path: '/fonts/GeèzEdit Amharic P_Regular.json' },
   { name: 'Amharic Nyala', path: '/fonts/Nyala_Regular.json' },
-  { name: 'Russian Dusha', path: '/fonts/Dusha V5_Regular.json' },
-  { name: 'Italian DRome', path: '/fonts/DRome_Regular.json' },
+  //{ name: 'Russian Dusha', path: '/fonts/Dusha V5_Regular.json' },
+  // { name: 'Italian DRome', path: '/fonts/DRome_Regular.json' },
   { name: 'Japanese zktskt', path: '/fonts/zktskt_Regular.json' },
 
   // 特殊用途字体 (Special Purpose Fonts)
@@ -165,7 +185,7 @@ const FONT_OPTIONS = [
 
   // 未分类字体 (Uncategorized Fonts)
   { name: 'Times Roman', path: '/fonts/Times-Roman_Regular.json', cssFamily: 'Times, serif' },
-  { name: 'Undefined Regular', path: '/fonts/undefined_Regular.json' }
+
 ];
 
 // --- 在这里添加缺失的 getFontPath 函数 ---
@@ -702,7 +722,7 @@ export const useDesignState = () => {
 
   // 计算重量
   const calculateWeight = (dimensions) => {
-    const volume = (dimensions.length * dimensions.width * dimensions.height * 39.37 * 39.37 * 39.37 * 0.000589934 * 85 * 2.2);
+    const volume = (dimensions.length * dimensions.width * dimensions.height * 39.3700787 * 39.3700787 * 39.3700787 * 0.000589934 * 85 * 2.2);
     //const density = MATERIAL_DENSITY[material] || 2700;
     return Math.round(volume * 100) / 100;
   };

@@ -417,7 +417,7 @@ const EnhancedTextElement = ({
 
   // 统一入口，根据 curveAmount 决定使用哪种渲染
   const renderTextContent = () => {
-    if (text.curveAmount && text.curveAmount > 0) {
+    if (text.curveAmount && Math.abs(text.curveAmount) > 0) {
       return renderCurvedText();
     } else {
       return renderNormalText();

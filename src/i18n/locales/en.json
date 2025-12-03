@@ -38,7 +38,10 @@
     "addTablet": "+ Tablet",
     "addSubBase": "+ SubBase",
     "removeSubBase": "- SubBase",
-    "kg": "kg"
+    "kg": "kg",
+    "Inches": "Inches",
+    "Feet": "Feet",
+    "format": "Format"
   },
   "savedDesigns": {
     "pageTitle": "Saved Designs",

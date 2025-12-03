@@ -856,6 +856,125 @@ const DesignerPage = () => {
         return 3.281;
     }
   }
+  // 1. 辅助函数：将米转换为【无符号】的英尺-英寸格式 (例如: 2-4 1/2)
+  const formatFeetInches = (meters) => {
+    if (typeof meters !== 'number' || isNaN(meters)) return '';
+
+    // 1米 = 39.3700787 英寸
+    const totalInches = meters * 39.3700787;
+
+    let feet = Math.floor(totalInches / 12);
+    let remInches = totalInches - feet * 12;
+
+    // 精度控制：四舍五入到 1/16 英寸
+    const precision = 16;
+    let roundedInches = Math.round(remInches * precision) / precision;
+
+    // 处理进位：如果英寸四舍五入后变成 12，则英尺 +1，英寸归 0
+    if (roundedInches >= 12) {
+      feet += 1;
+      roundedInches = 0;
+    }
+
+    // 分离英寸的整数部分和小数部分
+    let inchesWhole = Math.floor(roundedInches);
+    let fractionPart = roundedInches - inchesWhole;
+
+    // 构造分数部分字符串
+    let fracStr = '';
+    if (fractionPart > 0) {
+      const numerator = Math.round(fractionPart * precision);
+      const denominator = precision;
+
+      // 计算最大公约数 (GCD) 以简化分数 (例如 8/16 -> 1/2)
+      const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+      const common = gcd(numerator, denominator);
+
+      fracStr = ` ${numerator / common}/${denominator / common}`;
+    }
+
+    // 【核心修改】：隐藏符号，使用 "-" 连接。如果没有英寸，强制显示 "-0"
+    // 格式要求：2'-0" -> 2-0, 2'-4" -> 2-4
+    return `${feet}-${inchesWhole}${fracStr}`;
+  };
+
+  // 2. 辅助函数：解析 "F-I" 或 "F-I N/D" 格式的输入
+  const parseFeetInchesInput = (input) => {
+    if (!input || typeof input !== 'string') return NaN;
+    const str = input.trim();
+
+    // 尝试按 "-" 分割 (标准的 2-4 格式)
+    const dashParts = str.split('-');
+
+    let feet = 0;
+    let inchesStr = '';
+
+    if (dashParts.length === 2) {
+      // 格式如 "2-4" 或 "2-4 1/2"
+      feet = parseFloat(dashParts[0]);
+      inchesStr = dashParts[1];
+    } else if (dashParts.length === 1) {
+      // 格式如 "2" (被视为2英尺) 或 "2 4" (容错处理)
+      const spaceParts = str.split(/\s+/);
+      if (spaceParts.length >= 2 && !str.includes('/')) {
+        // 可能是 "2 4" 这种没打连字符的情况
+        feet = parseFloat(spaceParts[0]);
+        inchesStr = str.substring(spaceParts[0].length).trim();
+      } else {
+        // 纯数字，视为英尺
+        feet = parseFloat(str);
+        inchesStr = '0';
+      }
+    } else {
+      // 多个连字符? 尝试解析第一个
+      feet = parseFloat(dashParts[0]);
+      inchesStr = dashParts.slice(1).join(' '); // 剩下的都算英寸
+    }
+
+    if (isNaN(feet)) feet = 0;
+
+    // 解析英寸部分 (支持 "4", "4 1/2", "1/2")
+    let inches = 0;
+    // 简单的分数解析器
+    const parseFraction = (s) => {
+      if (!s) return 0;
+      const parts = s.trim().split(/\s+/);
+      let val = 0;
+      parts.forEach(p => {
+        if (p.includes('/')) {
+          const [n, d] = p.split('/').map(Number);
+          if (d !== 0) val += n / d;
+        } else {
+          val += parseFloat(p) || 0;
+        }
+      });
+      return val;
+    }
+
+    inches = parseFraction(inchesStr);
+
+    // 转换为总英尺数 (1英尺 = 12英寸)
+    return feet + (inches / 12);
+  };
+
+  // 3. 【核心修改】：输入限制，禁止文字
+  const handleDimensionKeyDown = (e) => {
+    // 允许的控制键
+    const allowedControlKeys = [
+      'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Tab', 'Enter'
+    ];
+    if (allowedControlKeys.includes(e.key)) return;
+
+    // 允许：数字 0-9, 连字符 -, 斜杠 /, 空格
+    const pattern = /^[0-9\/\-\s]$/;
+
+    // 另外允许小数点 . (以防万一用户想输小数)
+    const extendedPattern = /^[0-9\/\-\s\.]$/;
+
+    if (!extendedPattern.test(e.key)) {
+      e.preventDefault();
+    }
+  };
 
 
   // DimensionControl
@@ -953,24 +1072,48 @@ const DesignerPage = () => {
 
     // 处理尺寸输入变化
     const handleDimensionChange = (dim, value) => {
-      const parsedValue = parseFractionInput(value);
-
-      if (isNaN(parsedValue) || parsedValue < 0) {
-        message.error('请输入有效的尺寸值（如：1/2、3/4、2 1/2）');
+      // --- 【修改】：英尺模式使用新的解析逻辑 ---
+      if (selectedUnit === 'feet') {
+        const parsedFeet = parseFeetInchesInput(value);
+        if (isNaN(parsedFeet) || parsedFeet < 0) {
+          message.error('格式错误。示例: 2-0, 2-4, 2-4 1/2');
+          return;
+        }
+        // parsedFeet 是英尺(小数)，转换为米并更新
+        // 1 英尺 = 0.3048 米 (或 1/3.281)
+        // 这里使用你的 UnitSelector 逻辑： meters * 3.281 = feet => meters = feet / 3.281
+        updateDimensions(element.id, {
+          ...element.dimensions,
+          [dim]: parsedFeet / 3.281
+        }, elementType);
         return;
       }
-
-      // 转换为米并更新
+      // 英寸模式 (保持原有逻辑)
+      const parsedValue = parseFractionInput(value);
+      if (isNaN(parsedValue) || parsedValue < 0) {
+        message.error('请输入有效的尺寸值');
+        return;
+      }
       updateDimensions(element.id, {
         ...element.dimensions,
         [dim]: parsedValue / unitMultiplier
       }, elementType);
     };
 
+
     // 获取当前显示值（转换为当前单位并格式化为分数）
     const getDisplayValue = (dim) => {
-      const value = element.dimensions[dim] * unitMultiplier;
-      return formatValueAsFraction(Math.round(value * 16) / 16); // 四舍五入到最接近的1/16
+      const meters = element.dimensions[dim];
+
+      // --- 【修改】：英尺模式使用新的无符号格式 ---
+      if (selectedUnit === 'feet') {
+        return formatFeetInches(meters);
+      }
+      // ----------------------------------------
+
+      // 英寸模式 (保持原有逻辑)
+      const value = meters * unitMultiplier;
+      return formatValueAsFraction(Math.round(value * 16) / 16);
     };
 
     return (
@@ -981,11 +1124,14 @@ const DesignerPage = () => {
             <div key={dim} className="dimension-input">
               <Input
                 size="small"
+                key={`${dim}-${selectedUnit}-${element.dimensions[dim]}`}
                 defaultValue={getDisplayValue(dim)}
-                placeholder="如: 1/2"
+                placeholder={selectedUnit === 'feet' ? "如: 2-4" : "如: 24"}
                 onBlur={(e) => handleDimensionChange(dim, e.target.value)}
+                onKeyDown={handleDimensionKeyDown}
                 onPressEnter={(e) => {
                   handleDimensionChange(dim, e.target.value);
+                  e.currentTarget.blur(); // 按回车后失去焦点
                 }}
                 style={{ width: '80px' }}
                 className="fraction-input"

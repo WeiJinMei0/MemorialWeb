@@ -152,7 +152,7 @@ const Model = forwardRef(({
         const box = new THREE.Box3().setFromObject(clonedScene);
         const size = new THREE.Vector3();
         box.getSize(size);
-        const originalDims = { length: size.x, width: size.y, height: size.z };
+        const originalDims = { length: size.x, width: size.z, height: size.y };
         if (!isMounted) return;
         setOriginalDimensions(originalDims);
 
