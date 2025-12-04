@@ -350,47 +350,51 @@ const MonumentScene = forwardRef(({
         />
       ))}
 
-      {designState.monuments.map(monument => {
-        const monumentTexts = designState.textElements.filter(text => text.monumentId === monument.id);
-        const pos = positions[monument.id] || [0, 0, 0];
+      {/* --- 3. 墓碑循环 (这里不再嵌套文字) --- */}
+      {designState.monuments.map(monument => (
+        <Model
+          key={monument.id}
+          ref={el => modelRefs.current[monument.id] = el}
+          modelPath={monument.modelPath}
+          isMultiTextureBase={true}
+          polish={monument.polish}
+          position={positions[monument.id] || [0, 0, 0]}
+          dimensions={monument.dimensions}
+          color={monument.color}
+          onDimensionsChange={(dims) => handleModelLoad(monument.id, 'monument', dims)}
+          isFillModeActive={isFillModeActive}
+          onFillClick={() => onModelFillClick(monument.id, 'monument')}
+        />
+      ))}
 
-        // 只有主碑体才传递自动计算的 surfaceZ，避免多碑体时位置错乱
-        const isMainMonument = designState.monuments.length > 0 && monument.id === designState.monuments[0].id;
+      {/* --- 4. 文字独立循环 (类比花瓶) --- */}
+      {designState.textElements.map(text => {
+        // 手动查找该文字所属的墓碑
+        const targetMonument = designState.monuments.find(m => m.id === text.monumentId);
+
+        // 如果找不到对应墓碑(可能被删了)，不渲染
+        if (!targetMonument) return null;
+
+        // 只有主碑体才传递自动计算的 surfaceZ
+        const isMainMonument = designState.monuments.length > 0 && targetMonument.id === designState.monuments[0].id;
         const effectiveSurfaceZ = isMainMonument ? autoSurfaceZ : null;
 
         return (
-          <React.Fragment key={`monument-${monument.id}`}>
-            <Model
-              key={monument.id}
-              ref={el => modelRefs.current[monument.id] = el}
-              modelPath={monument.modelPath}
-              isMultiTextureBase={true}
-              polish={monument.polish}
-              position={pos}
-              dimensions={monument.dimensions}
-              color={monument.color}
-              onDimensionsChange={(dims) => handleModelLoad(monument.id, 'monument', dims)}
-              isFillModeActive={isFillModeActive}
-              onFillClick={() => onModelFillClick(monument.id, 'monument')}
-            />
-            {monumentTexts.map(text => (
-              <EnhancedTextElement
-                key={text.id}
-                text={text}
-                monument={monument}
-                isSelected={currentTextId === text.id}
-                isTextEditing={isTextEditing}
-                onTextSelect={onTextSelect}
-                onDeleteText={onDeleteText}
-                onTextPositionChange={onTextPositionChange}
-                onTextRotationChange={onTextRotationChange}
-                getFontPath={getFontPath}
-                modelRefs={modelRefs}
-                globalTransformMode={transformMode}
-                surfaceZ={effectiveSurfaceZ} // 传入 autoSurfaceZ 以实现文字位置同步
-              />
-            ))}
-          </React.Fragment>
+          <EnhancedTextElement
+            key={text.id}
+            text={text}
+            monument={targetMonument} // 传入找到的墓碑对象
+            isSelected={currentTextId === text.id}
+            isTextEditing={isTextEditing}
+            onTextSelect={onTextSelect}
+            onDeleteText={onDeleteText}
+            onTextPositionChange={onTextPositionChange}
+            onTextRotationChange={onTextRotationChange}
+            getFontPath={getFontPath}
+            modelRefs={modelRefs} // 传入 refs 用于吸附计算
+            globalTransformMode={transformMode}
+            surfaceZ={effectiveSurfaceZ}
+          />
         );
       })}
 
