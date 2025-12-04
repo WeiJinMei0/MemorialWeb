@@ -53,7 +53,8 @@ const Scene3D = forwardRef(({
         gl={{
           antialias: true,
           alpha: true,
-          preserveDrawingBuffer: true
+          preserveDrawingBuffer: true,
+          stencil: true // 关键：开启模板缓冲，支持 V-Cut 挖孔效果
         }}
         onCreated={({ gl }) => {
           gl.setClearColor('#f0f2f5');

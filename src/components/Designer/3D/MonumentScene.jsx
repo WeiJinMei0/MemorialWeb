@@ -301,8 +301,8 @@ const MonumentScene = forwardRef(({
     }
   }, [mainMonument, designState.monuments, autoSurfaceZ]); // 依赖 monuments 变化 (包含 dimensions)
 
-  // 检查是否显示网格：只要有选中的图案或文字，且主碑体存在
-  const showGrid = (selectedElementId !== null || currentTextId !== null) && mainMonument && autoSurfaceZ !== null;
+  // 检查是否显示网格：只要有选中的图案或文字，且主碑体存在，且不处于填充模式
+  const showGrid = (selectedElementId !== null || currentTextId !== null) && mainMonument && autoSurfaceZ !== null && !isFillModeActive;
 
   return (
     <group ref={sceneRef} onClick={handleSceneClick}>

@@ -1,5 +1,5 @@
-import React, { useRef } from 'react'; // 导入 useRef
-import Draggable from 'react-draggable'; // 导入 Draggable
+import React, { useRef } from 'react';
+import Draggable from 'react-draggable';
 import { Card, Button, Space, Modal, Tooltip, App, ColorPicker, Slider, Typography, Divider, Switch } from 'antd';
 import {
   DeleteOutlined,
@@ -9,27 +9,25 @@ import {
   ExpandOutlined,
   CloseOutlined,
   SaveOutlined,
+  BgColorsOutlined
 } from '@ant-design/icons';
-import './DesignerPage.css'; // 引入样式文件
+import './DesignerPage.css';
 
 const { Text } = Typography;
 
-// --- 1. 定义用于 ColorPicker 弹出面板的预设 ---
 const presetColors = [
   {
     label: '常用颜色',
     colors: [
       '#FFFFFF', '#000000', '#FFD700', '#FC0000',
-      '#AAAAAA', '#4285F4', '#00FF00', '#FFFF00',
+      '#AAAAAA', '#4285F4', '#FFFF00',
     ],
     disabled: false,
   },
 ];
 
-// --- 2. 提取一个简单的数组，用于渲染行内颜色样本 ---
 const simplePresetColors = presetColors[0].colors;
 
-// --- 3. 可重用的颜色样本行内组件 ---
 const ColorSwatches = ({ colors, onColorSelect, selectedColor, disabled = false }) => (
   <Space wrap style={{ gap: '4px' }}>
     {colors.map(color => {
@@ -44,9 +42,7 @@ const ColorSwatches = ({ colors, onColorSelect, selectedColor, disabled = false 
               width: '24px',
               height: '24px',
               padding: 0,
-              border: isSelected
-                ? '2px solid #1677ff'
-                : '1px solid #d9d9d9',
+              border: isSelected ? '2px solid #1677ff' : '1px solid #d9d9d9',
             }}
           />
         </Tooltip>
@@ -55,9 +51,8 @@ const ColorSwatches = ({ colors, onColorSelect, selectedColor, disabled = false 
   </Space>
 );
 
-
 /**
- * 图案编辑面板组件 (可拖动版本)
+ * 图案编辑面板组件 (修复透明度填充变黑的问题)
  */
 const ArtEditorPanel = ({
   art,
@@ -75,19 +70,20 @@ const ArtEditorPanel = ({
   onSaveToArtOptions,
 }) => {
   const { modal } = App.useApp();
-  const nodeRef = useRef(null); // 为 Draggable 创建 ref
+  const nodeRef = useRef(null);
 
   if (!art) return null;
 
-  // --- 处理器 (不变) ---
   const modes = [
     { key: 'translate', icon: <DragOutlined />, label: '移动', tooltip: '移动图案位置' },
     { key: 'scale', icon: <ExpandOutlined />, label: '缩放', tooltip: '调整图案大小' },
     { key: 'rotate', icon: <ReloadOutlined />, label: '旋转', tooltip: '旋转图案' },
   ];
+
   const handleModeChange = (mode) => {
     setTransformMode(mode);
   };
+
   const handleConfirmDelete = () => {
     modal.confirm({
       title: '确认删除图案?',
@@ -97,41 +93,51 @@ const ArtEditorPanel = ({
       onOk: () => onDelete(art.id, 'art'),
     });
   };
+
   const handleLineColor = (color) => {
     const hex = typeof color === 'string' ? color : color.toHexString();
     onLineColorChange(art.id, hex);
   };
+
   const handleLineAlpha = (value) => {
     onLineAlphaChange(art.id, value);
   };
+
+  // 【修复 1】: 使用 toRgbString() 代替 toHexString()
+  // 解释: toHexString() 会丢失透明度信息（Alpha），导致半透明或全透明变成实色（通常是黑色）。
+  // toRgbString() 返回 "rgb(r, g, b)" 或 "rgba(r, g, b, a)"，能正确传递透明度。
   const handleFillColor = (color) => {
-    const hex = typeof color === 'string' ? color : color.toHexString();
-    setFillColor(hex);
+    const val = typeof color === 'string' ? color : color.toRgbString();
+    setFillColor(val);
   };
+
   const currentLineColor = art.properties?.lineColor || '#000000';
   const currentLineAlpha = art.properties?.lineAlpha ?? 1.0;
-  const currentFillColor = fillColor || '#4285F4';
-  const isFillPresetSelected = simplePresetColors.some(c => c.toLowerCase() === currentFillColor.toLowerCase());
+
+  // 【修复 2】: 扩展透明判断逻辑
+  // 兼容 'transparent' 关键字以及标准的 'rgba(0, 0, 0, 0)'
+  const isTransparent = fillColor === 'transparent' || fillColor === 'rgba(0, 0, 0, 0)';
+
+  // 如果是透明，面板上显示白色方便查看，否则显示实际颜色
+  const currentFillColor = isTransparent ? '#FFFFFF' : (fillColor || '#4285F4');
+
+  const isFillPresetSelected = !isTransparent && simplePresetColors.some(c => c.toLowerCase() === currentFillColor.toLowerCase());
   const isLinePresetSelected = simplePresetColors.some(c => c.toLowerCase() === currentLineColor.toLowerCase());
-  // --- 处理器结束 ---
 
 
   return (
-    // 【修改】包裹 Draggable 组件
     <Draggable
       nodeRef={nodeRef}
-      handle=".ant-card-head" // 仅允许通过标题栏拖动
-      bounds="parent" // 限制在父元素 (.scene-wrapper) 内拖动
+      handle=".ant-card-head"
+      bounds="parent"
     >
       <div
         ref={nodeRef}
-        // 【修改】样式, 使其变为浮动面板
-        className="tool-panel art-editor-panel" // 复用现有 class
+        className="tool-panel art-editor-panel"
         style={{
           width: 300,
-          position: 'absolute', // <-- 关键：使其浮动
-          zIndex: 1000,         // <-- 关键：确保在顶层
-          // 固定的初始位置 (在父元素的左上角)
+          position: 'absolute',
+          zIndex: 1000,
           top: '300px',
           right: '500px',
         }}
@@ -140,12 +146,10 @@ const ArtEditorPanel = ({
           title="编辑图案"
           extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} size="small" />}
           bodyStyle={{ padding: '12px' }}
-        // 样式已移至外层 div
         >
-          {/* Card 的内容完全不变 */}
           <Space direction="vertical" style={{ width: '100%', gap: '12px' }}>
 
-            {/* --- 1. 快捷操作 --- */}
+            {/* --- 快捷操作 --- */}
             <div>
               <Text strong>快捷操作</Text>
               <Space style={{ width: '100%', marginTop: '8px', gap: '4px' }}>
@@ -190,7 +194,7 @@ const ArtEditorPanel = ({
 
             <Divider style={{ margin: '4px 0' }} />
 
-            {/* 2. 颜色编辑 */}
+            {/* --- 颜色编辑 --- */}
             <div>
               <Text strong>颜色编辑</Text>
 
@@ -208,27 +212,49 @@ const ArtEditorPanel = ({
                   />
                 </div>
                 <Space wrap style={{ width: '100%', gap: '4px' }}>
+                  {/* 【修复 3】: 透明按钮发送标准的 rgba(0, 0, 0, 0) */}
+                  <Tooltip title="透明 (清除颜色)">
+                    <Button
+                      onClick={() => setFillColor('rgba(0, 0, 0, 0)')} // 改为 RGBA 格式
+                      disabled={!isFillModeActive}
+                      icon={<BgColorsOutlined />}
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        padding: 0,
+                        backgroundColor: '#fff',
+                        backgroundImage: 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)',
+                        backgroundSize: '10px 10px',
+                        backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px',
+                        border: isTransparent ? '2px solid #1677ff' : '1px solid #d9d9d9',
+                        color: isTransparent ? '#1677ff' : '#999'
+                      }}
+                    />
+                  </Tooltip>
+
                   <ColorSwatches
                     colors={simplePresetColors}
                     onColorSelect={handleFillColor}
                     disabled={!isFillModeActive}
-                    selectedColor={currentFillColor}
+                    selectedColor={isTransparent ? null : currentFillColor}
                   />
+
+                  {/* 【修复 4】: 确保 ColorPicker 支持透明度选择 */}
                   <Tooltip title="自定义颜色">
                     <ColorPicker
                       value={currentFillColor}
                       onChange={handleFillColor}
                       disabled={!isFillModeActive}
                       size="small"
+                      disabledAlpha={false} // 显式允许 Alpha 通道
                       styles={{
                         trigger: {
-                          border: !isFillPresetSelected ? '2px solid #1677ff' : '1px solid #d9d9d9',
+                          border: (!isFillPresetSelected && !isTransparent) ? '2px solid #1677ff' : '1px solid #d9d9d9',
                         }
                       }}
                     />
                   </Tooltip>
                 </Space>
-                {/* Updated help text for swapped logic */}
                 <Text style={{ fontSize: '11px', display: 'block', marginTop: '8px' }}>
                   {isFillModeActive
                     ? "启用中：点击填充所有封闭区域，按住 Shift 点击填充单个封闭区域。"
@@ -236,7 +262,7 @@ const ArtEditorPanel = ({
                 </Text>
               </div>
 
-              {/* 线条颜色 */}
+              {/* 线条颜色 (保持不变) */}
               <div style={{ marginTop: '12px' }}>
                 <Text style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>
                   线条颜色
