@@ -129,7 +129,7 @@ const FONT_OPTIONS = [
 
   // Comic Sans
   { family: 'Comic Sans MS', variant: 'regular', name: 'Comic Sans MS_Regular', path: '/fonts/Comic Sans MS_Regular.json', cssFamily: 'Comic Sans MS, cursive' },
-  { family: 'Comic Sans MS', variant: 'regular', name: 'TR Comic Sans MS_Regular', path: '/fonts/TR Comic Sans MS_Regular.json', cssFamily: 'Comic Sans MS, cursive' }, // 这里的 TR 版本如果是一样的，可以合并，不一样可以视为另一个家族
+  { family: 'TR Comic Sans MS', variant: 'regular', name: 'TR Comic Sans MS_Regular', path: '/fonts/TR Comic Sans MS_Regular.json', cssFamily: 'Comic Sans MS, cursive' }, // 这里的 TR 版本如果是一样的，可以合并，不一样可以视为另一个家族
 
   // Copperplate Gothic
   { family: 'Copperplate Gothic', variant: 'bold', name: 'Copperplate Gothic Bold_Regular', path: '/fonts/Copperplate Gothic Bold_Regular.json', cssFamily: 'serif' },
@@ -194,7 +194,7 @@ const FONT_OPTIONS = [
   { family: 'OldeWorld', variant: 'bold', name: 'OldeWorld-Bold_Regular', path: '/fonts/OldeWorld-Bold_Regular.json', cssFamily: 'serif' },
 
   // Palatino Linotype
-  { family: 'Palatino Linotype', variant: 'regular', name: 'Palatino Linotype_Regular2', path: '/fonts/Palatino Linotype_Regular2.json', cssFamily: 'Palatino, serif' },
+  // { family: 'Palatino Linotype', variant: 'regular', name: 'Palatino Linotype_Regular2', path: '/fonts/Palatino Linotype_Regular2.json', cssFamily: 'Palatino, serif' },
 
   // Roman
   { family: 'Roman', variant: 'regular', name: 'Roman_Regular', path: '/fonts/Roman_Regular.json', cssFamily: 'serif' },
