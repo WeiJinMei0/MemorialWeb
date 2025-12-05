@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, Suspense, useRef } from 'react';
+import React, { useState, useCallback, useEffect, Suspense, useRef, useMemo } from 'react';
 import {
   Button,
   Input,
@@ -7,13 +7,11 @@ import {
   Space,
   Divider,
   ColorPicker,
-  Row,
-  Col,
   Card,
   message,
   Tooltip,
   Popover,
-  Radio // 导入 Radio 组件用于选择方向
+  Radio
 } from 'antd';
 import {
   PlusOutlined,
@@ -23,7 +21,6 @@ import {
   AlignRightOutlined,
   SaveOutlined,
   CloseOutlined,
-  EditOutlined,
   BoldOutlined,
   ItalicOutlined,
   PlusCircleOutlined,
@@ -31,46 +28,13 @@ import {
   DragOutlined,
   RotateRightOutlined,
   RedoOutlined,
-  EyeOutlined,
-  EyeInvisibleOutlined,
-  FontSizeOutlined,
-  ColumnHeightOutlined,
-  ExpandOutlined,
-  LayoutOutlined, // 新增：文本方向图标
-  VerticalAlignTopOutlined // 新增：竖排图标
+  LayoutOutlined,
+  VerticalAlignTopOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Canvas } from '@react-three/fiber';
 import { Text3D } from '@react-three/drei';
 import './TextEditor.css'
-
-// --- 辅助函数：解析字体名称 ---
-const getFontFamilyInfo = (fontName) => {
-  if (!fontName) return { family: '', bold: false, italic: false };
-  if (fontName.endsWith(" Bold Italic")) return { family: fontName.replace(" Bold Italic", ""), bold: true, italic: true };
-  if (fontName.endsWith(" Bold")) return { family: fontName.replace(" Bold", ""), bold: true, italic: false };
-  if (fontName.endsWith(" Italic")) return { family: fontName.replace(" Italic", ""), bold: false, italic: true };
-  if (fontName.endsWith(" Regular")) return { family: fontName.replace(" Regular", ""), bold: false, italic: false };
-  if (fontName.endsWith(" Normal")) return { family: fontName.replace(" Normal", ""), bold: false, italic: false };
-  return { family: fontName, bold: false, italic: false };
-};
-
-// --- 辅助函数：构建字体名称 ---
-const constructFontName = (family, bold, italic) => {
-  let suffix = " Regular";
-  if (bold && italic) suffix = " Bold Italic";
-  else if (bold) suffix = " Bold";
-  else if (italic) suffix = " Italic";
-  return `${family}${suffix}`;
-};
-
-// --- 样式组件：统一的行内控件容器 ---
-const ControlRow = ({ label, children, style }) => (
-  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10, ...style }}>
-    {label && <span style={{ width: 64, fontSize: 12, color: '#666', flexShrink: 0 }}>{label}</span>}
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>{children}</div>
-  </div>
-);
 
 const TextEditor = ({
   onAddText,
@@ -80,7 +44,7 @@ const TextEditor = ({
   existingTexts,
   monuments,
   isEditing,
-  fontOptions,
+  fontOptions, // 注意：这里必须传入新的包含 family/variant 的数据源
   onSaveTextToOptions,
   onClose,
   getFontPath,
@@ -89,16 +53,155 @@ const TextEditor = ({
   onRotate90,
 }) => {
   const { t } = useTranslation();
-  const [isBold, setIsBold] = useState(false);
-  const [isItalic, setIsItalic] = useState(false);
-  const [canBold, setCanBold] = useState(true);
-  const [canItalic, setCanItalic] = useState(true);
 
-  // 新增：文本方向状态（horizontal=横向，vertical=竖向）
+  // --- 核心逻辑 1: 计算去重后的字体家族列表 (用于下拉菜单) ---
+  // const uniqueFamilies = useMemo(() => {
+  // const map = new Map();
+  //fontOptions.forEach(font => {
+  //if (!map.has(font.family)) {
+  //map.set(font.family, font); // 只存一个代表，用于读取 cssFamily 等信息
+  //}
+  //});
+  // 转为数组并排序
+  //return Array.from(map.values()).sort((a, b) => a.family.localeCompare(b.family));
+  //}, [fontOptions]);
+  // --- 修复 1: 保持原始顺序的去重逻辑 ---
+  const uniqueFamilies = useMemo(() => {
+    const seen = new Set();
+    const result = [];
+
+    // 遍历原始数组
+    fontOptions.forEach(font => {
+      // 只有第一次遇到的 family 才加入列表
+      if (!seen.has(font.family)) {
+        seen.add(font.family);
+        result.push(font);
+      }
+    });
+
+    // 直接返回 result，不进行 sort 排序，保持数据源的物理顺序
+    return result;
+  }, [fontOptions]);
+
+  // --- 核心逻辑 2: 智能解析最佳字体文件 ---
+  // 给定家族、是否加粗、是否斜体，返回最匹配的文件名
+  const resolveBestFont = useCallback((familyName, targetBold, targetItalic) => {
+    // 1. 找出该家族下所有的变体文件
+    const variants = fontOptions.filter(f => f.family === familyName);
+
+    // 2. 定义查找目标
+    let targetVariant = 'regular';
+    if (targetBold && targetItalic) targetVariant = 'boldItalic';
+    else if (targetBold) targetVariant = 'bold';
+    else if (targetItalic) targetVariant = 'italic';
+
+    // 3. 尝试精确匹配
+    const exactMatch = variants.find(v => v.variant === targetVariant);
+    if (exactMatch) return exactMatch.name;
+
+    // 4. 降级策略 (Fallback Logic)
+    // 如果找不到 BoldItalic，尝试找 Bold
+    if (targetVariant === 'boldItalic') {
+      const boldMatch = variants.find(v => v.variant === 'bold');
+      if (boldMatch) return boldMatch.name;
+    }
+
+    // 如果找不到 Bold，尝试找 Medium (有些字体用 Medium 代替 Bold)
+    if (targetVariant === 'bold') {
+      const mediumMatch = variants.find(v => v.variant === 'medium');
+      if (mediumMatch) return mediumMatch.name;
+    }
+
+    // 5. 最后的兜底：返回 Regular 或该家族的第一个文件
+    const regularMatch = variants.find(v => v.variant === 'regular');
+    return regularMatch ? regularMatch.name : variants[0]?.name;
+  }, [fontOptions]);
+
+  // --- 状态管理 ---
+  const [textProperties, setTextProperties] = useState({
+    content: '',
+    font: 'helvetiker_regular.typeface', // 存储的是具体文件名
+    size: 3,
+    alignment: 'center',
+    lineSpacing: 1.2,
+    kerning: 0,
+    curveAmount: 0,
+    engraveType: 'vcut',
+    vcutColor: '#FFFFFF',
+    frostIntensity: 0.8,
+    polishBlend: 0.5,
+    textDirection: 'horizontal'
+  });
+
   const [textDirection, setTextDirection] = useState('horizontal');
+  const [engraveTypes, setEngraveTypes] = useState({ vcut: false, frost: false, polish: false });
 
+  // --- 核心逻辑 3: 动态计算当前状态 (Derived State) ---
+  // 我们不再手动 setBold/setItalic，而是根据当前的 font 文件名反推状态
+  const currentFontObj = useMemo(() => {
+    return fontOptions.find(f => f.name === textProperties.font) || {};
+  }, [fontOptions, textProperties.font]);
+
+  const currentFamilyName = currentFontObj.family;
+
+  const isBold = useMemo(() => {
+    return ['bold', 'boldItalic', 'medium'].includes(currentFontObj.variant);
+  }, [currentFontObj]);
+
+  const isItalic = useMemo(() => {
+    return ['italic', 'boldItalic'].includes(currentFontObj.variant);
+  }, [currentFontObj]);
+
+  // 检查当前家族是否有能力支持 B/I (用于禁用按钮)
+  const canBold = useMemo(() => {
+    if (!currentFamilyName) return false;
+    const variants = fontOptions.filter(f => f.family === currentFamilyName);
+    return variants.some(v => ['bold', 'boldItalic', 'medium'].includes(v.variant));
+  }, [fontOptions, currentFamilyName]);
+
+  const canItalic = useMemo(() => {
+    if (!currentFamilyName) return false;
+    const variants = fontOptions.filter(f => f.family === currentFamilyName);
+    return variants.some(v => ['italic', 'boldItalic'].includes(v.variant));
+  }, [fontOptions, currentFamilyName]);
+
+
+  // --- 事件处理 ---
+
+  // 切换字体家族
+  const handleFamilyChange = (newFamilyName) => {
+    // 切换家族时，尝试保持当前的 B/I 状态
+    const newFontName = resolveBestFont(newFamilyName, isBold, isItalic);
+    handlePropertyChange('font', newFontName);
+  };
+
+  // 切换加粗
+  const handleBoldClick = () => {
+    if (!currentFamilyName) return;
+    if (!canBold && !isBold) {
+      message.warning(`当前字体 "${currentFamilyName}" 不支持加粗`);
+      return;
+    }
+    const targetState = !isBold;
+    const newFontName = resolveBestFont(currentFamilyName, targetState, isItalic);
+    handlePropertyChange('font', newFontName);
+  };
+
+  // 切换斜体
+  const handleItalicClick = () => {
+    if (!currentFamilyName) return;
+    if (!canItalic && !isItalic) {
+      message.warning(`当前字体 "${currentFamilyName}" 不支持斜体`);
+      return;
+    }
+    const targetState = !isItalic;
+    const newFontName = resolveBestFont(currentFamilyName, isBold, targetState);
+    handlePropertyChange('font', newFontName);
+  };
+
+  // 3D 预览组件 (保持不变)
   const FontPreviewTooltipContent = ({ font }) => {
-    const previewText = font.previewText || (font.isChinese ? '示例Aa' : 'Aa');
+    const previewText = font.isChinese ? '示例Aa' : 'Aa';
     const fontPath = getFontPath ? getFontPath(font.name) : (font.path || '/fonts/helvetiker_regular.typeface.json');
     return (
       <div className="font-preview-tooltip">
@@ -184,48 +287,7 @@ const TextEditor = ({
     );
   };
 
-  // 在文本属性中添加 textDirection（同步到主程序）
-  const [textProperties, setTextProperties] = useState({
-    content: '',
-    font: 'helvetiker_regular.typeface',
-    size: 3,
-    alignment: 'center',
-    lineSpacing: 1.2,
-    kerning: 0,
-    curveAmount: 0,
-    engraveType: 'vcut',
-    vcutColor: '#FFFFFF',
-    frostIntensity: 0.8,
-    polishBlend: 0.5,
-    textDirection: 'horizontal' // 默认横向
-  });
-
-  const handleClose = () => {
-    if (onClose) {
-      onClose();
-    }
-  };
-
-  const [engraveTypes, setEngraveTypes] = useState({
-    vcut: false,
-    frost: false,
-    polish: false
-  });
-
-  // 监听字体变化，更新按钮状态
-  useEffect(() => {
-    if (textProperties.font && fontOptions.length > 0) {
-      const { family, bold, italic } = getFontFamilyInfo(textProperties.font);
-      setIsBold(bold);
-      setIsItalic(italic);
-      const targetBoldName = constructFontName(family, !bold, italic);
-      const targetItalicName = constructFontName(family, bold, !italic);
-      setCanBold(fontOptions.some(f => f.name === targetBoldName));
-      setCanItalic(fontOptions.some(f => f.name === targetItalicName));
-    }
-  }, [textProperties.font, fontOptions]);
-
-  // 选中文字变化时，同步文本方向状态
+  // 监听选中文字变化
   useEffect(() => {
     if (currentTextId) {
       const currentText = existingTexts.find(text => text.id === currentTextId);
@@ -233,10 +295,8 @@ const TextEditor = ({
         setTextProperties(prev => ({
           ...prev,
           ...currentText,
-          // 兼容旧文字（无 textDirection 时默认横向）
           textDirection: currentText.textDirection || 'horizontal'
         }));
-        // 🔥 同步文本方向到单选框
         setTextDirection(currentText.textDirection || 'horizontal');
         setEngraveTypes({
           vcut: currentText.engraveType === 'vcut',
@@ -248,22 +308,14 @@ const TextEditor = ({
   }, [currentTextId, existingTexts]);
 
   const handlePropertyChange = (property, value) => {
-    setTextProperties(prev => ({
-      ...prev,
-      [property]: value
-    }));
+    setTextProperties(prev => ({ ...prev, [property]: value }));
     if (currentTextId) {
       onUpdateText(currentTextId, { [property]: value });
     }
   };
 
   const handleEngraveTypeChange = (type) => {
-    const newEngraveTypes = {
-      vcut: false,
-      frost: false,
-      polish: false,
-      [type]: true
-    };
+    const newEngraveTypes = { vcut: false, frost: false, polish: false, [type]: true };
     setEngraveTypes(newEngraveTypes);
     handlePropertyChange('engraveType', type);
   };
@@ -278,68 +330,29 @@ const TextEditor = ({
       message.error('请先添加一个主碑');
       return;
     }
-    // 🔥 新增：添加文字时携带文本方向
     onAddText({
       ...textProperties,
       monumentId: targetMonumentId,
-      textDirection: textDirection // 传递选中的横/竖方向
+      textDirection: textDirection
     });
-    // 重置表单（方向保留默认横向）
-    setTextProperties({
+    // 重置表单
+    setTextProperties(prev => ({
+      ...prev,
       content: '',
-      font: 'Arial',
-      size: 3,
-      alignment: 'center',
-      lineSpacing: 1.2,
-      kerning: 0,
-      curveAmount: 0,
-      engraveType: 'vcut',
-      vcutColor: '#000000',
-      frostIntensity: 0.8,
-      polishBlend: 0.5,
-      thickness: 0.02,
+      // 注意：添加后不重置字体，保持用户当前选择，体验更好
       textDirection: 'horizontal'
-    });
-    // 重置方向选择为横向
+    }));
     setTextDirection('horizontal');
   };
 
   const handleDeleteText = () => {
-    if (currentTextId) {
-      onDeleteText(currentTextId);
-    }
+    if (currentTextId) onDeleteText(currentTextId);
   };
 
-  const inputRef = useRef(null);
-
-  const handleItalicClick = () => {
-    const { family, bold, italic } = getFontFamilyInfo(textProperties.font);
-    const newFontName = constructFontName(family, bold, !italic);
-    if (fontOptions.some(f => f.name === newFontName)) {
-      handlePropertyChange('font', newFontName);
-    } else {
-      message.warning(`当前字体 "${family}" 不支持斜体`);
-    }
-  };
-
-  const handleBoldClick = () => {
-    const { family, bold, italic } = getFontFamilyInfo(textProperties.font);
-    const newFontName = constructFontName(family, !bold, italic);
-    if (fontOptions.some(f => f.name === newFontName)) {
-      handlePropertyChange('font', newFontName);
-    } else {
-      message.warning(`当前字体 "${family}" 不支持加粗`);
-    }
-  };
-
-  // 🔥 关键新增：切换文本方向（同步到状态和属性）
   const handleDirectionChange = (e) => {
     const value = e.target.value;
     setTextDirection(value);
-    // 编辑已有文字时，实时更新方向
-    if (currentTextId) {
-      handlePropertyChange('textDirection', value);
-    }
+    if (currentTextId) handlePropertyChange('textDirection', value);
   };
 
   const renderEngraveTypeButton = (type, label, icon) => {
@@ -363,15 +376,18 @@ const TextEditor = ({
   const handleSaveCurrentText = () => {
     if (currentTextId && onSaveTextToOptions) {
       const currentText = existingTexts.find(text => text.id === currentTextId);
-      if (currentText) {
-        onSaveTextToOptions(currentText);
-      } else {
-        message.error("未找到要保存的文字");
-      }
+      if (currentText) onSaveTextToOptions(currentText);
+      else message.error("未找到要保存的文字");
     } else {
       message.warning("请先选中一个文字对象");
     }
   };
+
+  const handleClose = () => {
+    if (onClose) onClose();
+  };
+
+  const inputRef = useRef(null);
 
   return (
     <div className="text-editor-panel">
@@ -477,13 +493,14 @@ const TextEditor = ({
             title="添加新文字"
             style={{ flex: 1 }}
           />
+          {/* 加粗按钮：使用新的状态控制 */}
           <Button
             type="default"
             size="small"
             icon={<BoldOutlined />}
             onClick={handleBoldClick}
-            disabled={!currentTextId && !textProperties.content}
-            title="加粗"
+            disabled={(!currentTextId && !textProperties.content) || !canBold}
+            title={!canBold ? "Font does not support Bold" : "Bold"}
             style={{
               backgroundColor: isBold ? '#1890ff' : '#ffffff',
               borderColor: isBold ? '#1890ff' : '#d9d9d9',
@@ -491,13 +508,14 @@ const TextEditor = ({
               flex: 1
             }}
           />
+          {/* 斜体按钮：使用新的状态控制 */}
           <Button
             type="default"
             size="small"
             icon={<ItalicOutlined />}
             onClick={handleItalicClick}
-            disabled={!currentTextId && !textProperties.content}
-            title="斜体"
+            disabled={(!currentTextId && !textProperties.content) || !canItalic}
+            title={!canItalic ? "Font does not support Italic" : "Italic"}
             style={{
               backgroundColor: isItalic ? '#1890ff' : '#ffffff',
               borderColor: isItalic ? '#1890ff' : '#d9d9d9',
@@ -607,32 +625,28 @@ const TextEditor = ({
 
         {/* 字体和大小 */}
         <div style={{ marginBottom: '12px' }}>
+          {/* 优化后的字体选择器：只显示 Family */}
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{
-              fontSize: '12px',
-              color: '#666',
-              width: '40px',
-              textAlign: 'right',
-              marginRight: '8px'
-            }}>
-              Font:
-            </span>
+            <span style={{ fontSize: '12px', color: '#666', width: '40px', textAlign: 'right', marginRight: '8px' }}>Font:</span>
             <Select
-              value={textProperties.font}
-              onChange={(value) => handlePropertyChange('font', value)}
+              value={currentFamilyName} // 显示当前的 Family
+              onChange={handleFamilyChange}
               style={{ flex: 1 }}
               size="small"
+              showSearch
+              optionFilterProp="value"
             >
-              {fontOptions.map(font => (
-                <Select.Option key={font.name} value={font.name}>
+              {uniqueFamilies.map(fam => (
+                <Select.Option key={fam.family} value={fam.family}>
                   <Tooltip
                     placement="right"
-                    title={<FontPreviewTooltipContent font={font} />}
+                    title={<FontPreviewTooltipContent font={fam} />}
                     destroyTooltipOnHide
                     mouseEnterDelay={0.2}
                   >
-                    <span style={{ fontFamily: font.cssFamily || 'inherit', fontSize: '12px' }}>
-                      {font.name}
+                    {/* 显示家族名，不再是冗长的文件名 */}
+                    <span style={{ fontFamily: fam.cssFamily || 'inherit', fontSize: '12px' }}>
+                      {fam.family}
                     </span>
                   </Tooltip>
                 </Select.Option>
