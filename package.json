@@ -18,6 +18,7 @@
     "framer-motion": "^12.23.22",
     "i18next": "^23.7.0",
     "libphonenumber-js": "^1.12.25",
+    "opencc-js": "^1.0.5",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-draggable": "^4.5.0",

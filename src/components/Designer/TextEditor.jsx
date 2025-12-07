@@ -29,12 +29,33 @@ import {
   RotateRightOutlined,
   RedoOutlined,
   LayoutOutlined,
-  VerticalAlignTopOutlined
+  VerticalAlignTopOutlined,
+  SwapRightOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Canvas } from '@react-three/fiber';
 import { Text3D } from '@react-three/drei';
 import './TextEditor.css'
+
+// --- 自定义 SVG 图标：简 -> 繁 ---
+const IconS2T = () => (
+  <span role="img" aria-label="s2t" className="anticon">
+    <svg viewBox="0 0 1024 1024" width="1em" height="1em" fill="currentColor">
+      <text x="50" y="800" fontSize="800" fontWeight="bold" fill="currentColor" style={{ fontFamily: 'sans-serif' }}>简</text>
+      <path d="M560 512 L800 512 L750 462 M800 512 L750 562" stroke="currentColor" strokeWidth="60" fill="none" />
+    </svg>
+  </span>
+);
+
+// --- 自定义 SVG 图标：繁 -> 简 ---
+const IconT2S = () => (
+  <span role="img" aria-label="t2s" className="anticon">
+    <svg viewBox="0 0 1024 1024" width="1em" height="1em" fill="currentColor">
+      <text x="50" y="800" fontSize="800" fontWeight="bold" fill="currentColor" style={{ fontFamily: 'sans-serif' }}>繁</text>
+      {/* 简单的箭头示意，或者直接用文字 */}
+    </svg>
+  </span>
+);
 
 const TextEditor = ({
   onAddText,
@@ -165,7 +186,33 @@ const TextEditor = ({
     return variants.some(v => ['italic', 'boldItalic'].includes(v.variant));
   }, [fontOptions, currentFamilyName]);
 
+  // --- 简繁转换逻辑 ---
+  const handleConvert = async (type) => {
+    if (!textProperties.content) {
+      message.info('文本为空');
+      return;
+    }
+    try {
+      const openccModule = await import('opencc-js');
+      const OpenCC = openccModule.OpenCC || (openccModule.default && openccModule.default.OpenCC) || openccModule.default || openccModule;
 
+      let converter;
+      if (OpenCC && OpenCC.Converter) {
+        converter = OpenCC.Converter({ from: type === 's2t' ? 'cn' : 'tw', to: type === 's2t' ? 'tw' : 'cn' });
+        const converted = converter(textProperties.content);
+        handlePropertyChange('content', converted);
+        message.success(type === 's2t' ? '已转换为繁体' : '已转换为简体');
+      } else if (typeof openccModule === 'function') {
+        const fn = openccModule;
+        const converted = fn(textProperties.content, type);
+        handlePropertyChange('content', converted);
+        message.success(type === 's2t' ? '已转换为繁体' : '已转换为简体');
+      }
+    } catch (err) {
+      console.error(err);
+      message.error('需安装依赖: npm install opencc-js');
+    }
+  };
   // --- 事件处理 ---
 
   // 切换字体家族
@@ -325,21 +372,53 @@ const TextEditor = ({
       message.error('Enter Text Content');
       return;
     }
+
     const targetMonumentId = monuments.length > 0 ? monuments[0].id : null;
     if (!targetMonumentId) {
       message.error('请先添加一个主碑');
       return;
     }
+
+    // --- 智能字体判断逻辑开始 ---
+    let fontToUse = textProperties.font;
+
+    // 仅当当前字体仍为系统默认的 "helvetiker" 时，才启用自动切换
+    // 这样如果用户已经手动选择了其他字体，我们不会覆盖用户的选择
+    if (fontToUse === 'helvetiker_regular.typeface') {
+      const isChinese = /[\u4e00-\u9fa5]/.test(textProperties.content);
+
+      if (isChinese) {
+        // 中文 -> 尝试查找 "微软雅黑" (包含 '微软雅黑' 或 'YaHei')
+        const yahei = fontOptions.find(f => f.name.includes('微软雅黑') || f.name.includes('YaHei'));
+        if (yahei) {
+          fontToUse = yahei.name;
+        } else {
+          // 兜底：如果没有微软雅黑，找任意一个中文字体
+          const anyChinese = fontOptions.find(f => f.isChinese);
+          if (anyChinese) fontToUse = anyChinese.name;
+        }
+      } else {
+        // 英文/其他 -> 尝试查找 "Cambria"
+        const cambria = fontOptions.find(f => f.name.includes('Cambria'));
+        if (cambria) {
+          fontToUse = cambria.name;
+        }
+      }
+    }
+    // --- 智能字体判断逻辑结束 ---
+
     onAddText({
       ...textProperties,
+      font: fontToUse, // 使用计算后的字体
       monumentId: targetMonumentId,
       textDirection: textDirection
     });
-    // 重置表单
+
+    // 重置表单，并把 UI 上的字体也更新为刚才自动选择的字体，方便用户继续输入
     setTextProperties(prev => ({
       ...prev,
       content: '',
-      // 注意：添加后不重置字体，保持用户当前选择，体验更好
+      font: fontToUse,
       textDirection: 'horizontal'
     }));
     setTextDirection('horizontal');
@@ -543,6 +622,9 @@ const TextEditor = ({
           />
         </Space.Compact>
 
+
+
+
         {/* 变换控制区域 */}
         <div style={{
           marginBottom: 12,
@@ -623,6 +705,23 @@ const TextEditor = ({
           </div>
         </div>
 
+        {/* 新增：转换按钮行 (使用纯文字或内置图标组合) */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, color: '#999' }}>Convert:</span>
+          <Button.Group size="small">
+            <Tooltip title="简体 转 繁体">
+              <Button onClick={() => handleConvert('s2t')} style={{ fontSize: 12, padding: '0 8px' }}>
+                简 <SwapRightOutlined /> 繁
+              </Button>
+            </Tooltip>
+            <Tooltip title="繁体 转 简体">
+              <Button onClick={() => handleConvert('t2s')} style={{ fontSize: 12, padding: '0 8px' }}>
+                繁 <SwapRightOutlined /> 简
+              </Button>
+            </Tooltip>
+          </Button.Group>
+        </div>
+
         {/* 字体和大小 */}
         <div style={{ marginBottom: '12px' }}>
           {/* 优化后的字体选择器：只显示 Family */}
@@ -635,17 +734,29 @@ const TextEditor = ({
               size="small"
               showSearch
               optionFilterProp="value"
+              // 🔥 新增：放大下拉列表的样式
+              //listHeight={400} // 增加列表滚动区域的高度
+              dropdownStyle={{ minWidth: '200px' }} // 增加下拉框宽度，防止长名字截断
+              optionLabelProp="value"
             >
               {uniqueFamilies.map(fam => (
-                <Select.Option key={fam.family} value={fam.family}>
+                <Select.Option
+                  key={fam.family}
+                  value={fam.family}
+                  // 🔥 新增：给每个选项加样式
+                  style={{
+                    fontSize: '10px', // 放大字体
+                  }}
+                >
                   <Tooltip
                     placement="right"
                     title={<FontPreviewTooltipContent font={fam} />}
                     destroyTooltipOnHide
                     mouseEnterDelay={0.2}
+
                   >
                     {/* 显示家族名，不再是冗长的文件名 */}
-                    <span style={{ fontFamily: fam.cssFamily || 'inherit', fontSize: '12px' }}>
+                    <span style={{ fontFamily: fam.cssFamily || 'inherit', fontSize: '20px' }}>
                       {fam.family}
                     </span>
                   </Tooltip>
@@ -917,7 +1028,7 @@ const TextEditor = ({
                 width: '85px',
                 textAlign: 'right'
               }}>
-                Frost Intensity:
+                {/* Frost Intensity:
               </span>
               <div style={{ flex: 1 }}>
                 <Slider
@@ -936,6 +1047,7 @@ const TextEditor = ({
                 textAlign: 'center'
               }}>
                 {textProperties.frostIntensity}
+            */}
               </span>
             </div>
           </div>
@@ -950,7 +1062,7 @@ const TextEditor = ({
                 width: '85px',
                 textAlign: 'right'
               }}>
-                Polish Blend:
+                {/*  Polish Blend:
               </span>
               <div style={{ flex: 1 }}>
                 <Slider
@@ -969,6 +1081,7 @@ const TextEditor = ({
                 textAlign: 'center'
               }}>
                 {textProperties.polishBlend}
+            */}
               </span>
             </div>
           </div>
