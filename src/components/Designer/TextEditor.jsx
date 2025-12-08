@@ -189,7 +189,7 @@ const TextEditor = ({
   // --- 简繁转换逻辑 ---
   const handleConvert = async (type) => {
     if (!textProperties.content) {
-      message.info('文本为空');
+      message.info(t('Text is empty'));
       return;
     }
     try {
@@ -201,16 +201,16 @@ const TextEditor = ({
         converter = OpenCC.Converter({ from: type === 's2t' ? 'cn' : 'tw', to: type === 's2t' ? 'tw' : 'cn' });
         const converted = converter(textProperties.content);
         handlePropertyChange('content', converted);
-        message.success(type === 's2t' ? '已转换为繁体' : '已转换为简体');
+        message.success(type === 's2t' ? 'Converted to Traditional' : 'Converted to Simplified');
       } else if (typeof openccModule === 'function') {
         const fn = openccModule;
         const converted = fn(textProperties.content, type);
         handlePropertyChange('content', converted);
-        message.success(type === 's2t' ? '已转换为繁体' : '已转换为简体');
+        message.success(type === 's2t' ? 'Converted to Traditional' : 'Converted to Simplified');
       }
     } catch (err) {
       console.error(err);
-      message.error('需安装依赖: npm install opencc-js');
+      message.error('Need to install dependency: npm install opencc-js');
     }
   };
   // --- 事件处理 ---
@@ -226,7 +226,7 @@ const TextEditor = ({
   const handleBoldClick = () => {
     if (!currentFamilyName) return;
     if (!canBold && !isBold) {
-      message.warning(`当前字体 "${currentFamilyName}" 不支持加粗`);
+      message.warning(`Current font "${currentFamilyName}" does not support bold`);
       return;
     }
     const targetState = !isBold;
@@ -238,7 +238,7 @@ const TextEditor = ({
   const handleItalicClick = () => {
     if (!currentFamilyName) return;
     if (!canItalic && !isItalic) {
-      message.warning(`当前字体 "${currentFamilyName}" 不支持斜体`);
+      message.warning(`Current font "${currentFamilyName}" does not support italic`);
       return;
     }
     const targetState = !isItalic;
@@ -248,7 +248,7 @@ const TextEditor = ({
 
   // 3D 预览组件 (保持不变)
   const FontPreviewTooltipContent = ({ font }) => {
-    const previewText = font.isChinese ? '示例Aa' : 'Aa';
+    const previewText = font.isChinese ? 'Sample Aa' : 'Aa';
     const fontPath = getFontPath ? getFontPath(font.name) : (font.path || '/fonts/helvetiker_regular.typeface.json');
     return (
       <div className="font-preview-tooltip">
@@ -296,7 +296,7 @@ const TextEditor = ({
     return (
       <div style={{ width: 240 }}>
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>标准色</div>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>{t('textEditor.standardColors')}</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 8 }}>
             {Object.values(colorRamps).map((ramp, rampIndex) => (
               <div key={`ramp-${rampIndex}`} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -321,7 +321,7 @@ const TextEditor = ({
         </div>
         <Divider style={{ margin: '12px 0' }} />
         <div>
-          <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>自定义颜色</div>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>{t('textEditor.customColor')}</div>
           <ColorPicker
             value={textProperties.vcutColor}
             onChange={(color) => handlePropertyChange('vcutColor', color.toHexString())}
@@ -375,7 +375,7 @@ const TextEditor = ({
 
     const targetMonumentId = monuments.length > 0 ? monuments[0].id : null;
     if (!targetMonumentId) {
-      message.error('请先添加一个主碑');
+      message.error('Please add a tablet first');
       return;
     }
 
@@ -456,9 +456,9 @@ const TextEditor = ({
     if (currentTextId && onSaveTextToOptions) {
       const currentText = existingTexts.find(text => text.id === currentTextId);
       if (currentText) onSaveTextToOptions(currentText);
-      else message.error("未找到要保存的文字");
+      else message.error('Text not found');
     } else {
-      message.warning("请先选中一个文字对象");
+      message.warning('Please select a text object first');
     }
   };
 
@@ -472,7 +472,7 @@ const TextEditor = ({
     <div className="text-editor-panel">
       <Card
         size="small"
-        title="Text Editor"
+        title={t('textEditor.title')}
         style={{ width: '100%' }}
         bodyStyle={{ padding: '12px' }}
         extra={
@@ -506,7 +506,7 @@ const TextEditor = ({
             margin: '0',
             flexShrink: 0 // 禁止标签被压缩
           }}>
-            Direction:
+           {t('textEditor.direction')}
           </span>
           {/* Radio 组：强制横向，紧贴标签 */}
           <Radio.Group
@@ -532,7 +532,7 @@ const TextEditor = ({
               height: '32px',
               minWidth: '100px' // 固定最小宽度，避免挤压
             }}>
-              <LayoutOutlined style={{ fontSize: '14px' }} /> Horizontal
+              <LayoutOutlined style={{ fontSize: '14px' }} /> {t('textEditor.horizontal')}
             </Radio>
             <Radio value="vertical" style={{
               display: 'flex',
@@ -544,7 +544,7 @@ const TextEditor = ({
               height: '32px',
               minWidth: '100px'
             }}>
-              <VerticalAlignTopOutlined style={{ fontSize: '14px' }} /> Vertical
+              <VerticalAlignTopOutlined style={{ fontSize: '14px' }} /> {t('textEditor.vertical')}
             </Radio>
           </Radio.Group>
         </div>
@@ -556,7 +556,7 @@ const TextEditor = ({
             ref={inputRef}
             value={textProperties.content}
             onChange={(e) => handlePropertyChange('content', e.target.value)}
-            placeholder="Enter Text Content"
+            placeholder={t('textEditor.enterText')}
             rows={2}
             size="small"
           />
@@ -569,7 +569,7 @@ const TextEditor = ({
             size="small"
             icon={<PlusCircleOutlined />}
             onClick={handleAddText}
-            title="添加新文字"
+            title={t('textEditor.addText')}
             style={{ flex: 1 }}
           />
           {/* 加粗按钮：使用新的状态控制 */}
@@ -579,7 +579,7 @@ const TextEditor = ({
             icon={<BoldOutlined />}
             onClick={handleBoldClick}
             disabled={(!currentTextId && !textProperties.content) || !canBold}
-            title={!canBold ? "Font does not support Bold" : "Bold"}
+            title={!canBold ? t('textEditor.fontNoBoldSupport') : t('textEditor.bold')}
             style={{
               backgroundColor: isBold ? '#1890ff' : '#ffffff',
               borderColor: isBold ? '#1890ff' : '#d9d9d9',
@@ -594,7 +594,7 @@ const TextEditor = ({
             icon={<ItalicOutlined />}
             onClick={handleItalicClick}
             disabled={(!currentTextId && !textProperties.content) || !canItalic}
-            title={!canItalic ? "Font does not support Italic" : "Italic"}
+            title={!canItalic ? t('textEditor.fontNoItalicSupport') : t('textEditor.italic')}
             style={{
               backgroundColor: isItalic ? '#1890ff' : '#ffffff',
               borderColor: isItalic ? '#1890ff' : '#d9d9d9',
@@ -608,7 +608,7 @@ const TextEditor = ({
             icon={<DeleteOutlined />}
             onClick={handleDeleteText}
             disabled={!currentTextId}
-            title="删除选中文字"
+            title={t('textEditor.delete')}
             style={{ flex: 1 }}
           />
           <Button
@@ -617,7 +617,7 @@ const TextEditor = ({
             icon={<SaveOutlined />}
             onClick={handleSaveCurrentText}
             disabled={!currentTextId || !onSaveTextToOptions}
-            title="保存到素材库"
+            title={t('textEditor.saveToLibrary')}
             style={{ flex: 1 }}
           />
         </Space.Compact>
@@ -643,14 +643,14 @@ const TextEditor = ({
               color: '#666',
               minWidth: 60
             }}>
-              Operating Mode:
+              {t('textEditor.operatingMode')}
             </span>
             <div style={{
               display: 'flex',
               alignItems: 'center',
               gap: 8
             }}>
-              <Tooltip title="移动 (T)">
+              <Tooltip title={t('textEditor.move')}>
                 <Button
                   size="small"
                   type={transformMode === 'translate' ? 'primary' : 'default'}
@@ -667,7 +667,7 @@ const TextEditor = ({
                   }}
                 />
               </Tooltip>
-              <Tooltip title="旋转 (R)">
+              <Tooltip title={t('textEditor.rotate')}>
                 <Button
                   size="small"
                   type={transformMode === 'rotate' ? 'primary' : 'default'}
@@ -684,7 +684,7 @@ const TextEditor = ({
                   }}
                 />
               </Tooltip>
-              <Tooltip title="向右旋转 90°">
+              <Tooltip title={t('textEditor.rotate90')}>
                 <Button
                   size="small"
                   icon={<RedoOutlined style={{ transform: 'rotate(90deg)' }} />}
@@ -707,16 +707,16 @@ const TextEditor = ({
 
         {/* 新增：转换按钮行 (使用纯文字或内置图标组合) */}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: '#999' }}>Convert:</span>
+          <span style={{ fontSize: 12, color: '#999' }}>{t('textEditor.convert')}:</span>
           <Button.Group size="small">
-            <Tooltip title="简体 转 繁体">
-              <Button onClick={() => handleConvert('s2t')} style={{ fontSize: 12, padding: '0 8px' }}>
-                简 <SwapRightOutlined /> 繁
+            <Tooltip title={t('textEditor.s2t')}>
+              <Button onClick={() => handleConvert('s2t')} style={{ fontSize: 12, padding: '0 10px' }}>
+                {t('textEditor.simplified')} <SwapRightOutlined /> {t('textEditor.traditional')}
               </Button>
             </Tooltip>
-            <Tooltip title="繁体 转 简体">
-              <Button onClick={() => handleConvert('t2s')} style={{ fontSize: 12, padding: '0 8px' }}>
-                繁 <SwapRightOutlined /> 简
+            <Tooltip title={t('textEditor.t2s')}>
+              <Button onClick={() => handleConvert('t2s')} style={{ fontSize: 12, padding: '0 10px' }}>
+                {t('textEditor.traditional')} <SwapRightOutlined /> {t('textEditor.simplified')}
               </Button>
             </Tooltip>
           </Button.Group>
@@ -726,7 +726,7 @@ const TextEditor = ({
         <div style={{ marginBottom: '12px' }}>
           {/* 优化后的字体选择器：只显示 Family */}
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', color: '#666', width: '40px', textAlign: 'right', marginRight: '8px' }}>Font:</span>
+            <span style={{ fontSize: '12px', color: '#666', width: '40px', textAlign: 'right', marginRight: '8px' }}>{t('textEditor.font')}:</span>
             <Select
               value={currentFamilyName} // 显示当前的 Family
               onChange={handleFamilyChange}
@@ -772,7 +772,7 @@ const TextEditor = ({
               textAlign: 'right',
               marginRight: '8px'
             }}>
-              Size:
+              {t('textEditor.size')}:
             </span>
             <Input
               type="number"
@@ -784,7 +784,7 @@ const TextEditor = ({
               size="small"
               style={{ width: '80px' }}
             />
-            <div style={{ marginLeft: '8px', marginRight: '8px' }}>Inches</div>
+            <div style={{ marginLeft: '8px', marginRight: '8px' }}>{t('textEditor.inches')}</div>
           </div>
         </div>
 
@@ -797,7 +797,7 @@ const TextEditor = ({
               width: '40px',
               textAlign: 'right'
             }}>
-              Align:
+              {t('textEditor.align')}:
             </span>
             <Space.Compact style={{ flex: 1 }} size="small">
               <Button
@@ -816,7 +816,7 @@ const TextEditor = ({
                 onClick={() => handlePropertyChange('alignment', 'center')}
                 style={{ flex: 1, fontSize: '11px', height: '24px' }}
               >
-                Center
+                {t('textEditor.center')}
               </Button>
               <Button
                 size="small"
@@ -825,7 +825,7 @@ const TextEditor = ({
                 onClick={() => handlePropertyChange('alignment', 'right')}
                 style={{ flex: 1, fontSize: '11px', height: '24px' }}
               >
-                Right
+                {t('textEditor.right')}
               </Button>
             </Space.Compact>
           </div>
@@ -842,7 +842,7 @@ const TextEditor = ({
                 textAlign: 'right',
                 marginRight: '8px'
               }}>
-                Kerning:
+                {t('textEditor.kerning')}:
               </span>
               <Input
                 type="number"
@@ -862,7 +862,7 @@ const TextEditor = ({
                 textAlign: 'right',
                 marginRight: '8px'
               }}>
-                Line Space:
+                {t('textEditor.lineSpace')}:
               </span>
               <Input
                 type="number"
@@ -887,7 +887,7 @@ const TextEditor = ({
               width: '40px',
               textAlign: 'right'
             }}>
-              Shape:
+              {t('textEditor.shape')}:
             </span>
             <div style={{ flex: 1 }}>
               <Slider
@@ -920,7 +920,7 @@ const TextEditor = ({
               width: '85px',
               textAlign: 'right'
             }}>
-              Engrave Type:
+             {t('textEditor.engraveType')}:
             </span>
             <Space.Compact style={{ flex: 1 }} size="small">
               {renderEngraveTypeButton('vcut', 'V-Cut')}
@@ -940,7 +940,7 @@ const TextEditor = ({
                 width: '85px',
                 textAlign: 'right'
               }}>
-                V-Cut Color:
+                {t('textEditor.vcutColor')}:
               </span>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
@@ -1002,7 +1002,7 @@ const TextEditor = ({
                 </div>
                 {textProperties.vcutColor && !['#000000', '#FFFFFF', '#FFD700', '#FF0000'].includes(textProperties.vcutColor) && (
                   <div style={{ fontSize: '11px', color: '#666', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>当前:</span>
+                    <span>{t('textEditor.current')}:</span>
                     <div
                       style={{
                         width: '14px',

@@ -25,13 +25,6 @@ import { PrinterOutlined } from '@ant-design/icons'; // 确保引入了打印图
 
 const { Sider, Content, Footer } = Layout;
 
-const BACKGROUND_OPTIONS = [
-  { value: 'transparent', label: 'Transparent', url: null },
-  { value: 'spring', label: 'Spring', url: './backgrounds/Spring.jpg' },
-  { value: 'summer', label: 'Summer', url: './backgrounds/Summer.jpeg' },
-  { value: 'winter', label: 'Winter', url: './backgrounds/Winter.jpg' }
-];
-
 const MAX_RECENTLY_SAVED = 8;
 
 const DesignerPage = () => {
@@ -74,6 +67,13 @@ const DesignerPage = () => {
 
   // 新增 Print Modal 状态
   const [printModalVisible, setPrintModalVisible] = useState(false);
+
+  const BACKGROUND_OPTIONS = useMemo(() => [
+  { value: 'transparent', label: t('backgrounds.transparent'), url: null },
+  { value: 'spring', label: t('backgrounds.spring'), url: './backgrounds/Spring.jpg' },
+  { value: 'summer', label: t('backgrounds.summer'), url: './backgrounds/Summer.jpeg' },
+  { value: 'winter', label: t('backgrounds.winter'), url: './backgrounds/Winter.jpg' }
+], [t])
 
   // useDesignState 钩子
   const {
@@ -1180,13 +1180,13 @@ const DesignerPage = () => {
                 <Button type="primary" icon={<SaveOutlined />} size="small" onClick={handleSaveDesign}>{t('designer.save')}</Button>
 
                 {/* 2. 打印设计 (Print Design - 新增) */}
-                <Button type="default" icon={<PrinterOutlined />} size="small" onClick={handlePrintDesign}>Print Design</Button>
+                <Button type="default" icon={<PrinterOutlined />} size="small" onClick={handlePrintDesign}>{t('designer.printDesign')}</Button>
 
                 {/* 3. 生成订单 (Generate Order - 仅保存数据) */}
                 <Button type="primary" icon={<FileTextOutlined />} size="small" onClick={handleGenerateOrder}>{t('designer.generateOrder')}</Button>
 
                 {/* 4. 邮件/下载 (Email/Download - 新增) */}
-                <Button type="default" icon={<SaveOutlined />} size="small" onClick={handleEmailDownload}>Email/Download</Button>
+                <Button type="default" icon={<SaveOutlined />} size="small" onClick={handleEmailDownload}>{t('designer.emailDownload')}</Button>
               </Space.Compact>
             </div>
             <div className="scene-wrapper">
@@ -1324,7 +1324,7 @@ const DesignerPage = () => {
 
             {/* 3. 添加 Art Options 拖拽保存功能 (作为 Flex 的右侧部分) */}
             <div className="art-options-container">
-              <h4 className="recently-saved-title">Art Options</h4>
+              <h4 className="recently-saved-title">{t('designer.artOptions')}</h4>
               <div className="recent-designs-grid">
                 {/* 渲染Art Options方框 */}
                 {Array.from({ length: MAX_RECENTLY_SAVED }).map((_, i) => {
@@ -1445,7 +1445,7 @@ const DesignerPage = () => {
 
             {/* 4. 添加 Recently Saved (新功能) (作为 Flex 的右侧部分) */}
             <div className="recently-saved-container">
-              <h4 className="recently-saved-title">Recently Saved</h4>
+              <h4 className="recently-saved-title">{t('designer.recentlySaved')}</h4>
               <div className="recent-designs-grid">
                 {/* 渲染已保存的设计 */}
                 {recentlySaved.map(design => (

@@ -8,6 +8,8 @@ import {
   CloseOutlined,
 } from '@ant-design/icons';
 
+import { useTranslation } from 'react-i18next'
+
 const VaseEditorPanel = ({
   vase,
   onClose,
@@ -16,19 +18,20 @@ const VaseEditorPanel = ({
   onFlip,
 }) => {
   const { modal } = App.useApp();
+  const { t } = useTranslation()
   const nodeRef = useRef(null);
 
   if (!vase) return null;
 
   const handleConfirmDelete = () => {
     modal.confirm({
-      title: '确认删除花瓶?',
-      content: `您确定要删除花瓶: ${vase.name || vase.id} 吗？`,
-      okText: '删除',
-      cancelText: '取消',
+      title: t('vaseEditor.deleteConfirmTitle', 'Confirm delete vase?'),
+      content: t('vaseEditor.deleteConfirmContent', `Are you sure you want to delete vase: ${vase.name || vase.id}?`),
+      okText: t('common.delete'),
+      cancelText: t('common.cancel'),
       onOk: () => onDelete(vase.id, 'vase'),
-    });
-  };
+    })
+  }
 
   const handleDuplicate = () => {
     onDuplicate(vase.id, 'vase');
@@ -63,21 +66,21 @@ const VaseEditorPanel = ({
         }}
       >
         <Card
-          title="编辑花瓶"
+          title={t('vaseEditor.title')}
           extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} size="small" />}
           bodyStyle={{ padding: '12px' }}
         >
           <Space direction="vertical" style={{ width: '100%', gap: '8px' }}>
-            <Tooltip title="删除">
+            <Tooltip title={t('vaseEditor.delete')}>
               <Button icon={<DeleteOutlined />} onClick={handleConfirmDelete} danger block />
             </Tooltip>
-            <Tooltip title="复制">
+            <Tooltip title={t('vaseEditor.duplicate')}>
               <Button icon={<CopyOutlined />} onClick={handleDuplicate} block />
             </Tooltip>
-            <Tooltip title="左右翻转">
+            <Tooltip title={t('vaseEditor.mirror')}>
               <Button icon={<SwapOutlined />} onClick={handleMirror} block />
             </Tooltip>
-            <Tooltip title="上下翻转">
+            <Tooltip title={t('vaseEditor.flip')}>
               <Button icon={<SwapOutlined style={{ transform: 'rotate(90deg)' }} />} onClick={handleFlip} block />
             </Tooltip>
           </Space>

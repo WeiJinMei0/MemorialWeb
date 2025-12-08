@@ -19,8 +19,8 @@ const { Header } = Layout;
 
 const LANGUAGE_OPTIONS = [
   { code: 'en', name: 'English', nativeName: 'English' },
-  { code: 'zh', name: 'Chinese', nativeName: '中文' },
   { code: 'fr', name: 'French', nativeName: 'Français' },
+  { code: 'es', name: 'Spanish', nativeName: 'Español' },
 ];
 
 const MainLayout = () => {

@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
 import { CheckOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import './MaterialPanel.css'
 
 const MaterialPanel = ({ currentMaterial, onMaterialChange }) => {
   const [hoveredMaterial, setHoveredMaterial] = useState(null);
+  const { t } = useTranslation()
 
   // 根据你的文件夹截图更新的数据列表
   const materials = [
@@ -33,7 +35,7 @@ const MaterialPanel = ({ currentMaterial, onMaterialChange }) => {
             <div className="material-thumbnail-container">
               <div className="material-thumbnail">
                 <img
-                  alt={material.name}
+                  alt={t(`materials.${material.id}`)}
                   src={material.thumbnail}
                   onError={(e) => { e.target.src = '/images/placeholder.png' }} // 简单的错误处理
                 />
@@ -52,11 +54,11 @@ const MaterialPanel = ({ currentMaterial, onMaterialChange }) => {
                   <div className="preview-image">
                     <img
                       src={material.thumbnail}
-                      alt={material.name}
+                      alt={t(`materials.${material.id}`)}
                       onError={(e) => { e.target.src = '/images/placeholder.png' }}
                     />
                   </div>
-                  <div className="preview-name">{material.name}</div>
+                  <div className="preview-name">{t(`materials.${material.id}`)}</div>
                 </div>
               )}
             </div>

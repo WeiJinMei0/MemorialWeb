@@ -11,6 +11,7 @@ import {
   SaveOutlined,
   BgColorsOutlined
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next'
 import './DesignerPage.css';
 
 const { Text } = Typography;
@@ -70,15 +71,16 @@ const ArtEditorPanel = ({
   onSaveToArtOptions,
 }) => {
   const { modal } = App.useApp();
+  const { t } = useTranslation()
   const nodeRef = useRef(null);
 
   if (!art) return null;
 
   const modes = [
-    { key: 'translate', icon: <DragOutlined />, label: '移动', tooltip: '移动图案位置' },
-    { key: 'scale', icon: <ExpandOutlined />, label: '缩放', tooltip: '调整图案大小' },
-    { key: 'rotate', icon: <ReloadOutlined />, label: '旋转', tooltip: '旋转图案' },
-  ];
+    { key: 'translate', icon: <DragOutlined />, label: t('artEditor.move'), tooltip: t('artEditor.move') },
+    { key: 'scale', icon: <ExpandOutlined />, label: t('artEditor.scale'), tooltip: t('artEditor.scale') },
+    { key: 'rotate', icon: <ReloadOutlined />, label: t('artEditor.rotate'), tooltip: t('artEditor.rotate') },
+  ]
 
   const handleModeChange = (mode) => {
     setTransformMode(mode);
@@ -86,13 +88,13 @@ const ArtEditorPanel = ({
 
   const handleConfirmDelete = () => {
     modal.confirm({
-      title: '确认删除图案?',
-      content: `您确定要删除图案: ${art.name || art.id} 吗？`,
-      okText: '删除',
-      cancelText: '取消',
+      title: t('artEditor.deleteConfirmTitle', 'Confirm delete pattern?'),
+      content: t('artEditor.deleteConfirmContent', `Are you sure you want to delete pattern: ${art.name || art.id}?`),
+      okText: t('common.delete'),
+      cancelText: t('common.cancel'),
       onOk: () => onDelete(art.id, 'art'),
-    });
-  };
+    })
+  }
 
   const handleLineColor = (color) => {
     const hex = typeof color === 'string' ? color : color.toHexString();
@@ -143,7 +145,7 @@ const ArtEditorPanel = ({
         }}
       >
         <Card
-          title="编辑图案"
+          title={t('artEditor.title')}
           extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} size="small" />}
           bodyStyle={{ padding: '12px' }}
         >
@@ -151,7 +153,7 @@ const ArtEditorPanel = ({
 
             {/* --- 快捷操作 --- */}
             <div>
-              <Text strong>快捷操作</Text>
+              <Text strong>{t('artEditor.quickActions')}</Text>
               <Space style={{ width: '100%', marginTop: '8px', gap: '4px' }}>
                 {modes.map(mode => (
                   <Tooltip title={mode.tooltip} key={mode.key}>
@@ -163,26 +165,26 @@ const ArtEditorPanel = ({
                   </Tooltip>
                 ))}
                 <Divider type="vertical" style={{ height: '24px', margin: '0 4px' }} />
-                <Tooltip title="左右翻转">
+                <Tooltip title={t('artEditor.mirror')}>
                   <Button
                     icon={<SwapOutlined />}
                     onClick={() => onFlip(art.id, 'x', 'art')}
                   />
                 </Tooltip>
-                <Tooltip title="上下翻转">
+               <Tooltip title={t('artEditor.flip')}>
                   <Button
                     icon={<SwapOutlined style={{ transform: 'rotate(90deg)' }} />}
                     onClick={() => onFlip(art.id, 'y', 'art')}
                   />
                 </Tooltip>
-                <Tooltip title="保存到Art Options">
+                <Tooltip title={t('artEditor.saveToLibrary')}>
                   <Button
                     icon={<SaveOutlined />}
                     onClick={() => onSaveToArtOptions && onSaveToArtOptions(art)}
                     type="primary"
                   />
                 </Tooltip>
-                <Tooltip title="删除图案">
+                <Tooltip title={t('artEditor.delete')}>
                   <Button
                     icon={<DeleteOutlined />}
                     onClick={handleConfirmDelete}
@@ -196,24 +198,24 @@ const ArtEditorPanel = ({
 
             {/* --- 颜色编辑 --- */}
             <div>
-              <Text strong>颜色编辑</Text>
+              <Text strong>{t('artEditor.colorEditing')}</Text>
 
               {/* 填充颜色 */}
               <div style={{ marginTop: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <Text style={{ display: 'block', fontSize: '12px' }}>
-                    填充颜色 (点击图案区域)
+                   {t('artEditor.fillColor')}
                   </Text>
                   <Switch
-                    checkedChildren="启用"
-                    unCheckedChildren="禁用"
+                    checkedChildren={t('artEditor.enable')}
+                    unCheckedChildren={t('artEditor.disable')}
                     checked={isFillModeActive}
                     onChange={setIsFillModeActive}
                   />
                 </div>
                 <Space wrap style={{ width: '100%', gap: '4px' }}>
                   {/* 【修复 3】: 透明按钮发送标准的 rgba(0, 0, 0, 0) */}
-                  <Tooltip title="透明 (清除颜色)">
+                  <Tooltip title={t('artEditor.transparent')}>
                     <Button
                       onClick={() => setFillColor('rgba(0, 0, 0, 0)')} // 改为 RGBA 格式
                       disabled={!isFillModeActive}
@@ -240,7 +242,7 @@ const ArtEditorPanel = ({
                   />
 
                   {/* 【修复 4】: 确保 ColorPicker 支持透明度选择 */}
-                  <Tooltip title="自定义颜色">
+                  <Tooltip title={t('colors.custom')}>
                     <ColorPicker
                       value={currentFillColor}
                       onChange={handleFillColor}
@@ -257,15 +259,15 @@ const ArtEditorPanel = ({
                 </Space>
                 <Text style={{ fontSize: '11px', display: 'block', marginTop: '8px' }}>
                   {isFillModeActive
-                    ? "启用中：点击填充所有封闭区域，按住 Shift 点击填充单个封闭区域。"
-                    : "已禁用：点击图案将进行拖动或变换。"}
+                    ? t('artEditor.fillHintEnabled')
+                    : t('artEditor.fillHintDisabled')}
                 </Text>
               </div>
 
               {/* 线条颜色 (保持不变) */}
               <div style={{ marginTop: '12px' }}>
                 <Text style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>
-                  线条颜色
+                  {t('artEditor.lineColor')}
                 </Text>
                 <Space wrap style={{ width: '100%', gap: '4px' }}>
                   <ColorSwatches
@@ -273,7 +275,7 @@ const ArtEditorPanel = ({
                     onColorSelect={handleLineColor}
                     selectedColor={currentLineColor}
                   />
-                  <Tooltip title="自定义颜色">
+                  <Tooltip title={t('colors.custom')}>
                     <ColorPicker
                       value={currentLineColor}
                       onChange={handleLineColor}
@@ -291,7 +293,7 @@ const ArtEditorPanel = ({
               {/* 线条透明度 */}
               <div style={{ marginTop: '12px' }}>
                 <Text style={{ display: 'block', marginBottom: '4px', fontSize: '12px' }}>
-                  线条透明度: {Math.round(currentLineAlpha * 100)}%
+                  {t('artEditor.lineOpacity')}: {Math.round(currentLineAlpha * 100)}%
                 </Text>
                 <Slider
                   min={0}
