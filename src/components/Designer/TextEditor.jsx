@@ -469,7 +469,7 @@ const TextEditor = ({
   const inputRef = useRef(null);
 
   return (
-    <div className="text-editor-panel">
+    <div className="text-editor-panel" >
       <Card
         size="small"
         title={t('textEditor.title')}

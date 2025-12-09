@@ -178,21 +178,6 @@
   background: transparent;
 }
 
-/* 主工具栏定位 */
-.tool-panel {
-  position: absolute;
-  top: 80px;
-  right: 20px;
-  width: 380px;
-  max-height: calc(100% - 100px);
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  z-index: 100;
-  border: 1px solid #e8e8e8;
-}
-
 /* 【新增】图案编辑面板定位 */
 .art-editor-panel {
   position: absolute;
@@ -207,16 +192,18 @@
 }
 
 
-.tool-panel-arrow {
+/* 主工具栏定位 */
+.tool-panel {
   position: absolute;
-  left: -12px;
+  overflow-y: auto;
   top: 20px;
-  width: 0;
-  height: 0;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-right: 12px solid white;
-  filter: drop-shadow(-2px 0 2px rgba(0, 0, 0, 0.1));
+  right: 20px;
+  width: 350px;
+  max-height: 60vh;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 100 !important;
 }
 
 .custom-select-with-left-icon {
@@ -740,12 +727,6 @@
 
 .rotate-button:hover {
   background: #096dd9 !important;
-}
-
-.text-editor-panel {
-  padding: 8px;
-  max-height: 70vh;
-  overflow-y: auto;
 }
 
 /* 雕刻效果按钮样式 */

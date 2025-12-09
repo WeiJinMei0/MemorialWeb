@@ -139,7 +139,7 @@ const ArtEditorPanel = ({
         style={{
           width: 300,
           position: 'absolute',
-          zIndex: 1000,
+          zIndex: 100,
           top: '300px',
           right: '500px',
         }}
@@ -147,13 +147,13 @@ const ArtEditorPanel = ({
         <Card
           title={t('artEditor.title')}
           extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} size="small" />}
-          bodyStyle={{ padding: '12px' }}
+          bodyStyle={{ padding: '20px' }}
         >
-          <Space direction="vertical" style={{ width: '100%', gap: '12px' }}>
+          <Space direction="vertical" style={{ width: '100%', gap: '8px' }}>
 
             {/* --- 快捷操作 --- */}
             <div>
-              <Text strong>{t('artEditor.quickActions')}</Text>
+              <Text strong style={{ fontSize: '12px' }} >{t('artEditor.quickActions')}</Text>
               <Space style={{ width: '100%', marginTop: '8px', gap: '4px' }}>
                 {modes.map(mode => (
                   <Tooltip title={mode.tooltip} key={mode.key}>
@@ -198,7 +198,7 @@ const ArtEditorPanel = ({
 
             {/* --- 颜色编辑 --- */}
             <div>
-              <Text strong>{t('artEditor.colorEditing')}</Text>
+              <Text strong style={{ fontSize: '12px' }} >{t('artEditor.colorEditing')}</Text>
 
               {/* 填充颜色 */}
               <div style={{ marginTop: '8px' }}>
