@@ -1,9 +1,17 @@
+.text-editor-panel {
+  padding: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  position: relative; /* 添加相对定位 */
+  z-index: 100 !important; /* 提高 z-index，加 !important 确保优先级 */
+}
+
 .text-editor {
   height: 100%;
   display: flex;
   flex-direction: column;
   background: white;
-
   overflow-y: auto;
   min-height: 0;
 }
