@@ -248,7 +248,7 @@ const TextEditor = ({
 
   // 3D 预览组件 (保持不变)
   const FontPreviewTooltipContent = ({ font }) => {
-    const previewText = font.isChinese ? 'Sample Aa' : 'Aa';
+    const previewText = font.isChinese ? '示例Aa' : 'Aa';
     const fontPath = getFontPath ? getFontPath(font.name) : (font.path || '/fonts/helvetiker_regular.typeface.json');
     return (
       <div className="font-preview-tooltip">

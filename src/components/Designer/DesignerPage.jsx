@@ -328,8 +328,8 @@ const DesignerPage = () => {
         const targetMonumentId = designState.monuments.length > 0 ? designState.monuments[0].id : null;
         if (targetMonumentId) {
           const newTextId = addText({
-            content: '万事胜意', // 默认文案
-            font: '黑体',
+            content: 'Enter Text', // 默认文案
+            font: 'Cambria',
             size: 3,
             monumentId: targetMonumentId,
             alignment: 'center',

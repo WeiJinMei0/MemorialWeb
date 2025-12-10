@@ -852,7 +852,7 @@ const EnhancedTextElement = ({
             >
               {inputHasFocus ? (
                 <>
-                  <EditOutlined /> editing
+                  <EditOutlined /> Editing
                 </>
               ) : (
                 <>
