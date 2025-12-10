@@ -1,22 +1,22 @@
-// src/components/Designer/3d/InteractiveArtPlane.jsx
 import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, useLayoutEffect, useMemo } from 'react';
-import { TransformControls, Html } from '@react-three/drei';
+import { Html } from '@react-three/drei';
+import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { floodFill } from './utils'; // 确保 utils.js 已经更新
+import { floodFill } from './utils';
+import {
+  DeleteOutlined,
+  SwapOutlined,
+  ExpandOutlined,
+  ReloadOutlined,
+  DragOutlined,
+  CopyOutlined
+} from '@ant-design/icons';
 
-/**
- * 辅助函数：将颜色字符串解析为 [r, g, b, a] 数组 (0-255)
- * 解决了 THREE.Color 丢失 Alpha 通道的问题
- */
+// --- 辅助函数 ---
+
 const parseColorToRGBA = (colorStr) => {
-  if (!colorStr) return [66, 133, 244, 255]; // 默认蓝色
-
-  // 1. 显式处理透明关键字和全透明 RGBA
-  if (colorStr === 'transparent' || colorStr === 'rgba(0, 0, 0, 0)') {
-    return [0, 0, 0, 0];
-  }
-
-  // 2. 处理 rgba(r, g, b, a) 字符串
+  if (!colorStr) return [66, 133, 244, 255];
+  if (colorStr === 'transparent' || colorStr === 'rgba(0, 0, 0, 0)') return [0, 0, 0, 0];
   if (typeof colorStr === 'string' && colorStr.startsWith('rgba')) {
     const parts = colorStr.match(/(\d+(\.\d+)?)/g);
     if (parts && parts.length >= 4) {
@@ -24,163 +24,142 @@ const parseColorToRGBA = (colorStr) => {
         parseInt(parts[0], 10),
         parseInt(parts[1], 10),
         parseInt(parts[2], 10),
-        Math.round(parseFloat(parts[3]) * 255) // 将 0-1 的 alpha 转为 0-255
+        Math.round(parseFloat(parts[3]) * 255)
       ];
     }
   }
-
-  // 3. 回退：处理 hex 或 rgb (不带 alpha)，默认 alpha 为 255
   const c = new THREE.Color(colorStr);
   return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255), 255];
 };
 
-/**
- * 辅助函数：整体填充所有封闭区域
- */
 const globalFill = (context, canvas, originalData, rgbaColor) => {
   const width = canvas.width;
   const height = canvas.height;
   const currentImageData = context.getImageData(0, 0, width, height);
   const data = currentImageData.data;
   const oData = originalData.data;
-
-  // 标记数组：0 = 未访问/未知，1 = 已访问（外部或边界）
   const visited = new Uint8Array(width * height);
   const queue = [];
-
   const getIdx = (x, y) => y * width + x;
-
-  // 判断是否为线条像素
   const isLine = (x, y) => {
     const i = (y * width + x) * 4;
     return oData[i] < 100 && oData[i + 1] < 100 && oData[i + 2] < 100 && oData[i + 3] > 10;
   };
-
   const checkAndAdd = (x, y) => {
     if (x < 0 || x >= width || y < 0 || y >= height) return;
     const idx = getIdx(x, y);
     if (visited[idx] === 1) return;
-
     visited[idx] = 1;
-
-    if (!isLine(x, y)) {
-      queue.push({ x, y });
-    }
+    if (!isLine(x, y)) queue.push({ x, y });
   };
-
-  // 1. 初始化边界
-  for (let x = 0; x < width; x++) {
-    checkAndAdd(x, 0);
-    checkAndAdd(x, height - 1);
-  }
-  for (let y = 0; y < height; y++) {
-    checkAndAdd(0, y);
-    checkAndAdd(width - 1, y);
-  }
-
-  // 2. BFS 扩散
+  for (let x = 0; x < width; x++) { checkAndAdd(x, 0); checkAndAdd(x, height - 1); }
+  for (let y = 0; y < height; y++) { checkAndAdd(0, y); checkAndAdd(width - 1, y); }
   let head = 0;
   while (head < queue.length) {
     const { x, y } = queue[head++];
-    checkAndAdd(x + 1, y);
-    checkAndAdd(x - 1, y);
-    checkAndAdd(x, y + 1);
-    checkAndAdd(x, y - 1);
+    checkAndAdd(x + 1, y); checkAndAdd(x - 1, y); checkAndAdd(x, y + 1); checkAndAdd(x, y - 1);
   }
-
-  // 3. 遍历并填充内部区域
-  // 【关键修复】：应用 rgbaColor 的 alpha 通道
   const [r, g, b, a] = rgbaColor;
-
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = getIdx(x, y);
-      if (visited[idx] === 0) { // 内部区域
-        if (!isLine(x, y)) {
-          const i = idx * 4;
-          data[i] = r;
-          data[i + 1] = g;
-          data[i + 2] = b;
-          data[i + 3] = a; // <--- 之前这里是 255，现在改为变量 a
-        }
+      if (visited[idx] === 0 && !isLine(x, y)) {
+        const i = idx * 4;
+        data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = a;
       }
     }
   }
-
   context.putImageData(currentImageData, 0, 0);
 };
 
+// --- 主组件 ---
 
 const InteractiveArtPlane = forwardRef(({
   art,
   isSelected,
   onSelect,
   onTransformEnd,
-  transformMode,
   fillColor,
   isFillModeActive,
-  surfaceZ
+  surfaceZ,
+  onDelete,
+  onFlip,
+  onMirrorCopy
 }, ref) => {
+  const { camera, gl, raycaster } = useThree();
   const meshRef = useRef();
-  const controlRef = useRef();
   const [canvasTexture, setCanvasTexture] = useState(null);
   const [aspectRatio, setAspectRatio] = useState(null);
-  const lastScaleRef = useRef(null);
   const isInitialLoadRef = useRef(true);
   const [dimensionsLabel, setDimensionsLabel] = useState({ width: 0, height: 0 });
+  const [isHovered, setIsHovered] = useState(false);
 
-  const artCanvasRef = useRef({
-    canvas: null,
-    context: null,
-    originalData: null
+  // 交互状态Ref
+  const interactionRef = useRef({
+    mode: null, // 'move', 'scale', 'rotate'
+    startMouse: new THREE.Vector3(),
+    startPosition: new THREE.Vector3(),
+    startScale: new THREE.Vector3(),
+    startRotation: new THREE.Euler(),
+    planeZ: 0,
   });
 
+  const artCanvasRef = useRef({ canvas: null, context: null, originalData: null });
   const uniqueOffset = useMemo(() => Math.random() * 0.0009 + 0.0001, []);
   const manualOffset = 0.005;
 
+  // --- 辅助方法 ---
+  const getMouseOnPlane = (clientX, clientY, z) => {
+    const rect = gl.domElement.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera({ x, y }, camera);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -z);
+    const target = new THREE.Vector3();
+    raycaster.ray.intersectPlane(plane, target);
+    return target;
+  };
+
   useImperativeHandle(ref, () => ({
-    getCanvasDataURL: () => {
-      const { canvas } = artCanvasRef.current;
-      if (canvas) {
-        return canvas.toDataURL('image/png');
-      }
-      return null;
+    getCanvasDataURL: () => artCanvasRef.current?.canvas?.toDataURL('image/png')
+  }), []);
+
+  // 光标样式
+  useEffect(() => {
+    if (isSelected && isHovered && !isFillModeActive) {
+      document.body.style.cursor = 'move';
+    } else if (isHovered && isFillModeActive) {
+      document.body.style.cursor = 'crosshair';
+    } else {
+      document.body.style.cursor = 'auto';
     }
-  }), [artCanvasRef.current?.canvas]);
+    return () => { document.body.style.cursor = 'auto'; };
+  }, [isHovered, isSelected, isFillModeActive]);
 
+  // 加载图片
   useEffect(() => {
     isInitialLoadRef.current = true;
-    setAspectRatio(null);
-  }, [art.id, art.imagePath]);
-
-  // 加载图片逻辑
-  useEffect(() => {
-    isInitialLoadRef.current = true;
-
     if (art.modifiedImageData) {
       const img = new Image();
       img.src = art.modifiedImageData;
       img.onload = () => {
         if (!img || img.naturalHeight === 0) return;
-        const aspect = img.naturalWidth / img.naturalHeight;
-        setAspectRatio(aspect);
+        setAspectRatio(img.naturalWidth / img.naturalHeight);
         const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d', { willReadFrequently: true });
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
-        context.drawImage(img, 0, 0);
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0);
 
         const loader = new THREE.TextureLoader();
-        loader.load(art.imagePath, (originalTexture) => {
-          const originalImg = originalTexture.image;
-          const originalCanvas = document.createElement('canvas');
-          const originalContext = originalCanvas.getContext('2d', { willReadFrequently: true });
-          originalCanvas.width = originalImg.naturalWidth;
-          originalCanvas.height = originalImg.naturalHeight;
-          originalContext.drawImage(originalImg, 0, 0);
-          const originalData = originalContext.getImageData(0, 0, originalCanvas.width, originalCanvas.height);
-
-          artCanvasRef.current = { canvas, context, originalData };
+        loader.load(art.imagePath, (tex) => {
+          const oCanvas = document.createElement('canvas');
+          oCanvas.width = tex.image.naturalWidth;
+          oCanvas.height = tex.image.naturalHeight;
+          const oCtx = oCanvas.getContext('2d', { willReadFrequently: true });
+          oCtx.drawImage(tex.image, 0, 0);
+          artCanvasRef.current = { canvas, context: ctx, originalData: oCtx.getImageData(0, 0, oCanvas.width, oCanvas.height) };
           const texture = new THREE.CanvasTexture(canvas);
           texture.colorSpace = THREE.SRGBColorSpace;
           setCanvasTexture(texture);
@@ -188,273 +167,238 @@ const InteractiveArtPlane = forwardRef(({
       };
       return;
     }
+    if (!art.imagePath) { setCanvasTexture(null); return; }
 
-    if (!art.imagePath) {
-      setCanvasTexture(null);
-      artCanvasRef.current = { canvas: null, context: null, originalData: null };
-      return;
-    }
-    const loader = new THREE.TextureLoader();
-    loader.load(art.imagePath, (loadedTexture) => {
-      const img = loadedTexture.image;
-      if (!img || img.naturalHeight === 0) return;
-
-      const aspect = img.naturalWidth / img.naturalHeight;
-      setAspectRatio(aspect);
-
+    new THREE.TextureLoader().load(art.imagePath, (tex) => {
+      const img = tex.image;
+      setAspectRatio(img.naturalWidth / img.naturalHeight);
       const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d', { willReadFrequently: true });
       canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
-      context.drawImage(img, 0, 0);
-      const originalData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+      artCanvasRef.current = { canvas, context: ctx, originalData: ctx.getImageData(0, 0, canvas.width, canvas.height) };
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
-      artCanvasRef.current = { canvas, context, originalData };
       setCanvasTexture(texture);
-    }, undefined, (error) => {
-      console.error('Failed to load art texture:', art.imagePath, error);
-      setCanvasTexture(null);
     });
-    return () => {
-      setCanvasTexture((currentTexture) => {
-        currentTexture?.dispose();
-        return null;
-      });
-      artCanvasRef.current = { canvas: null, context: null, originalData: null };
-    };
   }, [art.imagePath, art.modifiedImageData]);
 
-  // 线稿再着色逻辑
+  // 线稿着色
   useEffect(() => {
     const { lineColor, lineAlpha } = art.properties || {};
-    const safeLineAlpha = lineAlpha ?? 1.0;
     const { context, originalData, canvas } = artCanvasRef.current;
     if (!context || !originalData || !canvasTexture) return;
 
-    const currentImageData = context.getImageData(0, 0, canvas.width, canvas.height);
-    const newImageData = new ImageData(canvas.width, canvas.height);
-    const newData = newImageData.data;
-    const oldData = originalData.data;
-    const currentData = currentImageData.data;
+    const w = canvas.width, h = canvas.height;
+    const newData = new ImageData(w, h);
+    const d = newData.data;
+    const o = originalData.data;
+    const c = context.getImageData(0, 0, w, h).data;
+    let rgb = null;
+    if (lineColor) rgb = new THREE.Color(lineColor).toArray().map(v => Math.round(v * 255));
 
-    let rgbColor = null;
-    if (lineColor) {
-      rgbColor = new THREE.Color(lineColor).toArray().map(c => Math.round(c * 255));
-    }
-
-    for (let i = 0; i < oldData.length; i += 4) {
-      const isLine = oldData[i] < 100 &&
-        oldData[i + 1] < 100 &&
-        oldData[i + 2] < 100
-        && oldData[i + 3] > 10;
-      if (isLine) {
-        if (rgbColor) {
-          newData[i] = rgbColor[0];
-          newData[i + 1] = rgbColor[1];
-          newData[i + 2] = rgbColor[2];
-        } else {
-          newData[i] = oldData[i];
-          newData[i + 1] = oldData[i + 1];
-          newData[i + 2] = oldData[i + 2];
-        }
-        newData[i + 3] = oldData[i + 3] * safeLineAlpha;
+    for (let i = 0; i < o.length; i += 4) {
+      if (o[i] < 100 && o[i + 1] < 100 && o[i + 2] < 100 && o[i + 3] > 10) {
+        if (rgb) { d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2]; }
+        else { d[i] = o[i]; d[i + 1] = o[i + 1]; d[i + 2] = o[i + 2]; }
+        d[i + 3] = o[i + 3] * (lineAlpha ?? 1.0);
       } else {
-        newData[i] = currentData[i];
-        newData[i + 1] = currentData[i + 1];
-        newData[i + 2] = currentData[i + 2];
-        newData[i + 3] = currentData[i + 3];
+        d[i] = c[i]; d[i + 1] = c[i + 1]; d[i + 2] = c[i + 2]; d[i + 3] = c[i + 3];
       }
     }
-    context.putImageData(newImageData, 0, 0);
+    context.putImageData(newData, 0, 0);
     canvasTexture.needsUpdate = true;
-  }, [
-    art.properties?.lineColor,
-    art.properties?.lineAlpha,
-    canvasTexture
-  ]);
+  }, [art.properties?.lineColor, art.properties?.lineAlpha, canvasTexture]);
 
-  // Transform 更新逻辑 (位置/缩放)
+  // 初始化 Transform
   useLayoutEffect(() => {
     if (meshRef.current) {
-      const position = art.position || [0, 0, 0];
-      const rotation = art.rotation || [0, 0, 0];
-
-      const baseZ = (surfaceZ !== undefined && surfaceZ !== null) ? surfaceZ : position[2];
+      const pos = art.position || [0, 0, 0];
+      const rot = art.rotation || [0, 0, 0];
+      const baseZ = (surfaceZ !== undefined && surfaceZ !== null) ? surfaceZ : pos[2];
       const targetZ = baseZ - uniqueOffset + manualOffset;
 
-      meshRef.current.position.set(position[0], position[1], targetZ);
-      meshRef.current.rotation.set(rotation[0], rotation[1], rotation[2]);
+      meshRef.current.position.set(pos[0], pos[1], targetZ);
+      meshRef.current.rotation.set(rot[0], rot[1], rot[2]);
 
       if (isInitialLoadRef.current && aspectRatio) {
         isInitialLoadRef.current = false;
-
         const baseSize = 0.2;
-        const newScaleX = baseSize;
-        const newScaleY = baseSize / aspectRatio;
-        const currentScaleX = art.scale ? art.scale[0] : 0.2;
-        const signX = Math.sign(currentScaleX);
+        const scaleX = art.scale ? art.scale[0] : (baseSize * Math.sign(art.scale?.[0] || 1));
+        const scaleY = Math.abs(scaleX) / aspectRatio * Math.sign(art.scale?.[1] || 1);
 
-        meshRef.current.scale.set(newScaleX * signX, newScaleY * signX, 1);
-
+        meshRef.current.scale.set(scaleX, scaleY, 1);
         onTransformEnd(art.id, {
-          position: [position[0], position[1], targetZ],
-          scale: meshRef.current.scale.toArray(),
-          rotation: meshRef.current.rotation.toArray().slice(0, 3)
+          position: [pos[0], pos[1], targetZ],
+          scale: [scaleX, scaleY, 1],
+          rotation: rot
         }, { replaceHistory: true });
-
-      } else if (!isInitialLoadRef.current) {
-        if (art.scale) {
-          meshRef.current.scale.set(art.scale[0], art.scale[1], art.scale[2] || 1);
-        }
+      } else if (!isInitialLoadRef.current && art.scale) {
+        meshRef.current.scale.set(art.scale[0], art.scale[1], art.scale[2] || 1);
       }
 
-      if (meshRef.current) {
-        const toInches = 39.37;
-        const w = Math.abs(meshRef.current.scale.x) * toInches;
-        const h = Math.abs(meshRef.current.scale.y) * toInches;
-        setDimensionsLabel({ width: w, height: h });
-      }
+      const toInches = 39.37;
+      setDimensionsLabel({
+        width: Math.abs(meshRef.current.scale.x) * toInches,
+        height: Math.abs(meshRef.current.scale.y) * toInches
+      });
     }
-  }, [art.id, art.position, art.scale, art.rotation, aspectRatio, onTransformEnd, surfaceZ, uniqueOffset, manualOffset]);
+  }, [art.id, art.position, art.scale, art.rotation, aspectRatio, surfaceZ]);
 
-  // Z轴智能贴合
-  useEffect(() => {
-    if (surfaceZ !== null && surfaceZ !== undefined) {
-      const currentZ = art.position ? art.position[2] : 0;
-      const targetZ = surfaceZ - uniqueOffset + manualOffset;
+  // --- 交互逻辑 ---
 
-      if (Math.abs(currentZ - targetZ) > 0.002) {
-        const newPos = [
-          art.position ? art.position[0] : 0,
-          art.position ? art.position[1] : 0,
-          targetZ
-        ];
-        if (meshRef.current) {
-          meshRef.current.position.z = targetZ;
-        }
-        onTransformEnd(art.id, { position: newPos });
-      }
+  const startInteraction = (e, mode) => {
+    if (!isSelected || !meshRef.current || isFillModeActive) return;
+    if (e.button !== 0) return;
+
+    e.stopPropagation();
+
+    const mesh = meshRef.current;
+    const worldZ = mesh.position.z;
+    const mouseWorld = getMouseOnPlane(e.clientX, e.clientY, worldZ);
+    if (!mouseWorld) return;
+
+    interactionRef.current = {
+      mode,
+      startMouse: mouseWorld,
+      startPosition: mesh.position.clone(),
+      startScale: mesh.scale.clone(),
+      startRotation: mesh.rotation.clone(),
+      planeZ: worldZ
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  };
+
+  const handlePointerMove = (e) => {
+    const { mode, startMouse, startPosition, startScale, startRotation, planeZ } = interactionRef.current;
+    if (!mode || !meshRef.current) return;
+
+    const currentMouse = getMouseOnPlane(e.clientX, e.clientY, planeZ);
+    if (!currentMouse) return;
+
+    const mesh = meshRef.current;
+
+    if (mode === 'move') {
+      const delta = currentMouse.clone().sub(startMouse);
+      mesh.position.copy(startPosition.clone().add(delta));
     }
-  }, [surfaceZ, art.position, art.id, onTransformEnd, uniqueOffset, manualOffset]);
+    else if (mode === 'scale') {
+      const center = startPosition;
+      const startDist = center.distanceTo(startMouse);
+      const currDist = center.distanceTo(currentMouse);
 
-  // Transform controls setup
-  useEffect(() => {
-    if (controlRef.current) {
-      controlRef.current.mode = transformMode;
-      controlRef.current.enabled = isSelected && !isFillModeActive;
-      if (transformMode === 'rotate') {
-        controlRef.current.showX = false;
-        controlRef.current.showY = false;
-        controlRef.current.showZ = true;
-      } else if (transformMode === 'scale') {
-        controlRef.current.showX = true;
-        controlRef.current.showY = true;
-        controlRef.current.showZ = false;
-      } else if (transformMode === 'translate') {
-        controlRef.current.showX = true;
-        controlRef.current.showY = true;
-        controlRef.current.showZ = false;
+      if (startDist > 0.0001) {
+        const factor = currDist / startDist;
+        mesh.scale.set(
+          startScale.x * factor,
+          startScale.y * factor,
+          startScale.z
+        );
       }
+      const toInches = 39.37;
+      setDimensionsLabel({
+        width: Math.abs(mesh.scale.x) * toInches,
+        height: Math.abs(mesh.scale.y) * toInches
+      });
     }
-  }, [isSelected, transformMode, isFillModeActive]);
+    else if (mode === 'rotate') {
+      const center = startPosition;
+      const startAngle = Math.atan2(startMouse.y - center.y, startMouse.x - center.x);
+      const currAngle = Math.atan2(currentMouse.y - center.y, currentMouse.x - center.x);
+      const deltaAngle = currAngle - startAngle;
 
-  const onTransformEndHandler = () => {
-    lastScaleRef.current = null;
-    if (meshRef.current) {
-      const newTransform = {
+      mesh.rotation.set(
+        startRotation.x,
+        startRotation.y,
+        startRotation.z + deltaAngle
+      );
+    }
+  };
+
+  const handlePointerUp = () => {
+    window.removeEventListener('pointermove', handlePointerMove);
+    window.removeEventListener('pointerup', handlePointerUp);
+
+    if (interactionRef.current.mode && meshRef.current) {
+      onTransformEnd(art.id, {
         position: meshRef.current.position.toArray(),
         scale: meshRef.current.scale.toArray(),
         rotation: meshRef.current.rotation.toArray().slice(0, 3)
-      };
-      onTransformEnd(art.id, newTransform);
+      });
     }
-  };
-  const onTransformStartHandler = () => {
-    if (meshRef.current) {
-      lastScaleRef.current = [...meshRef.current.scale.toArray()];
-    }
-  };
-  const onTransformChangeHandler = () => {
-    if (meshRef.current) {
-      if (controlRef.current.mode === 'scale') {
-        const scale = meshRef.current.scale;
-        const lastScale = lastScaleRef.current;
-        if (!lastScale) {
-          lastScaleRef.current = [...scale.toArray()];
-        } else {
-          scale.z = lastScale[2] || 1;
-        }
-      }
-      const toInches = 39.37;
-      const w = Math.abs(meshRef.current.scale.x) * toInches;
-      const h = Math.abs(meshRef.current.scale.y) * toInches;
-      setDimensionsLabel({ width: w, height: h });
-    }
+    interactionRef.current.mode = null;
   };
 
-  const showHelpers = isSelected && !isFillModeActive;
+  // --- 按钮处理 ---
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    if (onDelete) onDelete(art.id, 'art');
+  };
+
+  const handleMirror = (e) => {
+    e.stopPropagation();
+    if (onFlip) onFlip(art.id, 'x', 'art');
+  };
+
+  // 处理镜像复制
+  const handleMirrorCopy = (e) => {
+    e.stopPropagation();
+    if (onMirrorCopy) onMirrorCopy(art.id, 'art');
+  };
+
+  // 样式
+  const btnStyle = {
+    background: 'white',
+    color: '#333',
+    borderRadius: '50%',
+    cursor: 'pointer',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '24px',
+    height: '24px',
+    fontSize: '12px',
+    pointerEvents: 'auto',
+    transition: 'all 0.1s',
+    border: '1px solid #e0e0e0'
+  };
+
+  // 计算当前的缩放符号，用于反向调整 HUD 位置
+  const sx = Math.sign(art.scale?.[0] || 1);
+  const sy = Math.sign(art.scale?.[1] || 1);
 
   return (
     <group ref={ref}>
-      {showHelpers && (
-        <>
-          <TransformControls
-            ref={controlRef}
-            object={meshRef}
-            onMouseDown={onTransformStartHandler}
-            onMouseUp={onTransformEndHandler}
-            onChange={onTransformChangeHandler}
-            mode={transformMode}
-          />
-        </>
-      )}
       <mesh
         ref={meshRef}
+        userData={{ isArtPlane: true, id: art.id }}
+        onPointerOver={(e) => { e.stopPropagation(); setIsHovered(true); }}
+        onPointerOut={(e) => { e.stopPropagation(); setIsHovered(false); }}
         onPointerDown={(e) => {
-          e.stopPropagation();
-          if (isSelected && isFillModeActive) {
+          if (isFillModeActive) {
+            e.stopPropagation();
             const { canvas, context, originalData } = artCanvasRef.current;
             if (canvas && context && originalData && canvasTexture) {
-
-              // 【关键修复】：使用自定义解析器获取 [r, g, b, a]
               const rgbaColor = parseColorToRGBA(fillColor || '#4285F4');
-
-              if (e.shiftKey) {
-                if (e.uv) {
-                  const pixelX = Math.floor(e.uv.x * canvas.width);
-                  const pixelY = Math.floor((1 - e.uv.y) * canvas.height);
-
-                  // 传递带有 alpha 的颜色数组给 floodFill
-                  floodFill(
-                    context,
-                    canvas,
-                    originalData,
-                    canvasTexture,
-                    pixelX,
-                    pixelY,
-                    rgbaColor
-                  );
-                }
+              if (e.shiftKey && e.uv) {
+                floodFill(context, canvas, originalData, canvasTexture, Math.floor(e.uv.x * canvas.width), Math.floor((1 - e.uv.y) * canvas.height), rgbaColor);
               } else {
-                // 传递带有 alpha 的颜色数组给 globalFill
-                globalFill(
-                  context,
-                  canvas,
-                  originalData,
-                  rgbaColor
-                );
+                globalFill(context, canvas, originalData, rgbaColor);
               }
-
-              const newDataUrl = canvas.toDataURL('image/png');
-              onTransformEnd(art.id, { modifiedImageData: newDataUrl });
+              onTransformEnd(art.id, { modifiedImageData: canvas.toDataURL('image/png') });
               canvasTexture.needsUpdate = true;
             }
-            return;
-          }
-          if (!isSelected) {
-            onSelect(art.id);
-            return;
+          } else {
+            if (!isSelected) {
+              e.stopPropagation();
+              onSelect(art.id);
+            } else {
+              startInteraction(e.nativeEvent, 'move');
+            }
           }
         }}
       >
@@ -464,33 +408,95 @@ const InteractiveArtPlane = forwardRef(({
           transparent={true}
           opacity={canvasTexture ? 1.0 : 0.8}
           side={THREE.DoubleSide}
-          polygonOffset={true}
-          polygonOffsetFactor={-1}
-          polygonOffsetUnits={-1}
-          depthTest={true}
-          depthWrite={false}
+          polygonOffset={true} polygonOffsetFactor={-1} polygonOffsetUnits={-1}
+          depthTest={true} depthWrite={false}
         />
 
-        {showHelpers && (
+        {isSelected && !isFillModeActive && (
           <>
-            <Html position={[0.6, 0.6, 0]} center style={{ pointerEvents: 'none' }}>
-              <div style={{
-                background: 'rgba(0, 0, 0, 0.75)',
-                color: 'white',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                whiteSpace: 'nowrap',
-                fontFamily: 'Arial, sans-serif'
-              }}>
-                {dimensionsLabel.width.toFixed(2)}" x {dimensionsLabel.height.toFixed(2)}"
-              </div>
-            </Html>
-
             <lineSegments>
               <edgesGeometry args={[new THREE.PlaneGeometry(1, 1)]} />
               <lineBasicMaterial color="#1890ff" linewidth={2} />
             </lineSegments>
+
+            <Html position={[0, 0.6 * sy, 0]} center style={{ pointerEvents: 'none' }}>
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.6)',
+                color: 'white',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                whiteSpace: 'nowrap',
+                fontFamily: 'Arial',
+                pointerEvents: 'none',
+                userSelect: 'none'
+              }}>
+                {dimensionsLabel.width.toFixed(1)}" x {dimensionsLabel.height.toFixed(1)}"
+              </div>
+            </Html>
+
+            {/* 左上: 镜像 (贴合边框: 移除 transform 偏移) */}
+            <Html position={[-0.5 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]}>
+              <div style={btnStyle} onClick={handleMirror} title="镜像">
+                <SwapOutlined />
+              </div>
+            </Html>
+
+            {/* 左中: 镜像复制 (贴合边框: 移除 transform 偏移) */}
+            <Html position={[-0.5 * sx, 0, 0]} zIndexRange={[100, 0]}>
+              <div style={btnStyle} onClick={handleMirrorCopy} title="镜像复制">
+                <CopyOutlined />
+              </div>
+            </Html>
+
+            {/* 右上: 删除 (贴合边框: 移除 transform 偏移) */}
+            <Html position={[0.5 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]}>
+              <div style={{ ...btnStyle, color: '#ff4d4f' }} onClick={handleDelete} title="删除">
+                <DeleteOutlined />
+              </div>
+            </Html>
+
+            {/* 左下: 旋转 (贴合边框: 移除 transform 偏移) */}
+            <Html position={[-0.5 * sx, -0.5 * sy, 0]} zIndexRange={[100, 0]}>
+              <div
+                style={{ ...btnStyle, cursor: 'alias' }}
+                onPointerDown={(e) => startInteraction(e.nativeEvent, 'rotate')}
+                title="旋转"
+              >
+                <ReloadOutlined />
+              </div>
+            </Html>
+
+            {/* 右下: 缩放 (贴合边框: 移除 transform 偏移) */}
+            <Html position={[0.5 * sx, -0.5 * sy, 0]} zIndexRange={[100, 0]}>
+              <div
+                style={{ ...btnStyle, cursor: 'nwse-resize' }}
+                onPointerDown={(e) => startInteraction(e.nativeEvent, 'scale')}
+                title="缩放"
+              >
+                <ExpandOutlined />
+              </div>
+            </Html>
+
+            {/* 中上: 移动 (贴合边框: 移除 transform 偏移) */}
+            <Html position={[0, 0.5 * sy, 0]} zIndexRange={[100, 0]}>
+              <div
+                style={{
+                  ...btnStyle,
+                  cursor: 'move',
+                  width: '24px',
+                  height: '24px',
+                  background: '#f0f5ff',
+                  border: '1px solid #adc6ff',
+                  color: '#1890ff'
+                }}
+                onPointerDown={(e) => startInteraction(e.nativeEvent, 'move')}
+                title="移动"
+              >
+                <DragOutlined style={{ fontSize: '12px' }} />
+              </div>
+            </Html>
+
           </>
         )}
       </mesh>

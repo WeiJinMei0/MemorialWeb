@@ -1,4 +1,3 @@
-// src/components/Designer/3d/MonumentScene.jsx
 import React, { forwardRef, useRef, useMemo, useEffect, useCallback, useImperativeHandle, useState, useLayoutEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -11,22 +10,12 @@ import EnhancedTextElement from './EnhancedTextElement.jsx';
 
 /**
  * 碑体辅助网格组件
- * 显示在碑体表面，用于对齐和定位
  */
 const MonumentGrid = ({ width, height, position }) => {
   if (!width || !height) return null;
-
-  // 1 英寸 = 0.0254 米
   const INCH_IN_METERS = 0.0254;
-
-  // 确保网格足够大以覆盖长宽中较大的一边
   const size = Math.max(width, height) * 3;
-
-  // 计算细分数，使得每个格子大约是 1 英寸
-  // 向上取整以确保格子不会比 1 英寸大
   const divisions = Math.ceil(size / INCH_IN_METERS);
-
-  // 重新计算实际覆盖的大小，使其是 inch 的整数倍，保证对齐
   const actualSize = divisions * INCH_IN_METERS;
 
   return (
@@ -40,8 +29,7 @@ const MonumentGrid = ({ width, height, position }) => {
 };
 
 /**
- * MonumentScene 是 3D 画布的聚合层：负责布置模型、文字、花瓶与艺术画板，
- * 同时提供截图、拖拽、填色等交互入口。
+ * MonumentScene 是 3D 画布的聚合层
  */
 const MonumentScene = forwardRef(({
   designState,
@@ -71,16 +59,40 @@ const MonumentScene = forwardRef(({
   onUpdateVaseElementState,
   onSceneDrop
 }, ref) => {
-  const { gl, scene } = useThree();
+  const { gl, scene, camera, raycaster, pointer } = useThree();
   const sceneRef = useRef();
   const modelRefs = useRef({});
   const artPlaneRefs = useRef({});
   const vaseRefs = useRef({});
 
-  // 点击空白处时清空所有选中状态，避免残留 gizmo
-  const handleSceneClick = (e) => {
-    // 使用 nativeEvent 获取原生 DOM 事件
-    if (e.Event?.target?.tagName === 'CANVAS' && !isFillModeActive) {
+  // 点击空白退出 (修正后的逻辑)
+  useEffect(() => {
+    const handleGlobalClick = (event) => {
+      // 1. 基础检查：必须点击的是 canvas 且非填充模式
+      if (event.target !== gl.domElement || isFillModeActive) {
+        return;
+      }
+
+      // 2. 使用射线检测判断是否击中了场景中的物体
+      raycaster.setFromCamera(pointer, camera);
+
+      // 检测与场景中所有物体的交点
+      const intersects = raycaster.intersectObjects(scene.children, true);
+
+      // 3. 查找第一个击中的可见 Mesh
+      const hit = intersects.find(i => i.object.isMesh && i.object.visible);
+
+      if (hit) {
+        // 【关键修复】
+        // 只要击中的物体是“图案平面”（无论是否是当前选中的那个），都视为有效交互。
+        // 这避免了点击新图案时，因 React 状态尚未更新导致 ID 不匹配而触发的误取消。
+        // 具体的选中切换逻辑由 InteractiveArtPlane 内部的 onPointerDown 负责。
+        if (hit.object.userData?.isArtPlane) {
+          return;
+        }
+      }
+
+      // 4. 如果击中了其他物体（如墓碑底座）或者什么都没击中，才执行取消选中
       onArtElementSelect(null);
       if (isTextEditing && onTextSelect) {
         onTextSelect(null);
@@ -88,8 +100,15 @@ const MonumentScene = forwardRef(({
       if (onVaseSelect) {
         onVaseSelect(null);
       }
-    }
-  };
+    };
+
+    const canvasDom = gl.domElement;
+    canvasDom.addEventListener('click', handleGlobalClick);
+
+    return () => {
+      canvasDom.removeEventListener('click', handleGlobalClick);
+    };
+  }, [gl.domElement, isFillModeActive, onArtElementSelect, isTextEditing, onTextSelect, onVaseSelect, camera, raycaster, scene, pointer]);
 
   // 支持从外部拖入保存的艺术元素 JSON
   const handleSceneDrop = useCallback((e) => {
@@ -108,7 +127,6 @@ const MonumentScene = forwardRef(({
     onArtElementSelect(artId);
   }, [onArtElementSelect]);
 
-  // vase 选中后需要同步面板状态，便于编辑参数
   const handleSelectVase = useCallback((vaseId) => {
     if (onVaseSelect) {
       onVaseSelect(vaseId);
@@ -118,7 +136,7 @@ const MonumentScene = forwardRef(({
     }
   }, [onVaseSelect, onUpdateVaseElementState]);
 
-  // 背景图（HDRI）异步加载，失败则回退成纯色
+  // 背景图（HDRI）异步加载
   useEffect(() => {
     if (background) {
       const textureLoader = new THREE.TextureLoader();
@@ -134,7 +152,6 @@ const MonumentScene = forwardRef(({
     }
   }, [background, scene]);
 
-  // 向外暴露截图 & 画布数据导出的能力
   useImperativeHandle(ref, () => ({
     captureThumbnail: () => {
       return new Promise((resolve) => {
@@ -167,7 +184,6 @@ const MonumentScene = forwardRef(({
     }
   }));
 
-  // 通过遍历 designState 动态计算每个模型的世界坐标
   const positions = useMemo(() => {
     const positions = {};
 
@@ -204,7 +220,6 @@ const MonumentScene = forwardRef(({
     let currentX_base = -0.381;
     let currentX_Tablet = -0.304;
 
-    // 逐段累加子底座 X/Y，保持等间距
     if (designState.subBases.length > 0) {
       const totalSubBaseLength = designState.subBases.reduce((sum, subBase) => sum + getModelLength(subBase.id), 0) + (designState.subBases.length - 1) * 0.2;
       if (totalSubBaseLength > 0) currentX_subBase = -totalSubBaseLength / 2;
@@ -221,7 +236,6 @@ const MonumentScene = forwardRef(({
       });
     }
 
-    // 底座：以长度最大的一块居中，其余垂直堆叠
     if (designState.bases.length > 0) {
       if (designState.subBases.length === 0) {
         currentY_base = -0.5;
@@ -248,7 +262,6 @@ const MonumentScene = forwardRef(({
       });
     }
 
-    // 碑身：如果只有碑身，也要确保初始高度正确
     if (designState.monuments.length > 0) {
       if (designState.subBases.length === 0 && designState.bases.length === 0) {
         currentY_Tablet = -0.5;
@@ -273,8 +286,6 @@ const MonumentScene = forwardRef(({
     }
   };
 
-  // --- 智能贴合核心逻辑 ---
-  // 使用 BoundingBox 直接测量真实的前表面位置，避免因模型原点偏差导致的计算错误。
   const [autoSurfaceZ, setAutoSurfaceZ] = useState(null);
   const mainMonument = designState.monuments[0];
 
@@ -286,27 +297,19 @@ const MonumentScene = forwardRef(({
     const mesh = modelRef.getMesh();
     if (!mesh) return;
 
-    // 确保矩阵是最新的 (特别是缩放后)
     mesh.updateWorldMatrix(true, true);
     const box = new THREE.Box3().setFromObject(mesh);
-
-    // 相机在 z = -3，看向原点。物体在 z ~ -0.1。
-    // 离相机最近的面是 Z 值最小的面 (min.z)。
-    // 我们给一个微小的负偏移 (-0.005) 让图案浮在表面之前。
-    // 使用 BBox min.z 可以保证无论模型原点在哪里，我们都能找到物理上的前表面。
     const newZ = box.min.z - 0.005;
 
-    // 只有当变化显著时才更新状态，避免微小浮动导致循环渲染
     if (autoSurfaceZ === null || Math.abs(newZ - autoSurfaceZ) > 0.001) {
       setAutoSurfaceZ(newZ);
     }
-  }, [mainMonument, designState.monuments, autoSurfaceZ]); // 依赖 monuments 变化 (包含 dimensions)
+  }, [mainMonument, designState.monuments, autoSurfaceZ]);
 
-  // 检查是否显示网格：只要有选中的图案或文字，且主碑体存在，且不处于填充模式
   const showGrid = (selectedElementId !== null || currentTextId !== null) && mainMonument && autoSurfaceZ !== null && !isFillModeActive;
 
   return (
-    <group ref={sceneRef} onClick={handleSceneClick}>
+    <group ref={sceneRef}>
 
       <OrbitControls
         enabled={selectedElementId === null && currentTextId === null && selectedVaseId === null && !isFillModeActive}
@@ -351,7 +354,6 @@ const MonumentScene = forwardRef(({
         />
       ))}
 
-      {/* --- 3. 墓碑循环 (这里不再嵌套文字) --- */}
       {designState.monuments.map(monument => (
         <Model
           key={monument.id}
@@ -368,15 +370,10 @@ const MonumentScene = forwardRef(({
         />
       ))}
 
-      {/* --- 4. 文字独立循环 (类比花瓶) --- */}
       {designState.textElements.map(text => {
-        // 手动查找该文字所属的墓碑
         const targetMonument = designState.monuments.find(m => m.id === text.monumentId);
-
-        // 如果找不到对应墓碑(可能被删了)，不渲染
         if (!targetMonument) return null;
 
-        // 只有主碑体才传递自动计算的 surfaceZ
         const isMainMonument = designState.monuments.length > 0 && targetMonument.id === designState.monuments[0].id;
         const effectiveSurfaceZ = isMainMonument ? autoSurfaceZ : null;
 
@@ -384,7 +381,7 @@ const MonumentScene = forwardRef(({
           <EnhancedTextElement
             key={text.id}
             text={text}
-            monument={targetMonument} // 传入找到的墓碑对象
+            monument={targetMonument}
             isSelected={currentTextId === text.id}
             onTextContentChange={onTextContentChange}
             isTextEditing={isTextEditing}
@@ -393,14 +390,13 @@ const MonumentScene = forwardRef(({
             onTextPositionChange={onTextPositionChange}
             onTextRotationChange={onTextRotationChange}
             getFontPath={getFontPath}
-            modelRefs={modelRefs} // 传入 refs 用于吸附计算
+            modelRefs={modelRefs}
             globalTransformMode={transformMode}
             surfaceZ={effectiveSurfaceZ}
           />
         );
       })}
 
-      {/* 显示辅助网格: 仅当有选中项且主碑体位置确定时显示 */}
       {showGrid && positions[mainMonument.id] && (
         <MonumentGrid
           width={mainMonument.dimensions.length}
@@ -408,7 +404,7 @@ const MonumentScene = forwardRef(({
           position={[
             positions[mainMonument.id][0],
             positions[mainMonument.id][1],
-            autoSurfaceZ // 确保网格也在同一平面
+            autoSurfaceZ
           ]}
         />
       )}
@@ -436,23 +432,19 @@ const MonumentScene = forwardRef(({
           transformMode={transformMode}
           fillColor={fillColor}
           isFillModeActive={isFillModeActive}
-          surfaceZ={autoSurfaceZ} // 传入自动计算的表面 Z 坐标
+          surfaceZ={autoSurfaceZ}
+          onDelete={onDeleteElement}
+          onFlip={onFlipElement}
+          onMirrorCopy={onDuplicateElement}
         />
       ))}
 
-      {/* --- Updated Lighting Setup: Multi-point lighting for no obvious shadows --- */}
       <ambientLight intensity={0.4} />
-      {/* Front Right (Key Light-ish) */}
       <directionalLight position={[5, 10, 10]} intensity={0.8} />
-      {/* Front Left (Fill Light) */}
       <directionalLight position={[-5, 10, 10]} intensity={0.8} />
-      {/* Back (Rim Light) - Helps separate from background */}
       <directionalLight position={[0, 5, -10]} intensity={0.6} />
-      {/* Side Lights - Fills side shadows */}
       <directionalLight position={[-10, 0, 0]} intensity={0.4} />
       <directionalLight position={[10, 0, 0]} intensity={0.4} />
-
-      {/* <axesHelper args={[5]} /> */}
 
     </group>
   );
