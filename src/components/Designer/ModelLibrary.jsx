@@ -95,10 +95,10 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
             // 模拟具体款式数据 (Shapes: Family -> Class)
             const familyClasses = {
               'Tablet': ['Serp Top', 'Flat Top', 'Half Serp Top', 'Oval Top'],
-              'Bench': ['Smith Cremation Bench', 'Oversize Smith Cremation Bench', 'Curved Bench'],
+              'Columbarium': ['1 Hampton - 2 Unit - West Canada', '2 Hampton - 2 Unit - GAT', '2 Hampton - 2 Unit - GAT', '4 Hampton - 3 Unitt with Vase', '5 Hampton - 4 Unit', '6 Hampton - 2 Unit with Peak Roof', '7 Douglas - 2 unit'],
               'Rock': ['Triangle Rock', 'Round Rock', 'Square Rock'],
               'Pedestal': ['Cremation Pedestal', 'Oversize Cremation Pedestal'],
-              'Columbarium': ['Hampton - 2 unit', 'Hampton - 3 unit']
+              'Bench': ['1 Smith Bench - Straight Seat', '4 Double Smith Bench - Straight Seat', '5 Double Smith Bench - Curved Seat', '6 Oversize Smith Bench - Straight Seat', '7 Double Oversize Smith Bench Straight Seat']
             };
 
             const classes = familyClasses[selectedFamily] || [];
