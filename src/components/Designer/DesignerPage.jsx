@@ -69,11 +69,11 @@ const DesignerPage = () => {
   const [printModalVisible, setPrintModalVisible] = useState(false);
 
   const BACKGROUND_OPTIONS = useMemo(() => [
-  { value: 'transparent', label: t('backgrounds.transparent'), url: null },
-  { value: 'spring', label: t('backgrounds.spring'), url: './backgrounds/Spring.jpg' },
-  { value: 'summer', label: t('backgrounds.summer'), url: './backgrounds/Summer.jpeg' },
-  { value: 'winter', label: t('backgrounds.winter'), url: './backgrounds/Winter.jpg' }
-], [t])
+    { value: 'transparent', label: t('backgrounds.transparent'), url: null },
+    { value: 'spring', label: t('backgrounds.spring'), url: './backgrounds/Spring.jpg' },
+    { value: 'summer', label: t('backgrounds.summer'), url: './backgrounds/Summer.jpeg' },
+    { value: 'winter', label: t('backgrounds.winter'), url: './backgrounds/Winter.jpg' }
+  ], [t])
 
   // useDesignState 钩子
   const {
@@ -315,21 +315,61 @@ const DesignerPage = () => {
   }, [selectedVaseId, updateVaseElementState]);
 
   // handleToolSelect
+  // 1. 修改 handleToolSelect 逻辑
   const handleToolSelect = (key) => {
     handleArtElementSelect(null);
     handleCloseVaseEditor();
-    if (activeTool === key) {
-      setIsTextEditing(false);
-      setCurrentTextId(null);
-      // 清除所有文字的选中状态
-      designState.textElements.forEach(text => {
-        setTextSelected(text.id, false);
-      });
-    } else {
-      setIsTextEditing(true);
+
+    // 如果点击的是 Text 工具
+    if (key === 'text') {
+      // 如果当前没有选中的文字，且没有打开过文本工具
+      if (activeTool !== 'text') {
+        // 自动添加一个默认文字
+        const targetMonumentId = designState.monuments.length > 0 ? designState.monuments[0].id : null;
+        if (targetMonumentId) {
+          const newTextId = addText({
+            content: '万事胜意', // 默认文案
+            font: '黑体',
+            size: 3,
+            monumentId: targetMonumentId,
+            alignment: 'center',
+            lineSpacing: 1.2,
+            kerning: 0,
+            curveAmount: 0,
+            engraveType: 'vcut',
+            vcutColor: '#FFFFFF',
+            frostIntensity: 0.8,
+            polishBlend: 0.5,
+            textDirection: 'horizontal'
+          });
+          // 立即选中该文字
+          setCurrentTextId(newTextId);
+          setIsTextEditing(true);
+          setTextSelected(newTextId, true);
+          message.success('Text added. Click "Edit" to type.');
+        } else {
+          message.warning('Please add a tablet first.');
+          return; // 没碑不打开工具栏
+        }
+      }
     }
 
-    setActiveTool(activeTool === key ? null : key)
+    if (activeTool === key) {
+      // 如果再次点击同一个图标 -> 关闭工具栏
+      setIsTextEditing(false);
+      setCurrentTextId(null);
+      designState.textElements.forEach(text => setTextSelected(text.id, false));
+      setActiveTool(null);
+    } else {
+      // 切换到新工具
+      setActiveTool(key);
+      if (key === 'text') {
+        setIsTextEditing(true);
+      } else {
+        setIsTextEditing(false);
+        setCurrentTextId(null);
+      }
+    }
   }
 
   // handleCloseArtEditor
@@ -469,6 +509,11 @@ const DesignerPage = () => {
   }
 
   // --- 修改：透传 options 参数 ---
+  // 2. 新增 onTextContentChange 处理函数，传递给 Scene3D -> EnhancedTextElement
+  const updateTextContent = useCallback((textId, newContent) => {
+    updateText(textId, { content: newContent });
+  }, [updateText]);
+
   const handleTextPositionChange = useCallback((textId, newPosition, options) => {
     updateTextPosition(textId, newPosition, options);
   }, [updateTextPosition]);
@@ -1216,15 +1261,14 @@ const DesignerPage = () => {
                 currentTextId={currentTextId}
                 isTextEditing={isTextEditing}
                 getFontPath={getFontPath}
+                onTextContentChange={updateTextContent} // 传入更新内容的回调
 
                 // Vase Props (新增)
                 onVaseSelect={handleVaseElementSelect}
                 selectedVaseId={selectedVaseId}
                 vaseTransformMode={vaseTransformMode}
                 onUpdateVaseElementState={updateVaseElementState}
-                onTextContentChange={(textId, newContent) => {
-                  updateTextContent(textId, newContent);
-                }}
+
 
                 // Drag and Drop Props
                 onSceneDrop={handleSceneDrop}

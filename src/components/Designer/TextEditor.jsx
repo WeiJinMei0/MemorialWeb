@@ -469,7 +469,7 @@ const TextEditor = ({
   const inputRef = useRef(null);
 
   return (
-    <div className="text-editor-panel">
+    <div className="text-editor-panel" >
       <Card
         size="small"
         title={t('textEditor.title')}
@@ -506,7 +506,7 @@ const TextEditor = ({
             margin: '0',
             flexShrink: 0 // 禁止标签被压缩
           }}>
-           {t('textEditor.direction')}
+            {t('textEditor.direction')}
           </span>
           {/* Radio 组：强制横向，紧贴标签 */}
           <Radio.Group
@@ -550,17 +550,7 @@ const TextEditor = ({
         </div>
 
 
-        {/* 文字内容（样式不变，输入的内容会根据方向在主程序渲染） */}
-        <div style={{ marginBottom: '12px' }}>
-          <Input.TextArea
-            ref={inputRef}
-            value={textProperties.content}
-            onChange={(e) => handlePropertyChange('content', e.target.value)}
-            placeholder={t('textEditor.enterText')}
-            rows={2}
-            size="small"
-          />
-        </div>
+
 
         {/* 紧凑的按钮组 */}
         <Space.Compact style={{ width: '100%', marginBottom: '12px' }}>
@@ -920,7 +910,7 @@ const TextEditor = ({
               width: '85px',
               textAlign: 'right'
             }}>
-             {t('textEditor.engraveType')}:
+              {t('textEditor.engraveType')}:
             </span>
             <Space.Compact style={{ flex: 1 }} size="small">
               {renderEngraveTypeButton('vcut', 'V-Cut')}

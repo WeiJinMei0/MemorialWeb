@@ -57,6 +57,7 @@ const MonumentScene = forwardRef(({
   isFillModeActive,
   fillColor,
   onModelFillClick,
+  onTextContentChange,
   onTextPositionChange,
   onTextRotationChange,
   onTextSelect,
@@ -385,6 +386,7 @@ const MonumentScene = forwardRef(({
             text={text}
             monument={targetMonument} // 传入找到的墓碑对象
             isSelected={currentTextId === text.id}
+            onTextContentChange={onTextContentChange}
             isTextEditing={isTextEditing}
             onTextSelect={onTextSelect}
             onDeleteText={onDeleteText}

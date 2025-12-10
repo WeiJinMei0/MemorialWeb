@@ -360,10 +360,10 @@ export const useDesignState = () => {
     const familyConfig = PRODUCT_FAMILIES[family];
 
     if (!familyConfig) return;
-
+    const newMonumentId = `monument-${Date.now()}`; // 记录新 ID
     // 1. 创建新的碑体
     const monument = {
-      id: `monument-${Date.now()}`,
+      id: newMonumentId,
       type: 'monument',
       family,
       class: productClass,
@@ -380,8 +380,20 @@ export const useDesignState = () => {
       // 2. 从现有 state 开始 (保留 vases, art, text, subBases 等)
       const newState = { ...prev };
 
+      // 2. 获取旧的主碑 ID (假设通常只有一个主碑)
+      const oldMonumentId = prev.monuments.length > 0 ? prev.monuments[0].id : null;
       // 3. 【V_MODIFICATION】: 替换碑体数组
       newState.monuments = [monument];
+
+      // 如果之前有文字绑定在旧碑体上，将它们“过继”给新碑体
+      if (oldMonumentId && newState.textElements.length > 0) {
+        newState.textElements = newState.textElements.map(text => {
+          if (text.monumentId === oldMonumentId) {
+            return { ...text, monumentId: newMonumentId };
+          }
+          return text;
+        });
+      }
 
       // 4. 【V_MODIFICATION】: 替换底座数组
       if (familyConfig.needsBase) { //
