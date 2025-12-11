@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Layout, Button, message, Space, Select, InputNumber, App, Popover, Input, Modal } from 'antd';
+import { Layout, Button, message, Space, Select, Tooltip, InputNumber, App, Popover, Input, Modal } from 'antd';
 import {
   UndoOutlined,
   RedoOutlined,
   EnvironmentOutlined,
   SaveOutlined,
   FileTextOutlined,
+  CloseOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -1153,6 +1154,12 @@ const DesignerPage = () => {
       return formatValueAsFraction(Math.round(value * 16) / 16);
     };
 
+    const handleDelete = () => {
+      if (deleteElement) {
+        deleteElement(element.id, elementType);
+      }
+    };
+
     return (
       <div className="dimension-control">
         <label>{label}</label>
@@ -1191,6 +1198,16 @@ const DesignerPage = () => {
           </div>
         )}
         <div className="weight-display">{Math.round(element.weight)} lbs</div>
+        <Tooltip title={t('designer.delete')}>
+          <Button
+            type="text"
+            danger
+            size="small"
+            icon={<CloseOutlined />}
+            onClick={handleDelete}
+            style={{ padding: '0 4px', width: '24px', height: '24px' }}
+          />
+        </Tooltip>
       </div>
     );
   };

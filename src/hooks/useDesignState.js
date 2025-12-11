@@ -741,6 +741,12 @@ export const useDesignState = () => {
           return { ...prev, vases: prev.vases.filter(vase => vase.id !== elementId) };
         case 'art':
           return { ...prev, artElements: prev.artElements.filter(art => art.id !== elementId) };
+        case 'monument':
+          return { ...prev, monuments: prev.monuments.filter(monument => monument.id !== elementId) };
+        case 'base':
+          return { ...prev, bases: prev.bases.filter(base => base.id !== elementId) };
+        case 'subBase':
+          return { ...prev, subBases: prev.subBases.filter(subBase => subBase.id !== elementId) };
         default:
           return prev;
       }
@@ -924,8 +930,6 @@ export const useDesignState = () => {
     }), options);
   }, [updateDesignState]);
 
-
-  // ***** 移除了您文件中的 "无限循环" useEffect (您的原文件已经移除了它) *****
 
   return {
     designState,
