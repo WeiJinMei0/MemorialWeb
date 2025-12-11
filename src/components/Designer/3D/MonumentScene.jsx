@@ -83,11 +83,21 @@ const MonumentScene = forwardRef(({
       const hit = intersects.find(i => i.object.isMesh && i.object.visible);
 
       if (hit) {
-        // 【关键修复】
-        // 只要击中的物体是“图案平面”（无论是否是当前选中的那个），都视为有效交互。
-        // 这避免了点击新图案时，因 React 状态尚未更新导致 ID 不匹配而触发的误取消。
-        // 具体的选中切换逻辑由 InteractiveArtPlane 内部的 onPointerDown 负责。
-        if (hit.object.userData?.isArtPlane) {
+        // 【关键修复】：向上遍历父级，检查是否属于“受保护”的物体（花瓶或图案）
+        // 这能解决花瓶换色后 Mesh 替换导致的选中失效问题
+        let curr = hit.object;
+        let isProtected = false;
+        while (curr) {
+          if (curr.userData?.isArtPlane || curr.userData?.isVase) {
+            isProtected = true;
+            break;
+          }
+          // 防止死循环（虽然在 Three.js 场景图中 parent 最终为 null）
+          if (curr === scene) break;
+          curr = curr.parent;
+        }
+
+        if (isProtected) {
           return;
         }
       }
@@ -451,3 +461,4 @@ const MonumentScene = forwardRef(({
 });
 
 export default MonumentScene;
+
