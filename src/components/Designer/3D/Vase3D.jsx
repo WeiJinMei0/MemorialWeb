@@ -30,7 +30,6 @@ const Vase3D = forwardRef(({
   const [error, setError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  // 选中框数据 (局部坐标)
   const [selectionBox, setSelectionBox] = useState(null);
 
   const [vaseTextures, setVaseTextures] = useState({
@@ -42,6 +41,9 @@ const Vase3D = forwardRef(({
     isDragging: false,
     rect: null,
   });
+
+  // 用于防抖保存 Z 轴变化
+  const saveTimeoutRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
     getMesh: () => groupRef.current,
@@ -63,7 +65,7 @@ const Vase3D = forwardRef(({
     return () => { polishedTex.dispose(); sandblastedTex.dispose(); };
   }, [vase.color]);
 
-  // --- 2. 模型加载与包围盒计算 ---
+  // --- 2. 模型加载 ---
   useEffect(() => {
     let isMounted = true;
     if (!vaseTextures.polished || !vaseTextures.sandblasted) return;
@@ -74,18 +76,13 @@ const Vase3D = forwardRef(({
         if (!isMounted) return;
         const clonedScene = gltf.scene.clone();
 
-        // 计算局部包围盒
-        // 此时 clonedScene 还没有父级，所以计算出的是相对于模型原点的局部 Bounds
         clonedScene.updateWorldMatrix(true, true);
         const box = new THREE.Box3().setFromObject(clonedScene);
         const size = new THREE.Vector3();
         box.getSize(size);
         const center = new THREE.Vector3();
         box.getCenter(center);
-
-        if (isMounted) {
-          setSelectionBox({ size: size.toArray(), center: center.toArray() });
-        }
+        if (isMounted) setSelectionBox({ size: size.toArray(), center: center.toArray() });
 
         clonedScene.traverse((child) => {
           if (child.isMesh) {
@@ -115,14 +112,43 @@ const Vase3D = forwardRef(({
 
   // --- 3. 状态同步 ---
   useLayoutEffect(() => {
-    if (groupRef.current && !dragRef.current.isDragging) {
+    // 只有非拖拽且非 Z 轴滚动调整时才同步
+    if (groupRef.current && !dragRef.current.isDragging && !saveTimeoutRef.current) {
       groupRef.current.position.set(vase.position[0] || 0, vase.position[1] || 0, vase.position[2] || 0);
       groupRef.current.scale.set(vase.scale[0] || 1, vase.scale[1] || 1, vase.scale[2] || 1);
       groupRef.current.rotation.set(vase.rotation[0] || 0, vase.rotation[1] || 0, vase.rotation[2] || 0);
     }
   }, [vase.position, vase.scale, vase.rotation]);
 
-  // --- 4. 交互样式 ---
+  // --- 4. 键盘微调逻辑 ---
+  useEffect(() => {
+    if (!isSelected || transformMode !== 'translate') return;
+    const handleKeyDown = (e) => {
+      if (!groupRef.current) return;
+      const step = e.shiftKey ? 0.05 : 0.005;
+      let changed = false;
+      const pos = groupRef.current.position.clone();
+      switch (e.key) {
+        case 'ArrowUp': pos.y += step; changed = true; break;
+        case 'ArrowDown': pos.y -= step; changed = true; break;
+        case 'ArrowLeft': pos.x -= step; changed = true; break;
+        case 'ArrowRight': pos.x += step; changed = true; break;
+        default: return;
+      }
+      if (changed) {
+        e.preventDefault();
+        onUpdateVaseElementState(vase.id, {
+          position: pos.toArray(),
+          scale: groupRef.current.scale.toArray(),
+          rotation: groupRef.current.rotation.toArray().slice(0, 3)
+        });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSelected, transformMode, vase.id, onUpdateVaseElementState]);
+
+  // --- 5. 交互样式 ---
   useEffect(() => {
     if (isSelected && transformMode === 'translate' && isHovered) {
       document.body.style.cursor = 'move';
@@ -153,7 +179,7 @@ const Vase3D = forwardRef(({
     }
   };
 
-  // --- 5. 拖拽逻辑 ---
+  // --- 6. 拖拽逻辑 (X/Y) ---
   const getIntersects = (clientX, clientY, rect, cameraZ) => {
     const x = ((clientX - rect.left) / rect.width) * 2 - 1;
     const y = -((clientY - rect.top) / rect.height) * 2 + 1;
@@ -185,8 +211,13 @@ const Vase3D = forwardRef(({
   const onPointerMove = (e) => {
     if (!dragRef.current.isDragging || !groupRef.current) return;
     const hit = getIntersects(e.clientX, e.clientY, dragRef.current.rect, _originalPos.z);
+
     if (hit) {
       _offset.subVectors(hit, _startPoint);
+      if (e.shiftKey) {
+        if (Math.abs(_offset.x) > Math.abs(_offset.y)) _offset.y = 0;
+        else _offset.x = 0;
+      }
       _target.addVectors(_originalPos, _offset);
       groupRef.current.position.copy(_target);
     }
@@ -203,12 +234,33 @@ const Vase3D = forwardRef(({
     }
   };
 
+  // --- 7. 滚轮逻辑 (Z轴) ---
+  const handleWheel = (e) => {
+    if (!isSelected || transformMode !== 'translate' || !groupRef.current) return;
+
+    // 阻止 OrbitControls 的缩放
+    e.stopPropagation();
+
+    // 计算 Z 轴位移
+    // 滚轮通常 deltaY 为 100/-100，系数 0.0005 使其移动平滑
+    const deltaZ = e.deltaY * 0.0005;
+
+    // 直接应用视觉更新
+    groupRef.current.position.z += deltaZ;
+
+    // 防抖提交状态，避免频繁重渲染
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      commitTransform();
+      saveTimeoutRef.current = null;
+    }, 500);
+  };
+
   const onHover = (hover) => {
     if (dragRef.current.isDragging) return;
     setIsHovered(hover);
   };
 
-  // 缓存几何体，避免重复创建
   const selectionBoxGeometry = useMemo(() => {
     if (!selectionBox) return null;
     return new THREE.BoxGeometry(...selectionBox.size);
@@ -234,6 +286,7 @@ const Vase3D = forwardRef(({
         ref={groupRef}
         userData={{ isVase: true, vaseId: vase.id }}
         onPointerDown={handlePointerDown}
+        onWheel={handleWheel} // 绑定滚轮事件实现 Z 轴移动
         onPointerOver={() => onHover(true)}
         onPointerOut={() => onHover(false)}
       >
@@ -242,8 +295,6 @@ const Vase3D = forwardRef(({
         ) : (
           <>
             <primitive object={model} />
-
-            {/* 渲染局部选中框：跟随 Group 旋转和缩放，位置完全贴合 */}
             {isSelected && selectionBox && selectionBoxGeometry && (
               <group position={selectionBox.center}>
                 <lineSegments>
@@ -260,3 +311,4 @@ const Vase3D = forwardRef(({
 });
 
 export default Vase3D;
+
