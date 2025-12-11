@@ -23,14 +23,9 @@ const VaseEditorPanel = ({
 
   if (!vase) return null;
 
-  const handleConfirmDelete = () => {
-    modal.confirm({
-      title: t('vaseEditor.deleteConfirmTitle', 'Confirm delete vase?'),
-      content: t('vaseEditor.deleteConfirmContent', `Are you sure you want to delete vase: ${vase.name || vase.id}?`),
-      okText: t('common.delete'),
-      cancelText: t('common.cancel'),
-      onOk: () => onDelete(vase.id, 'vase'),
-    })
+  const handleDelete = () => {
+      onDelete(vase.id, 'vase');
+      onClose();
   }
 
   const handleDuplicate = () => {
@@ -72,7 +67,7 @@ const VaseEditorPanel = ({
         >
           <Space direction="vertical" style={{ width: '100%', gap: '8px' }}>
             <Tooltip title={t('vaseEditor.delete')}>
-              <Button icon={<DeleteOutlined />} onClick={handleConfirmDelete} danger block />
+              <Button icon={<DeleteOutlined />} onClick={handleDelete} danger block />
             </Tooltip>
             <Tooltip title={t('vaseEditor.duplicate')}>
               <Button icon={<CopyOutlined />} onClick={handleDuplicate} block />
