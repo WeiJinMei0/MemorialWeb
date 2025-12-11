@@ -329,7 +329,7 @@ const DesignerPage = () => {
         if (targetMonumentId) {
           const newTextId = addText({
             content: 'Enter Text', // 默认文案
-            font: 'Cambria',
+            // font: '/fonts/Cambria_Regular.json',
             size: 3,
             monumentId: targetMonumentId,
             alignment: 'center',

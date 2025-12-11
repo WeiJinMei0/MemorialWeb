@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, Suspense, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, Suspense, useMemo, Component } from 'react';
 import {
   Button,
   Input,
@@ -11,7 +11,9 @@ import {
   message,
   Tooltip,
   Popover,
-  Radio
+  Radio,
+  Row,
+  Col
 } from 'antd';
 import {
   PlusOutlined,
@@ -23,38 +25,93 @@ import {
   CloseOutlined,
   BoldOutlined,
   ItalicOutlined,
-  PlusCircleOutlined,
-  DeleteOutlined,
-  DragOutlined,
-  RotateRightOutlined,
-  RedoOutlined,
   LayoutOutlined,
-  VerticalAlignTopOutlined,
-  SwapRightOutlined
+  VerticalAlignTopOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Canvas } from '@react-three/fiber';
 import { Text3D } from '@react-three/drei';
-import './TextEditor.css'
+import './TextEditor.css';
 
-// --- 自定义 SVG 图标：简 -> 繁 ---
-const IconS2T = () => (
-  <span role="img" aria-label="s2t" className="anticon">
-    <svg viewBox="0 0 1024 1024" width="1em" height="1em" fill="currentColor">
-      <text x="50" y="800" fontSize="800" fontWeight="bold" fill="currentColor" style={{ fontFamily: 'sans-serif' }}>简</text>
-      <path d="M560 512 L800 512 L750 462 M800 512 L750 562" stroke="currentColor" strokeWidth="60" fill="none" />
-    </svg>
-  </span>
-);
+// --- 常量定义 ---
+const THEME_COLOR = '#4a4a3b';
+const ACTIVE_BTN_COLOR = '#4a4a3b';
+const INACTIVE_BTN_BG = '#e0e0e0';
+const INACTIVE_BTN_COLOR = '#000';
 
-// --- 自定义 SVG 图标：繁 -> 简 ---
-const IconT2S = () => (
-  <span role="img" aria-label="t2s" className="anticon">
-    <svg viewBox="0 0 1024 1024" width="1em" height="1em" fill="currentColor">
-      <text x="50" y="800" fontSize="800" fontWeight="bold" fill="currentColor" style={{ fontFamily: 'sans-serif' }}>繁</text>
-      {/* 简单的箭头示意，或者直接用文字 */}
-    </svg>
-  </span>
+// --- 新增：Text3D 安全渲染组件 (错误边界) ---
+class SafeText3D extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    // 更新 state 以便下一次渲染能够显示降级 UI
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // 可以在这里记录错误
+    console.error("Text3D Rendering Error:", error);
+
+    // 防止重复报错刷屏，可以加个判断或者只在控制台报
+    // 这里使用防抖或直接提示
+    if (this.props.onError) {
+      this.props.onError(error);
+    }
+  }
+
+  componentDidUpdate(prevProps) {
+    // 如果字体或文字内容改变了，尝试重置错误状态，重新渲染
+    if (prevProps.font !== this.props.font || prevProps.children !== this.props.children) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // 渲染出错时显示的内容，可以返回 null 什么都不显示，或者显示一个替代模型
+      return null;
+    }
+    return this.props.children;
+  }
+}
+
+// --- 自定义图标组件：模拟图片中的样式 ---
+// 样式：蓝色小箭头指向汉字
+const ConversionIcon = ({ char, label, onClick }) => (
+  <div
+    onClick={onClick}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      cursor: 'pointer',
+      marginRight: '16px',
+      userSelect: 'none'
+    }}
+  >
+    {/* 图标部分 */}
+    <div style={{ position: 'relative', width: '20px', height: '20px', marginRight: '4px' }}>
+      {/* 汉字 */}
+      <span style={{
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        fontSize: '16px',
+        lineHeight: '1',
+        color: '#444'
+      }}>
+        {char}
+      </span>
+      {/* 蓝色小箭头 */}
+      <svg width="10" height="10" viewBox="0 0 1024 1024" style={{ position: 'absolute', left: 0, bottom: 2, fill: '#1890ff' }}>
+        <path d="M869 487.8L491.2 159.9c-29.1-25.1-73.2-25.1-102.3 0s-29.1 66.2 0 91.3l253.4 219.7H136c-41.4 0-75 33.6-75 75s33.6 75 75 75h506.3L389 840.6c-29.1 25.1-29.1 66.2 0 91.3 14.1 12.2 32.8 18.3 51.2 18.3s37.1-6.1 51.2-18.3l377.8-327.9c14-12 21.6-28.9 21.6-47.1 0-18.5-7.6-35.7-21.8-49.1z" />
+      </svg>
+    </div>
+    {/* 文字说明 */}
+    <span style={{ fontSize: '14px', color: '#333' }}>{label}</span>
+  </div>
 );
 
 const TextEditor = ({
@@ -65,7 +122,7 @@ const TextEditor = ({
   existingTexts,
   monuments,
   isEditing,
-  fontOptions, // 注意：这里必须传入新的包含 family/variant 的数据源
+  fontOptions,
   onSaveTextToOptions,
   onClose,
   getFontPath,
@@ -75,65 +132,40 @@ const TextEditor = ({
 }) => {
   const { t } = useTranslation();
 
-  // --- 核心逻辑 1: 计算去重后的字体家族列表 (用于下拉菜单) ---
-  // const uniqueFamilies = useMemo(() => {
-  // const map = new Map();
-  //fontOptions.forEach(font => {
-  //if (!map.has(font.family)) {
-  //map.set(font.family, font); // 只存一个代表，用于读取 cssFamily 等信息
-  //}
-  //});
-  // 转为数组并排序
-  //return Array.from(map.values()).sort((a, b) => a.family.localeCompare(b.family));
-  //}, [fontOptions]);
-  // --- 修复 1: 保持原始顺序的去重逻辑 ---
+  // --- 核心逻辑 1: 保持原始顺序的去重逻辑 ---
   const uniqueFamilies = useMemo(() => {
     const seen = new Set();
     const result = [];
-
-    // 遍历原始数组
     fontOptions.forEach(font => {
-      // 只有第一次遇到的 family 才加入列表
       if (!seen.has(font.family)) {
         seen.add(font.family);
         result.push(font);
       }
     });
-
-    // 直接返回 result，不进行 sort 排序，保持数据源的物理顺序
     return result;
   }, [fontOptions]);
 
   // --- 核心逻辑 2: 智能解析最佳字体文件 ---
-  // 给定家族、是否加粗、是否斜体，返回最匹配的文件名
   const resolveBestFont = useCallback((familyName, targetBold, targetItalic) => {
-    // 1. 找出该家族下所有的变体文件
     const variants = fontOptions.filter(f => f.family === familyName);
-
-    // 2. 定义查找目标
     let targetVariant = 'regular';
     if (targetBold && targetItalic) targetVariant = 'boldItalic';
     else if (targetBold) targetVariant = 'bold';
     else if (targetItalic) targetVariant = 'italic';
 
-    // 3. 尝试精确匹配
     const exactMatch = variants.find(v => v.variant === targetVariant);
     if (exactMatch) return exactMatch.name;
 
-    // 4. 降级策略 (Fallback Logic)
-    // 如果找不到 BoldItalic，尝试找 Bold
     if (targetVariant === 'boldItalic') {
       const boldMatch = variants.find(v => v.variant === 'bold');
       if (boldMatch) return boldMatch.name;
     }
 
-    // 如果找不到 Bold，尝试找 Medium (有些字体用 Medium 代替 Bold)
     if (targetVariant === 'bold') {
       const mediumMatch = variants.find(v => v.variant === 'medium');
       if (mediumMatch) return mediumMatch.name;
     }
 
-    // 5. 最后的兜底：返回 Regular 或该家族的第一个文件
     const regularMatch = variants.find(v => v.variant === 'regular');
     return regularMatch ? regularMatch.name : variants[0]?.name;
   }, [fontOptions]);
@@ -141,7 +173,7 @@ const TextEditor = ({
   // --- 状态管理 ---
   const [textProperties, setTextProperties] = useState({
     content: '',
-    font: 'helvetiker_regular.typeface', // 存储的是具体文件名
+    font: 'Cambria_Regular',
     size: 3,
     alignment: 'center',
     lineSpacing: 1.2,
@@ -155,10 +187,9 @@ const TextEditor = ({
   });
 
   const [textDirection, setTextDirection] = useState('horizontal');
-  const [engraveTypes, setEngraveTypes] = useState({ vcut: false, frost: false, polish: false });
+  const [engraveTypes, setEngraveTypes] = useState({ vcut: true, frost: false, polish: false });
 
-  // --- 核心逻辑 3: 动态计算当前状态 (Derived State) ---
-  // 我们不再手动 setBold/setItalic，而是根据当前的 font 文件名反推状态
+  // --- 核心逻辑 3: 动态计算当前状态 ---
   const currentFontObj = useMemo(() => {
     return fontOptions.find(f => f.name === textProperties.font) || {};
   }, [fontOptions, textProperties.font]);
@@ -173,7 +204,6 @@ const TextEditor = ({
     return ['italic', 'boldItalic'].includes(currentFontObj.variant);
   }, [currentFontObj]);
 
-  // 检查当前家族是否有能力支持 B/I (用于禁用按钮)
   const canBold = useMemo(() => {
     if (!currentFamilyName) return false;
     const variants = fontOptions.filter(f => f.family === currentFamilyName);
@@ -213,16 +243,13 @@ const TextEditor = ({
       message.error('Need to install dependency: npm install opencc-js');
     }
   };
-  // --- 事件处理 ---
 
-  // 切换字体家族
+  // --- 事件处理 ---
   const handleFamilyChange = (newFamilyName) => {
-    // 切换家族时，尝试保持当前的 B/I 状态
     const newFontName = resolveBestFont(newFamilyName, isBold, isItalic);
     handlePropertyChange('font', newFontName);
   };
 
-  // 切换加粗
   const handleBoldClick = () => {
     if (!currentFamilyName) return;
     if (!canBold && !isBold) {
@@ -234,7 +261,6 @@ const TextEditor = ({
     handlePropertyChange('font', newFontName);
   };
 
-  // 切换斜体
   const handleItalicClick = () => {
     if (!currentFamilyName) return;
     if (!canItalic && !isItalic) {
@@ -250,6 +276,12 @@ const TextEditor = ({
   const FontPreviewTooltipContent = ({ font }) => {
     const previewText = font.isChinese ? '示例Aa' : 'Aa';
     const fontPath = getFontPath ? getFontPath(font.name) : (font.path || '/fonts/helvetiker_regular.typeface.json');
+    // 定义错误处理函数
+    const handleRenderError = () => {
+      // 由于 Tooltip 可能会频繁触发，建议这里只 console.error 或者不弹窗，
+      // 避免鼠标划过时满屏 message
+      console.warn(`Font ${font.family} does not support the preview characters.`);
+    };
     return (
       <div className="font-preview-tooltip">
         <Canvas
@@ -263,20 +295,22 @@ const TextEditor = ({
           <directionalLight position={[0, 0, 5]} intensity={0.6} />
           <Suspense fallback={null}>
             <group position={[-previewText.length * 0.18, -0.15, 0]}>
-              <Text3D
-                font={fontPath}
-                size={0.45}
-                height={0.04}
-                letterSpacing={0.02}
-                curveSegments={8}
-                bevelEnabled
-                bevelThickness={0.005}
-                bevelSize={0.005}
-                bevelSegments={1}
-              >
-                {previewText}
-                <meshStandardMaterial color="#000000" metalness={0.2} roughness={0.4} />
-              </Text3D>
+              <SafeText3D font={fontPath} onError={handleRenderError}>
+                <Text3D
+                  font={fontPath}
+                  size={0.45}
+                  height={0.04}
+                  letterSpacing={0.02}
+                  curveSegments={8}
+                  bevelEnabled
+                  bevelThickness={0.005}
+                  bevelSize={0.005}
+                  bevelSegments={1}
+                >
+                  {previewText}
+                  <meshStandardMaterial color="#000000" metalness={0.2} roughness={0.4} />
+                </Text3D>
+              </SafeText3D>
             </group>
           </Suspense>
         </Canvas>
@@ -334,7 +368,6 @@ const TextEditor = ({
     );
   };
 
-  // 监听选中文字变化
   useEffect(() => {
     if (currentTextId) {
       const currentText = existingTexts.find(text => text.id === currentTextId);
@@ -372,49 +405,32 @@ const TextEditor = ({
       message.error('Enter Text Content');
       return;
     }
-
     const targetMonumentId = monuments.length > 0 ? monuments[0].id : null;
     if (!targetMonumentId) {
       message.error('Please add a tablet first');
       return;
     }
-
-    // --- 智能字体判断逻辑开始 ---
     let fontToUse = textProperties.font;
-
-    // 仅当当前字体仍为系统默认的 "helvetiker" 时，才启用自动切换
-    // 这样如果用户已经手动选择了其他字体，我们不会覆盖用户的选择
     if (fontToUse === 'helvetiker_regular.typeface') {
       const isChinese = /[\u4e00-\u9fa5]/.test(textProperties.content);
-
       if (isChinese) {
-        // 中文 -> 尝试查找 "微软雅黑" (包含 '微软雅黑' 或 'YaHei')
         const yahei = fontOptions.find(f => f.name.includes('微软雅黑') || f.name.includes('YaHei'));
-        if (yahei) {
-          fontToUse = yahei.name;
-        } else {
-          // 兜底：如果没有微软雅黑，找任意一个中文字体
+        if (yahei) fontToUse = yahei.name;
+        else {
           const anyChinese = fontOptions.find(f => f.isChinese);
           if (anyChinese) fontToUse = anyChinese.name;
         }
       } else {
-        // 英文/其他 -> 尝试查找 "Cambria"
         const cambria = fontOptions.find(f => f.name.includes('Cambria'));
-        if (cambria) {
-          fontToUse = cambria.name;
-        }
+        if (cambria) fontToUse = cambria.name;
       }
     }
-    // --- 智能字体判断逻辑结束 ---
-
     onAddText({
       ...textProperties,
-      font: fontToUse, // 使用计算后的字体
+      font: fontToUse,
       monumentId: targetMonumentId,
       textDirection: textDirection
     });
-
-    // 重置表单，并把 UI 上的字体也更新为刚才自动选择的字体，方便用户继续输入
     setTextProperties(prev => ({
       ...prev,
       content: '',
@@ -422,34 +438,6 @@ const TextEditor = ({
       textDirection: 'horizontal'
     }));
     setTextDirection('horizontal');
-  };
-
-  const handleDeleteText = () => {
-    if (currentTextId) onDeleteText(currentTextId);
-  };
-
-  const handleDirectionChange = (e) => {
-    const value = e.target.value;
-    setTextDirection(value);
-    if (currentTextId) handlePropertyChange('textDirection', value);
-  };
-
-  const renderEngraveTypeButton = (type, label, icon) => {
-    const isActive = engraveTypes[type];
-    return (
-      <Button
-        type={isActive ? "primary" : "default"}
-        icon={isActive ? <CheckOutlined /> : <PlusOutlined />}
-        onClick={() => handleEngraveTypeChange(type)}
-        style={{
-          marginBottom: 8,
-          backgroundColor: isActive ? '#1890ff' : undefined,
-          color: isActive ? 'white' : undefined
-        }}
-      >
-        {label}
-      </Button>
-    );
   };
 
   const handleSaveCurrentText = () => {
@@ -466,616 +454,344 @@ const TextEditor = ({
     if (onClose) onClose();
   };
 
-  const inputRef = useRef(null);
+  const handleDirectionChange = (e) => {
+    const value = e.target.value;
+    setTextDirection(value);
+    if (currentTextId) handlePropertyChange('textDirection', value);
+  };
+
+  const getButtonStyle = (isActive) => ({
+    backgroundColor: isActive ? ACTIVE_BTN_COLOR : INACTIVE_BTN_BG,
+    borderColor: isActive ? ACTIVE_BTN_COLOR : '#d9d9d9',
+    color: isActive ? '#fff' : INACTIVE_BTN_COLOR,
+    flex: 1,
+    borderRadius: 0,
+    height: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  });
 
   return (
-    <div className="text-editor-panel" >
+    <div className="text-editor-panel" style={{ width: '100%' }}>
+      {/* 标题栏 */}
+      <div style={{
+        backgroundColor: THEME_COLOR,
+        color: '#fff',
+        padding: '10px 15px',
+        fontSize: '16px',
+        fontWeight: 'bold',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderTopLeftRadius: '4px',
+        borderTopRightRadius: '4px'
+      }}>
+        <span>Text</span>
+        <Button
+          type="text"
+          size="small"
+          icon={<CloseOutlined style={{ color: '#fff' }} />}
+          onClick={handleClose}
+        />
+      </div>
+
       <Card
         size="small"
-        title={t('textEditor.title')}
-        style={{ width: '100%' }}
-        bodyStyle={{ padding: '12px' }}
-        extra={
-          <Button
-            type="text"
-            size="small"
-            icon={<CloseOutlined />}
-            onClick={handleClose}
-            style={{ border: 'none' }}
-          />
-        }
+        bordered={false}
+        style={{ width: '100%', borderRadius: 0, borderBottomLeftRadius: '4px', borderBottomRightRadius: '4px' }}
+        bodyStyle={{ padding: '16px' }}
       >
-        {/* 新增：文本方向选择（横/竖） */}
+        {/* Font 字体选择 */}
+
+        <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
+          <span style={{ fontSize: '14px', width: '60px', marginRight: '8px' }}>Font</span>
+          <Select
+            value={currentFamilyName}
+            onChange={handleFamilyChange}
+            style={{ flex: 1 }}
+            size="middle"
+            showSearch
+            optionFilterProp="value"
+            dropdownStyle={{ minWidth: '350px', maxWidth: '450px' }}
+            optionLabelProp="value"
+          >
+            {uniqueFamilies.map(fam => (
+              <Select.Option key={fam.family} value={fam.family} className="font-select-option">
+                <Tooltip
+                  placement="right"
+                  title={<FontPreviewTooltipContent font={fam} />}
+                  destroyTooltipOnHide
+                  mouseEnterDelay={0.2}
+                >
+                  <span style={{ fontFamily: fam.cssFamily || 'inherit', fontSize: '20px' }}>{fam.family}</span>
+                </Tooltip>
+              </Select.Option>
+            ))}
+          </Select>
+        </div>
+
+
+        {/* Size 大小选择 */}
+        <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
+          <span style={{ fontSize: '14px', width: '60px', marginRight: '8px' }}>Size</span>
+          <Input
+            type="number"
+            value={textProperties.size}
+            onChange={(e) => handlePropertyChange('size', Number(e.target.value))}
+            min={0.5}
+            max={20}
+            step={0.25}
+            size="middle"
+            style={{ width: '100px' }}
+          />
+          <span style={{ marginLeft: '12px', fontSize: '14px' }}>Inches</span>
+        </div>
+
+        {/* 核心按钮组 */}
+        <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+          <Space.Compact style={{ width: '100%' }}>
+            <Button
+              style={getButtonStyle(isBold)}
+              icon={<BoldOutlined />}
+              onClick={handleBoldClick}
+              disabled={(!currentTextId && !textProperties.content) || !canBold}
+              title={!canBold ? t('textEditor.fontNoBoldSupport') : t('textEditor.bold')}
+            />
+            <Button
+              style={getButtonStyle(isItalic)}
+              icon={<ItalicOutlined />}
+              onClick={handleItalicClick}
+              disabled={(!currentTextId && !textProperties.content) || !canItalic}
+              title={!canItalic ? t('textEditor.fontNoItalicSupport') : t('textEditor.italic')}
+            />
+            <Button
+              style={getButtonStyle(textProperties.alignment === 'left')}
+              icon={<AlignLeftOutlined />}
+              onClick={() => handlePropertyChange('alignment', 'left')}
+            />
+            <Button
+              style={getButtonStyle(textProperties.alignment === 'center')}
+              icon={<AlignCenterOutlined />}
+              onClick={() => handlePropertyChange('alignment', 'center')}
+            />
+            <Button
+              style={getButtonStyle(textProperties.alignment === 'right')}
+              icon={<AlignRightOutlined />}
+              onClick={() => handlePropertyChange('alignment', 'right')}
+            />
+            <Button
+              style={{ ...getButtonStyle(false), width: '40px', flex: 'none' }}
+              icon={<SaveOutlined />}
+              onClick={handleSaveCurrentText}
+              disabled={!currentTextId || !onSaveTextToOptions}
+              title={t('textEditor.saveToLibrary')}
+            />
+          </Space.Compact>
+        </div>
+
+        {/* Direction 文字方向 */}
         <div style={{
-          marginBottom: '12px',
+          marginBottom: '16px',
           display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          flexWrap: 'nowrap',
-          height: '32px', // 固定高度，锁住对齐基准
-          overflow: 'hidden' // 隐藏任何溢出元素，避免换行
+          alignItems: 'baseline',  // 改为基线对齐
+          gap: '12px'
         }}>
           <span style={{
             fontSize: '14px',
-            color: '#666',
-            width: '65px',
-            textAlign: 'right',
-            whiteSpace: 'nowrap',
-            lineHeight: '32px',
-            padding: '0',
-            margin: '0',
-            flexShrink: 0 // 禁止标签被压缩
+            minWidth: '70px',
+            flexShrink: 0,
+            lineHeight: '1.5'  // 确保行高与Radio一致
           }}>
-            {t('textEditor.direction')}
+            Direction:
           </span>
-          {/* Radio 组：强制横向，紧贴标签 */}
           <Radio.Group
-            value={textDirection}
             onChange={handleDirectionChange}
+            value={textDirection}
             style={{
               display: 'flex',
-              gap: '16px',
               alignItems: 'center',
-              height: '32px',
-              flexShrink: 0, // 禁止 Radio 组被压缩
-              margin: '0'
+              gap: '12px'  // Radio之间的间距
             }}
           >
-            {/* 单个 Radio：消除内边距，精准对齐 */}
-            <Radio value="horizontal" style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1px',
-              lineHeight: '32px',
-              padding: '0',
-              margin: '0',
-              height: '32px',
-              minWidth: '100px' // 固定最小宽度，避免挤压
-            }}>
-              <LayoutOutlined style={{ fontSize: '14px' }} /> {t('textEditor.horizontal')}
-            </Radio>
-            <Radio value="vertical" style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1px',
-              lineHeight: '32px',
-              padding: '0',
-              margin: '0',
-              height: '32px',
-              minWidth: '100px'
-            }}>
-              <VerticalAlignTopOutlined style={{ fontSize: '14px' }} /> {t('textEditor.vertical')}
-            </Radio>
+            <Radio value="horizontal" style={{ margin: 0, padding: 0 }}>Horizontal</Radio>
+            <Radio value="vertical" style={{ margin: 0, padding: 0 }}>Vertical</Radio>
           </Radio.Group>
         </div>
 
+        {/* 简繁转换 - 修改为图标排列 */}
+        <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
+          {/* 空的占位符对齐 Label */}
+          <span style={{ fontSize: '14px', marginRight: '12px', minWidth: '70px', color: 'transparent' }}>Convert</span>
 
-
-
-        {/* 紧凑的按钮组 */}
-        <Space.Compact style={{ width: '100%', marginBottom: '12px' }}>
-          <Button
-            type="default"
-            size="small"
-            icon={<PlusCircleOutlined />}
-            onClick={handleAddText}
-            title={t('textEditor.addText')}
-            style={{ flex: 1 }}
-          />
-          {/* 加粗按钮：使用新的状态控制 */}
-          <Button
-            type="default"
-            size="small"
-            icon={<BoldOutlined />}
-            onClick={handleBoldClick}
-            disabled={(!currentTextId && !textProperties.content) || !canBold}
-            title={!canBold ? t('textEditor.fontNoBoldSupport') : t('textEditor.bold')}
-            style={{
-              backgroundColor: isBold ? '#1890ff' : '#ffffff',
-              borderColor: isBold ? '#1890ff' : '#d9d9d9',
-              color: isBold ? '#ffffff' : '#000000',
-              flex: 1
-            }}
-          />
-          {/* 斜体按钮：使用新的状态控制 */}
-          <Button
-            type="default"
-            size="small"
-            icon={<ItalicOutlined />}
-            onClick={handleItalicClick}
-            disabled={(!currentTextId && !textProperties.content) || !canItalic}
-            title={!canItalic ? t('textEditor.fontNoItalicSupport') : t('textEditor.italic')}
-            style={{
-              backgroundColor: isItalic ? '#1890ff' : '#ffffff',
-              borderColor: isItalic ? '#1890ff' : '#d9d9d9',
-              color: isItalic ? '#ffffff' : '#000000',
-              flex: 1
-            }}
-          />
-          <Button
-            type="default"
-            size="small"
-            icon={<DeleteOutlined />}
-            onClick={handleDeleteText}
-            disabled={!currentTextId}
-            title={t('textEditor.delete')}
-            style={{ flex: 1 }}
-          />
-          <Button
-            type="default"
-            size="small"
-            icon={<SaveOutlined />}
-            onClick={handleSaveCurrentText}
-            disabled={!currentTextId || !onSaveTextToOptions}
-            title={t('textEditor.saveToLibrary')}
-            style={{ flex: 1 }}
-          />
-        </Space.Compact>
-
-
-
-
-        {/* 变换控制区域 */}
-        <div style={{
-          marginBottom: 12,
-          background: '#f9f9f9',
-          padding: 8,
-          borderRadius: 6
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 8
-          }}>
-            <span style={{
-              fontSize: 12,
-              color: '#666',
-              minWidth: 60
-            }}>
-              {t('textEditor.operatingMode')}
-            </span>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8
-            }}>
-              <Tooltip title={t('textEditor.move')}>
-                <Button
-                  size="small"
-                  type={transformMode === 'translate' ? 'primary' : 'default'}
-                  icon={<DragOutlined />}
-                  onClick={() => setTransformMode && setTransformMode('translate')}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: 4
-                  }}
-                />
-              </Tooltip>
-              <Tooltip title={t('textEditor.rotate')}>
-                <Button
-                  size="small"
-                  type={transformMode === 'rotate' ? 'primary' : 'default'}
-                  icon={<RotateRightOutlined />}
-                  onClick={() => setTransformMode && setTransformMode('rotate')}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: 4
-                  }}
-                />
-              </Tooltip>
-              <Tooltip title={t('textEditor.rotate90')}>
-                <Button
-                  size="small"
-                  icon={<RedoOutlined style={{ transform: 'rotate(90deg)' }} />}
-                  onClick={onRotate90}
-                  disabled={!currentTextId}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: 4
-                  }}
-                />
-              </Tooltip>
-            </div>
+          <div style={{ display: 'flex' }}>
+            <ConversionIcon
+              char="繁"
+              label='繁转简' // 繁转简
+              onClick={() => handleConvert('t2s')}
+            />
+            <ConversionIcon
+              char="简"
+              label='简转繁' // 简转繁
+              onClick={() => handleConvert('s2t')}
+            />
           </div>
         </div>
 
-        {/* 新增：转换按钮行 (使用纯文字或内置图标组合) */}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: '#999' }}>{t('textEditor.convert')}:</span>
-          <Button.Group size="small">
-            <Tooltip title={t('textEditor.s2t')}>
-              <Button onClick={() => handleConvert('s2t')} style={{ fontSize: 12, padding: '0 10px' }}>
-                {t('textEditor.simplified')} <SwapRightOutlined /> {t('textEditor.traditional')}
-              </Button>
-            </Tooltip>
-            <Tooltip title={t('textEditor.t2s')}>
-              <Button onClick={() => handleConvert('t2s')} style={{ fontSize: 12, padding: '0 10px' }}>
-                {t('textEditor.traditional')} <SwapRightOutlined /> {t('textEditor.simplified')}
-              </Button>
-            </Tooltip>
-          </Button.Group>
+        {/* Kerning 字间距 */}
+        <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center' }}>
+          <span style={{ fontSize: '14px', width: '90px', textAlign: 'right', marginRight: '12px' }}>Kerning</span>
+          <Input
+            type="number"
+            value={textProperties.kerning}
+            onChange={(e) => handlePropertyChange('kerning', Number(e.target.value))}
+            min={-10}
+            max={10}
+            size="middle"
+            style={{ width: '80px' }}
+          />
+          {/* 上下箭头按钮颜色需自定义CSS，这里复用Antd InputNumber即可，如果需要完全一致需深度定制CSS */}
         </div>
 
-        {/* 字体和大小 */}
-        <div style={{ marginBottom: '12px' }}>
-          {/* 优化后的字体选择器：只显示 Family */}
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', color: '#666', width: '40px', textAlign: 'right', marginRight: '8px' }}>{t('textEditor.font')}:</span>
-            <Select
-              value={currentFamilyName} // 显示当前的 Family
-              onChange={handleFamilyChange}
-              style={{ flex: 1 }}
-              size="small"
-              showSearch
-              optionFilterProp="value"
-              // 🔥 新增：放大下拉列表的样式
-              //listHeight={400} // 增加列表滚动区域的高度
-              dropdownStyle={{ minWidth: '200px' }} // 增加下拉框宽度，防止长名字截断
-              optionLabelProp="value"
+        {/* Line Space 行间距 */}
+        <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
+          <span style={{ fontSize: '14px', width: '90px', textAlign: 'right', marginRight: '12px' }}>Line Space</span>
+          <Input
+            type="number"
+            value={textProperties.lineSpacing}
+            onChange={(e) => handlePropertyChange('lineSpacing', Number(e.target.value))}
+            min={0.5}
+            max={3}
+            step={0.1}
+            size="middle"
+            style={{ width: '80px' }}
+          />
+        </div>
+
+        {/* Shape 弯曲 */}
+        <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center' }}>
+          <span style={{ fontSize: '14px', width: '90px', textAlign: 'right', marginRight: '12px' }}>Shape</span>
+          <Slider
+            min={-45}
+            max={45}
+            value={textProperties.curveAmount}
+            onChange={(value) => handlePropertyChange('curveAmount', value)}
+            style={{ flex: 1, margin: '0 10px 0 0' }}
+          />
+          <span style={{ width: '24px', textAlign: 'right' }}>{textProperties.curveAmount}</span>
+        </div>
+
+        {/* Color / Engrave Type */}
+        <div style={{ marginTop: '10px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '8px', fontSize: '14px' }}>Color</div>
+
+          {/* V-Cut + Colors */}
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+            <Button
+              type="primary"
+              style={{
+                backgroundColor: engraveTypes.vcut ? ACTIVE_BTN_COLOR : '#fff',
+                borderColor: engraveTypes.vcut ? ACTIVE_BTN_COLOR : '#d9d9d9',
+                color: engraveTypes.vcut ? '#fff' : '#000',
+                marginRight: '12px',
+                width: '90px',
+                fontWeight: 'bold'
+              }}
+              icon={engraveTypes.vcut ? <CheckOutlined /> : null}
+              onClick={() => handleEngraveTypeChange('vcut')}
             >
-              {uniqueFamilies.map(fam => (
-                <Select.Option
-                  key={fam.family}
-                  value={fam.family}
-                  // 🔥 新增：给每个选项加样式
+              VCut
+            </Button>
+
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {[
+                { color: '#FFFFFF' },
+                { color: '#000000' },
+                { color: '#FFD700' },
+                { color: '#FF0000' }
+              ].map((item, index) => (
+                <div
+                  key={index}
+                  onClick={() => {
+                    handleEngraveTypeChange('vcut');
+                    handlePropertyChange('vcutColor', item.color);
+                  }}
                   style={{
-                    fontSize: '10px', // 放大字体
+                    width: '28px',
+                    height: '28px',
+                    backgroundColor: item.color,
+                    border: '1px solid #d9d9d9',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }}
                 >
-                  <Tooltip
-                    placement="right"
-                    title={<FontPreviewTooltipContent font={fam} />}
-                    destroyTooltipOnHide
-                    mouseEnterDelay={0.2}
-
-                  >
-                    {/* 显示家族名，不再是冗长的文件名 */}
-                    <span style={{ fontFamily: fam.cssFamily || 'inherit', fontSize: '20px' }}>
-                      {fam.family}
-                    </span>
-                  </Tooltip>
-                </Select.Option>
-              ))}
-            </Select>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <span style={{
-              fontSize: '12px',
-              color: '#666',
-              width: '40px',
-              textAlign: 'right',
-              marginRight: '8px'
-            }}>
-              {t('textEditor.size')}:
-            </span>
-            <Input
-              type="number"
-              value={textProperties.size}
-              onChange={(e) => handlePropertyChange('size', Number(e.target.value))}
-              min={0.5}
-              max={20}
-              step={0.25}
-              size="small"
-              style={{ width: '80px' }}
-            />
-            <div style={{ marginLeft: '8px', marginRight: '8px' }}>{t('textEditor.inches')}</div>
-          </div>
-        </div>
-
-        {/* 对齐方式 */}
-        <div style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{
-              fontSize: '12px',
-              color: '#666',
-              width: '40px',
-              textAlign: 'right'
-            }}>
-              {t('textEditor.align')}:
-            </span>
-            <Space.Compact style={{ flex: 1 }} size="small">
-              <Button
-                size="small"
-                icon={<AlignLeftOutlined />}
-                type={textProperties.alignment === 'left' ? 'primary' : 'default'}
-                onClick={() => handlePropertyChange('alignment', 'left')}
-                style={{ flex: 1, fontSize: '11px', height: '24px' }}
-              >
-                Left
-              </Button>
-              <Button
-                size="small"
-                icon={<AlignCenterOutlined />}
-                type={textProperties.alignment === 'center' ? 'primary' : 'default'}
-                onClick={() => handlePropertyChange('alignment', 'center')}
-                style={{ flex: 1, fontSize: '11px', height: '24px' }}
-              >
-                {t('textEditor.center')}
-              </Button>
-              <Button
-                size="small"
-                icon={<AlignRightOutlined />}
-                type={textProperties.alignment === 'right' ? 'primary' : 'default'}
-                onClick={() => handlePropertyChange('alignment', 'right')}
-                style={{ flex: 1, fontSize: '11px', height: '24px' }}
-              >
-                {t('textEditor.right')}
-              </Button>
-            </Space.Compact>
-          </div>
-        </div>
-
-        {/* 间距控制 */}
-        <div style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-              <span style={{
-                fontSize: '12px',
-                color: '#666',
-                width: '60px',
-                textAlign: 'right',
-                marginRight: '8px'
-              }}>
-                {t('textEditor.kerning')}:
-              </span>
-              <Input
-                type="number"
-                value={textProperties.kerning}
-                onChange={(e) => handlePropertyChange('kerning', Number(e.target.value))}
-                min={-10}
-                max={10}
-                size="small"
-                style={{ flex: 1 }}
-              />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-              <span style={{
-                fontSize: '12px',
-                color: '#666',
-                width: '75px',
-                textAlign: 'right',
-                marginRight: '8px'
-              }}>
-                {t('textEditor.lineSpace')}:
-              </span>
-              <Input
-                type="number"
-                value={textProperties.lineSpacing}
-                onChange={(e) => handlePropertyChange('lineSpacing', Number(e.target.value))}
-                min={0.5}
-                max={3}
-                step={0.1}
-                size="small"
-                style={{ flex: 1 }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 弯曲程度 */}
-        <div style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{
-              fontSize: '12px',
-              color: '#666',
-              width: '40px',
-              textAlign: 'right'
-            }}>
-              {t('textEditor.shape')}:
-            </span>
-            <div style={{ flex: 1 }}>
-              <Slider
-                min={-45}
-                max={45}
-                value={textProperties.curveAmount}
-                onChange={(value) => handlePropertyChange('curveAmount', value)}
-                style={{ margin: '4px 0' }}
-              />
-            </div>
-            <span style={{
-              fontSize: '12px',
-              color: '#666',
-              width: '30px',
-              textAlign: 'center'
-            }}>
-              {textProperties.curveAmount}
-            </span>
-          </div>
-        </div>
-
-        <Divider style={{ margin: '8px 0' }} />
-
-        {/* 雕刻效果 */}
-        <div style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{
-              fontSize: '12px',
-              color: '#666',
-              width: '85px',
-              textAlign: 'right'
-            }}>
-              {t('textEditor.engraveType')}:
-            </span>
-            <Space.Compact style={{ flex: 1 }} size="small">
-              {renderEngraveTypeButton('vcut', 'V-Cut')}
-              {renderEngraveTypeButton('frost', 'Frost')}
-              {renderEngraveTypeButton('polish', 'Polish')}
-            </Space.Compact>
-          </div>
-        </div>
-
-        {/* 效果参数 */}
-        {textProperties.engraveType === 'vcut' && (
-          <div style={{ marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{
-                fontSize: '12px',
-                color: '#666',
-                width: '85px',
-                textAlign: 'right'
-              }}>
-                {t('textEditor.vcutColor')}:
-              </span>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                  {[
-                    { color: '#FFFFFF' },
-                    { color: '#000000' },
-                    { color: '#FFD700' },
-                    { color: '#FF0000' }
-                  ].map((item, index) => (
-                    <Button
-                      key={index}
-                      size="small"
-                      type={textProperties.vcutColor === item.color ? 'primary' : 'default'}
-                      onClick={() => handlePropertyChange('vcutColor', item.color)}
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        backgroundColor: item.color,
-                        color: item.color === '#000000' ? 'white' : 'black',
-                        border: textProperties.vcutColor === item.color ?
-                          '2px solid #1890ff' :
-                          (item.color === '#FFFFFF' ? '1px solid #d9d9d9' : 'none'),
-                        padding: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        minWidth: '32px'
-                      }}
-                    >
-                      {textProperties.vcutColor === item.color && (
-                        <CheckOutlined style={{
-                          color: item.color === '#000000' ? 'white' : 'black',
-                          fontSize: '12px'
-                        }} />
-                      )}
-                    </Button>
-                  ))}
-                  <Popover
-                    content={<CustomColorPanel />}
-                    trigger="click"
-                    placement="bottom"
-                    overlayStyle={{ width: 260 }}
-                  >
-                    <Button
-                      size="small"
-                      type={textProperties.vcutColor && !['#000000', '#FFFFFF', '#FFD700', '#FF0000'].includes(textProperties.vcutColor) ? 'primary' : 'default'}
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        minWidth: '32px'
-                      }}
-                    >
-                      +
-                    </Button>
-                  </Popover>
+                  {textProperties.engraveType === 'vcut' && textProperties.vcutColor === item.color && (
+                    <CheckOutlined style={{
+                      color: item.color === '#000000' ? '#fff' : '#000',
+                      fontSize: '12px'
+                    }} />
+                  )}
                 </div>
-                {textProperties.vcutColor && !['#000000', '#FFFFFF', '#FFD700', '#FF0000'].includes(textProperties.vcutColor) && (
-                  <div style={{ fontSize: '11px', color: '#666', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>{t('textEditor.current')}:</span>
-                    <div
-                      style={{
-                        width: '14px',
-                        height: '14px',
-                        backgroundColor: textProperties.vcutColor,
-                        border: '1px solid #d9d9d9'
-                      }}
-                    />
-                    <span>{textProperties.vcutColor}</span>
-                  </div>
-                )}
-              </div>
+              ))}
+              <Popover
+                content={<CustomColorPanel />}
+                trigger="click"
+                placement="bottom"
+              >
+                <div
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    backgroundColor: '#e0e0e0',
+                    border: '1px solid #d9d9d9',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '16px',
+                    color: '#666'
+                  }}
+                >
+                  +
+                </div>
+              </Popover>
             </div>
           </div>
-        )}
 
-        {textProperties.engraveType === 'frost' && (
-          <div style={{ marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{
-                fontSize: '12px',
-                color: '#666',
-                width: '85px',
-                textAlign: 'right'
-              }}>
-                {/* Frost Intensity:
-              </span>
-              <div style={{ flex: 1 }}>
-                <Slider
-                  min={0.1}
-                  max={1}
-                  step={0.1}
-                  value={textProperties.frostIntensity}
-                  onChange={(value) => handlePropertyChange('frostIntensity', value)}
-                  style={{ margin: '4px 0' }}
-                />
-              </div>
-              <span style={{
-                fontSize: '12px',
-                color: '#666',
-                width: '30px',
-                textAlign: 'center'
-              }}>
-                {textProperties.frostIntensity}
-            */}
-              </span>
-            </div>
+          {/* Frost & Polish */}
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <Button
+              style={{
+                backgroundColor: engraveTypes.frost ? '#d9d9d9' : '#e0e0e0',
+                borderColor: '#d9d9d9',
+                color: '#000',
+                width: '90px',
+                fontWeight: 'bold',
+                textAlign: 'left',
+                paddingLeft: '10px'
+              }}
+              onClick={() => handleEngraveTypeChange('frost')}
+            >
+              + Frost
+            </Button>
+            <Button
+              style={{
+                backgroundColor: engraveTypes.polish ? '#d9d9d9' : '#e0e0e0',
+                borderColor: '#d9d9d9',
+                color: '#000',
+                width: '90px',
+                fontWeight: 'bold',
+                textAlign: 'left',
+                paddingLeft: '10px'
+              }}
+              onClick={() => handleEngraveTypeChange('polish')}
+            >
+              + Polish
+            </Button>
           </div>
-        )}
-
-        {textProperties.engraveType === 'polish' && (
-          <div style={{ marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{
-                fontSize: '12px',
-                color: '#666',
-                width: '85px',
-                textAlign: 'right'
-              }}>
-                {/*  Polish Blend:
-              </span>
-              <div style={{ flex: 1 }}>
-                <Slider
-                  min={0.1}
-                  max={1}
-                  step={0.1}
-                  value={textProperties.polishBlend}
-                  onChange={(value) => handlePropertyChange('polishBlend', value)}
-                  style={{ margin: '4px 0' }}
-                />
-              </div>
-              <span style={{
-                fontSize: '12px',
-                color: '#666',
-                width: '30px',
-                textAlign: 'center'
-              }}>
-                {textProperties.polishBlend}
-            */}
-              </span>
-            </div>
-          </div>
-        )}
+        </div>
       </Card>
     </div>
   );
