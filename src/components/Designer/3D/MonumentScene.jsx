@@ -194,9 +194,11 @@ const MonumentScene = forwardRef(({
     }
   }));
 
+  // 计算所有模型位置（含碑体、底座、副底座）
   const positions = useMemo(() => {
     const positions = {};
-
+  
+    // 工具函数：获取模型尺寸
     const getModelLength = (modelId) => {
       const mesh = modelRefs.current[modelId]?.getMesh();
       if (mesh) {
@@ -205,10 +207,10 @@ const MonumentScene = forwardRef(({
         box.getSize(size);
         return size.x;
       }
-      const model = [...designState.subBases, ...designState.bases, ...designState.monuments]
-        .find(m => m.id === modelId);
+      const model = [...designState.subBases, ...designState.bases, ...designState.monuments].find(m => m.id === modelId);
       return model ? (model.dimensions.length || 0) : 0;
     };
+  
     const getModelHeight = (modelId) => {
       const mesh = modelRefs.current[modelId]?.getMesh();
       if (mesh) {
@@ -217,76 +219,74 @@ const MonumentScene = forwardRef(({
         box.getSize(size);
         return size.y;
       }
-      const model = [...designState.subBases, ...designState.bases, ...designState.monuments]
-        .find(m => m.id === modelId);
+      const model = [...designState.subBases, ...designState.bases, ...designState.monuments].find(m => m.id === modelId);
       return model ? (model.dimensions.height || 0) : 0;
     };
-
-    let currentY_subBase = -0.5;
-    let currentY_base = -0.3;
-    let currentY_Tablet = -0.1;
-    let currentY_Top = -0.1;
-    let currentX_subBase = -0.381;
-    let currentX_base = -0.381;
-    let currentX_Tablet = -0.304;
-
-    if (designState.subBases.length > 0) {
-      const totalSubBaseLength = designState.subBases.reduce((sum, subBase) => sum + getModelLength(subBase.id), 0) + (designState.subBases.length - 1) * 0.2;
-      if (totalSubBaseLength > 0) currentX_subBase = -totalSubBaseLength / 2;
-      designState.subBases.forEach((subBase, index) => {
-        const height = getModelHeight(subBase.id);
-        const length = getModelLength(subBase.id);
-        positions[subBase.id] = [currentX_subBase, currentY_subBase, 0];
-        currentX_subBase += length + 0.2;
-        if (index === 0 && height > 0) {
-          currentY_Top = currentY_subBase;
-          currentY_Top += height;
-          currentY_base = currentY_Top;
-        }
-      });
-    }
-
-    if (designState.bases.length > 0) {
-      if (designState.subBases.length === 0) {
-        currentY_base = -0.5;
-        currentY_Tablet = -0.3;
-        currentY_Top = -0.3;
-      }
-      const maxBaseLength = Math.max(...designState.bases.map(base => getModelLength(base.id)));
-      if (maxBaseLength > 0) currentX_base = -maxBaseLength / 2;
-
-      let baseYPosition = currentY_base;
-      designState.bases.forEach((base, index) => {
-        const height = getModelHeight(base.id);
-        const length = getModelLength(base.id);
-        positions[base.id] = [0, baseYPosition, -0.103];
-
-        if (height > 0) {
-          baseYPosition += height;
-        }
-
-        if (index === designState.bases.length - 1 && height > 0) {
-          currentY_Top = baseYPosition;
-          currentY_Tablet = baseYPosition;
-        }
-      });
-    }
-
+  
+    // 配置项
+    const PAIR_SPACING = 1.0;
+    const NO_SPACING = 0;
+    const ALIGN_Z = -0.103;
+    const baseInitY = -0.5;
+  
+    // 1. 先计算所有Base和Monument的动态居中位置（核心：先算完所有底座位置）
+    const basePositionMap = {}; // 存储底座ID和最新位置的映射
     if (designState.monuments.length > 0) {
-      if (designState.subBases.length === 0 && designState.bases.length === 0) {
-        currentY_Tablet = -0.5;
-        currentY_Top = -0.5;
-      }
-      const totalMonumentLength = designState.monuments.reduce((sum, monument) => sum + getModelLength(monument.id), 0) + (designState.monuments.length - 1) * 0.2;
-      if (totalMonumentLength > 0) currentX_Tablet = -totalMonumentLength / 2;
+      const comboLengths = designState.monuments.map((monument, index) => {
+        const monumentLength = getModelLength(monument.id);
+        const base = designState.bases[index];
+        const baseLength = base ? getModelLength(base.id) : monumentLength;
+        return Math.max(monumentLength, baseLength);
+      });
+  
+      const totalComboWidth = comboLengths.reduce((sum, len) => sum + len + PAIR_SPACING, 0) - PAIR_SPACING;
+      const centerOffsetX = -totalComboWidth / 2;
+  
       designState.monuments.forEach((monument, index) => {
-        const height = getModelHeight(monument.id);
-        const length = getModelLength(monument.id);
-        positions[monument.id] = [0, currentY_Tablet - 0.01, -0.103];
-        currentX_Tablet += length + 0.2;
-        if (index === 0) currentY_Top += height;
+        const prevComboTotal = comboLengths.slice(0, index).reduce((sum, len) => sum + len + PAIR_SPACING, 0);
+        const currentComboLength = comboLengths[index];
+        const comboCenterOffset = currentComboLength / 2;
+        const finalX = centerOffsetX + prevComboTotal + comboCenterOffset;
+  
+        // 设置底座位置，并存入映射表
+        const base = designState.bases[index];
+        if (base) {
+          const basePos = [finalX, baseInitY, ALIGN_Z];
+          positions[base.id] = basePos;
+          basePositionMap[base.id] = basePos; // 关键：记录底座最新位置
+        }
+  
+        // 设置碑体位置
+        const currentBaseY = base ? positions[base.id][1] : baseInitY;
+        const currentBaseHeight = base ? getModelHeight(base.id) : 0;
+        positions[monument.id] = [
+          finalX,
+          currentBaseY + currentBaseHeight + NO_SPACING,
+          ALIGN_Z
+        ];
       });
     }
+  
+    // 2. 计算SubBase位置（根据bindBaseId匹配底座最新位置，确保跟随）
+    if (designState.subBases.length > 0 && Object.keys(basePositionMap).length > 0) {
+      designState.subBases.forEach(subBase => {
+        // 根据绑定的base.id获取底座最新位置
+        const targetBasePos = basePositionMap[subBase.bindBaseId];
+        if (targetBasePos) {
+          const baseHeight = getModelHeight(subBase.bindBaseId); // 获取对应底座高度
+          // SubBase位置：X/Y贴合底座底部，Z轴统一
+          positions[subBase.id] = [
+            targetBasePos[0], // X轴完全跟随底座
+            targetBasePos[1] - baseHeight + NO_SPACING, // Y轴贴底座底部
+            ALIGN_Z // Z轴统一
+          ];
+        } else {
+          // 兜底位置（无匹配底座时）
+          positions[subBase.id] = [0, baseInitY - 1, ALIGN_Z];
+        }
+      });
+    }
+  
     return positions;
   }, [designState.subBases, designState.bases, designState.monuments]);
 

@@ -1338,28 +1338,31 @@ const DesignerPage = () => {
             {/* 2. 将现有的控件包裹在 footer-controls div 中 (作为 Flex 的左侧部分) */}
             <div className="footer-controls">
               <div className="control-rows-container">
-                {designState.monuments.map(monument => (
+                {/* 墓碑：添加索引 index，label 拼接序号 */}
+                {designState.monuments.map((monument, index) => (
                   <DimensionControl
                     key={monument.id}
                     element={monument}
                     elementType="monument"
-                    label={t('designer.tablet')}
+                    label={`${t('designer.tablet')}${index + 1}`}  
                   />
                 ))}
-                {designState.bases.map(base => (
+                {/* 底座：添加索引 index，label 拼接序号 */}
+                {designState.bases.map((base, index) => (
                   <DimensionControl
                     key={base.id}
                     element={base}
                     elementType="base"
-                    label={t('designer.base')}
+                    label={`${t('designer.base')}${index + 1}`}  
                   />
                 ))}
-                {designState.subBases.map(subBase => (
+                {/* 子底座：添加索引 index，label 拼接序号 */}
+                {designState.subBases.map((subBase, index) => (
                   <DimensionControl
                     key={subBase.id}
                     element={subBase}
                     elementType="subBase"
-                    label={t('designer.subBase')}
+                    label={`${t('designer.subBase')}${index + 1}`}  
                   />
                 ))}
               </div>
