@@ -84,7 +84,8 @@
     "printDesign": "Imprimer le design",
     "emailDownload": "Email/Télécharger",
     "artOptions": "Options d'art",
-    "recentlySaved": "Récemment sauvegardé"
+    "recentlySaved": "Récemment sauvegardé",
+    "Grid": "Grille"
   },
   "savedDesigns": {
     "pageTitle": "Conceptions sauvegardées",

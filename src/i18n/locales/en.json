@@ -84,7 +84,8 @@
     "printDesign": "Print Design",
     "emailDownload": "Email/Download",
     "artOptions": "Art Options",
-    "recentlySaved": "Recently Saved"
+    "recentlySaved": "Recently Saved",
+    "Grid": "Grid"
   },
   "savedDesigns": {
     "pageTitle": "Saved Designs",

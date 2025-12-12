@@ -6,7 +6,8 @@ import {
   EnvironmentOutlined,
   SaveOutlined,
   FileTextOutlined,
-  CloseOutlined
+  CloseOutlined,
+  TableOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -39,6 +40,9 @@ const DesignerPage = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [activeTool, setActiveTool] = useState(null);
   const [currentBackground, setCurrentBackground] = useState('transparent');
+
+  const [isGridEnabled, setIsGridEnabled] = useState(false);
+
   const [recentlySaved, setRecentlySaved] = useState([]);
 
   // Art 状态
@@ -1232,6 +1236,12 @@ const DesignerPage = () => {
                 {/* 撤销/重做/背景选择 */}
                 <Button icon={<UndoOutlined />} size="small" disabled={!canUndo} onClick={undo}>{t('designer.undo')}</Button>
                 <Button icon={<RedoOutlined />} size="small" disabled={!canRedo} onClick={redo}>{t('designer.redo')}</Button>
+
+                {/* --- 新增：网格开关按钮 --- */}
+                <Button
+                  type={isGridEnabled ? 'primary' : 'default'} icon={<TableOutlined />} size="small" onClick={() => setIsGridEnabled(!isGridEnabled)}>{t('designer.Grid')}</Button>
+                {/* ----------------------- */}
+
                 <div className="custom-select-with-left-icon">
                   <EnvironmentOutlined className="select-left-icon" />
                   <Select value={currentBackground} onChange={handleBackgroundChange} style={{ height: '44px', display: 'flex', alignItems: 'center', width: '140px' }} className="background-select-custom" size="small">
@@ -1289,6 +1299,7 @@ const DesignerPage = () => {
 
                 // Drag and Drop Props
                 onSceneDrop={handleSceneDrop}
+                isGridEnabled={isGridEnabled}
               />
 
               {/* 工具面板 */}
@@ -1344,7 +1355,7 @@ const DesignerPage = () => {
                     key={monument.id}
                     element={monument}
                     elementType="monument"
-                    label={`${t('designer.tablet')}${index + 1}`}  
+                    label={`${t('designer.tablet')}${index + 1}`}
                   />
                 ))}
                 {/* 底座：添加索引 index，label 拼接序号 */}
@@ -1353,7 +1364,7 @@ const DesignerPage = () => {
                     key={base.id}
                     element={base}
                     elementType="base"
-                    label={`${t('designer.base')}${index + 1}`}  
+                    label={`${t('designer.base')}${index + 1}`}
                   />
                 ))}
                 {/* 子底座：添加索引 index，label 拼接序号 */}
@@ -1362,7 +1373,7 @@ const DesignerPage = () => {
                     key={subBase.id}
                     element={subBase}
                     elementType="subBase"
-                    label={`${t('designer.subBase')}${index + 1}`}  
+                    label={`${t('designer.subBase')}${index + 1}`}
                   />
                 ))}
               </div>

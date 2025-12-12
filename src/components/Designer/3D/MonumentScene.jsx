@@ -14,7 +14,7 @@ import EnhancedTextElement from './EnhancedTextElement.jsx';
 const MonumentGrid = ({ width, height, position }) => {
   if (!width || !height) return null;
   const INCH_IN_METERS = 0.0254;
-  const size = Math.max(width, height) * 3;
+  const size = Math.max(width, height) * 10;
   const divisions = Math.ceil(size / INCH_IN_METERS);
   const actualSize = divisions * INCH_IN_METERS;
 
@@ -34,6 +34,8 @@ const MonumentGrid = ({ width, height, position }) => {
 const MonumentScene = forwardRef(({
   designState,
   onDimensionsChange,
+  onSceneDrop,
+  isGridEnabled,
   onDuplicateElement,
   onDeleteElement,
   onFlipElement,
@@ -57,7 +59,7 @@ const MonumentScene = forwardRef(({
   selectedVaseId,
   vaseTransformMode,
   onUpdateVaseElementState,
-  onSceneDrop
+
 }, ref) => {
   const { gl, scene, camera, raycaster, pointer } = useThree();
   const sceneRef = useRef();
@@ -197,7 +199,7 @@ const MonumentScene = forwardRef(({
   // 计算所有模型位置（含碑体、底座、副底座）
   const positions = useMemo(() => {
     const positions = {};
-  
+
     // 工具函数：获取模型尺寸
     const getModelLength = (modelId) => {
       const mesh = modelRefs.current[modelId]?.getMesh();
@@ -210,7 +212,7 @@ const MonumentScene = forwardRef(({
       const model = [...designState.subBases, ...designState.bases, ...designState.monuments].find(m => m.id === modelId);
       return model ? (model.dimensions.length || 0) : 0;
     };
-  
+
     const getModelHeight = (modelId) => {
       const mesh = modelRefs.current[modelId]?.getMesh();
       if (mesh) {
@@ -222,13 +224,13 @@ const MonumentScene = forwardRef(({
       const model = [...designState.subBases, ...designState.bases, ...designState.monuments].find(m => m.id === modelId);
       return model ? (model.dimensions.height || 0) : 0;
     };
-  
+
     // 配置项
     const PAIR_SPACING = 1.0;
     const NO_SPACING = 0;
     const ALIGN_Z = -0.103;
     const baseInitY = -0.5;
-  
+
     // 1. 先计算所有Base和Monument的动态居中位置（核心：先算完所有底座位置）
     const basePositionMap = {}; // 存储底座ID和最新位置的映射
     if (designState.monuments.length > 0) {
@@ -238,16 +240,16 @@ const MonumentScene = forwardRef(({
         const baseLength = base ? getModelLength(base.id) : monumentLength;
         return Math.max(monumentLength, baseLength);
       });
-  
+
       const totalComboWidth = comboLengths.reduce((sum, len) => sum + len + PAIR_SPACING, 0) - PAIR_SPACING;
       const centerOffsetX = -totalComboWidth / 2;
-  
+
       designState.monuments.forEach((monument, index) => {
         const prevComboTotal = comboLengths.slice(0, index).reduce((sum, len) => sum + len + PAIR_SPACING, 0);
         const currentComboLength = comboLengths[index];
         const comboCenterOffset = currentComboLength / 2;
         const finalX = centerOffsetX + prevComboTotal + comboCenterOffset;
-  
+
         // 设置底座位置，并存入映射表
         const base = designState.bases[index];
         if (base) {
@@ -255,7 +257,7 @@ const MonumentScene = forwardRef(({
           positions[base.id] = basePos;
           basePositionMap[base.id] = basePos; // 关键：记录底座最新位置
         }
-  
+
         // 设置碑体位置
         const currentBaseY = base ? positions[base.id][1] : baseInitY;
         const currentBaseHeight = base ? getModelHeight(base.id) : 0;
@@ -266,7 +268,7 @@ const MonumentScene = forwardRef(({
         ];
       });
     }
-  
+
     // 2. 计算SubBase位置（根据bindBaseId匹配底座最新位置，确保跟随）
     if (designState.subBases.length > 0 && Object.keys(basePositionMap).length > 0) {
       designState.subBases.forEach(subBase => {
@@ -286,7 +288,7 @@ const MonumentScene = forwardRef(({
         }
       });
     }
-  
+
     return positions;
   }, [designState.subBases, designState.bases, designState.monuments]);
 
@@ -316,7 +318,10 @@ const MonumentScene = forwardRef(({
     }
   }, [mainMonument, designState.monuments, autoSurfaceZ]);
 
-  const showGrid = (selectedElementId !== null || currentTextId !== null) && mainMonument && autoSurfaceZ !== null && !isFillModeActive;
+  // 移除了 (selectedElementId !== null || currentTextId !== null) 判断
+  // 现在的逻辑是：只有当开关开启 (isGridEnabled 为 true) 且不在填充模式时才显示designState={designState}
+  const showGrid = isGridEnabled && mainMonument && autoSurfaceZ !== null && !isFillModeActive;
+
 
   return (
     <group ref={sceneRef}>
