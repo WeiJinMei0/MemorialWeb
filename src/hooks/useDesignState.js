@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-
+import { message } from 'antd';
 const PRODUCT_FAMILIES = {
   'Tablet': {
     needsBase: true,
@@ -327,7 +327,8 @@ export const useDesignState = () => {
       texturePath: "", // 不再需要，由 Scene3D.jsx 处理
       position: [0, 0, 0],
       dimensions: { length: 0, width: 0, height: 0 },
-      weight: 0
+      weight: 0,
+      label: `${family}1` // 初始墓碑标识
     };
     // console.log(monument)
 
@@ -341,7 +342,8 @@ export const useDesignState = () => {
       texturePath: "", // 不再需要，由 Scene3D.jsx 处理
       position: [0, 0, 0],
       dimensions: { length: 0, width: 0, height: 0 },
-      weight: 0
+      weight: 0,
+      label: `Base1` // 初始底座标识
     };
 
     console.log("更新历史记录")
@@ -360,30 +362,43 @@ export const useDesignState = () => {
     const familyConfig = PRODUCT_FAMILIES[family];
 
     if (!familyConfig) return;
+    // ========== 新增：碑体数量校验（核心逻辑） ==========
+    const MAX_MONUMENTS = 2; // 最多2个碑体
+    if (designState.monuments.length >= MAX_MONUMENTS) {
+      message.warning('最多只能添加2个碑体，无法继续添加'); // 警告提示
+      return; // 直接返回，不执行后续添加逻辑
+    }
+
     const newMonumentId = `monument-${Date.now()}`; // 记录新 ID
-    // 1. 创建新的碑体
-    const monument = {
-      id: newMonumentId,
-      type: 'monument',
-      family,
-      class: productClass,
-      polish,
-      color,
-      modelPath: productData.modelPath, // (来自 ModelLibrary.jsx)
-      texturePath: "",
-      position: [0, 0, 0],
-      dimensions: { length: 0, width: 0, height: 0 },
-      weight: 0
-    };
+    
 
     updateDesignState(prev => {
-      // 2. 从现有 state 开始 (保留 vases, art, text, subBases 等)
-      const newState = { ...prev };
+      const newMonumentIndex = prev.monuments.length + 1;
+      // 1. 创建新的碑体
+      const monument = {
+        id: newMonumentId,
+        type: 'monument',
+        family,
+        class: productClass,
+        polish,
+        color,
+        modelPath: productData.modelPath, // (来自 ModelLibrary.jsx)
+        texturePath: "",
+        position: [0, 0, 0],
+        dimensions: { length: 0, width: 0, height: 0 },
+        weight: 0,
+        label: `${family}${newMonumentIndex}` // 添加标识，如Tablet1, Tablet2
+      };
 
-      // 2. 获取旧的主碑 ID (假设通常只有一个主碑)
+      // 从现有 state 开始 (保留 vases, art, text, subBases 等)
+      const newState = { ...prev };
+      // ========== 修改：新增碑体（而非替换） ==========
+      // 原逻辑：newState.monuments = [monument]（替换）
+      // 新逻辑：追加新碑体（保留原有 + 新增，最多2个）
+      newState.monuments = [...prev.monuments, monument];
+
+      // 获取旧的主碑 ID (假设通常只有一个主碑)
       const oldMonumentId = prev.monuments.length > 0 ? prev.monuments[0].id : null;
-      // 3. 【V_MODIFICATION】: 替换碑体数组
-      newState.monuments = [monument];
 
       // 如果之前有文字绑定在旧碑体上，将它们“过继”给新碑体
       if (oldMonumentId && newState.textElements.length > 0) {
@@ -395,8 +410,9 @@ export const useDesignState = () => {
         });
       }
 
-      // 4. 【V_MODIFICATION】: 替换底座数组
+      // 新增底座（和碑体一一对应，最多2个）
       if (familyConfig.needsBase) { //
+        const newBaseIndex = prev.bases.length + 1;
         const base = {
           id: `base-${Date.now()}`,
           type: 'base',
@@ -406,10 +422,11 @@ export const useDesignState = () => {
           texturePath: "", //
           position: [0, 0, 0], // 重置位置
           dimensions: { length: 0, width: 0, height: 0 },
-          weight: 0
+          weight: 0,
+          label: `Base${newBaseIndex}` // Base1、Base2...
         };
-        // 替换，而不是附加
-        newState.bases = [base];
+        // 追加底座，和碑体数量匹配
+        newState.bases = [...prev.bases, base];
       } else {
         // 如果新产品不需要底座，则清空底座和地基 (遵循原始逻辑)
         newState.bases = []; //
@@ -418,7 +435,7 @@ export const useDesignState = () => {
 
       return newState;
     });
-  }, [designState, updateDesignState]); //
+  }, [designState, updateDesignState]); 
 
   // --- 合并点：从同事的 DesignerPage.jsx 中添加 addTablet ---
   const addTablet = useCallback(() => {
@@ -434,6 +451,8 @@ export const useDesignState = () => {
 
   const addBase = useCallback(() => {
     updateDesignState(prev => {
+      // 计算新底座的编号
+      const newBaseIndex = prev.bases.length + 1;
       const base = {
         id: `base-${Date.now()}`,
         type: 'base',
@@ -444,7 +463,8 @@ export const useDesignState = () => {
         texturePath: "", // 不再需要，由 Scene3D.jsx 处理
         position: [prev.bases.length * 2, 0, 0],
         dimensions: { length: 0, width: 0, height: 0 },
-        weight: 0
+        weight: 0,
+        label: `Base${newBaseIndex}` // 添加标识，如 Base1, Base2
       };
 
       return {
@@ -462,27 +482,53 @@ export const useDesignState = () => {
   }, [updateDesignState]);
 
 
+
   const addSubBase = useCallback(() => {
     updateDesignState(prev => {
+      // 1. 检测是否有可用底座
+      if (prev.bases.length === 0) {
+        message.warning('暂无可用底座，请先添加底座');
+        return prev;
+      }
+  
+      // 2. 按顺序遍历底座，找可添加的目标底座（每个底座最多1个subbase）
+      let targetBase = null;
+      for (const base of prev.bases) {
+        // 统计该底座下已有的subbase数量（通过base.id临时标记，避免位置匹配误差）
+        const subBaseCount = prev.subBases.filter(s => s.bindBaseId === base.id).length;
+        if (subBaseCount < 1) { // 改为最多1个
+          targetBase = base;
+          break;
+        }
+      }
+  
+      // 3. 检测是否所有底座都已达上限
+      if (!targetBase) {
+        message.warning('每个底座最多添加1个副底座，无法继续添加');
+        return prev;
+      }
+  
+      // 4. 创建subbase（绑定base.id，而非位置，解决跟随问题）
       const subBase = {
         id: `subbase-${Date.now()}`,
         type: 'subBase',
+        bindBaseId: targetBase.id, // 绑定底座ID，而非位置，确保跟随
         polish: 'PT',
         color: prev.currentMaterial,
-        // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
         modelPath: "/models/Bases/Base.glb",
-        texturePath: "", // 不再需要，由 Scene3D.jsx 处理
-        position: [prev.subBases.length * 2, 0, 0],
+        texturePath: "",
+        position: [0, 0, 0], // 位置完全由3D场景动态计算
         dimensions: { length: 0, width: 0, height: 0 },
-        weight: 0
+        weight: 0,
+        label: `${targetBase.label}-SubBase`
       };
-
+  
       return {
         ...prev,
         subBases: [...prev.subBases, subBase]
       };
     });
-  }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
+  }, [updateDesignState]);
 
   const removeSubBase = useCallback((subBaseId) => {
     updateDesignState(prev => ({
