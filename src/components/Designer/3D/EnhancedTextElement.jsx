@@ -158,6 +158,7 @@ const HiddenTextarea = ({
 /**
  * 主组件
  */
+// ... existing code ...
 const EnhancedTextElement = ({
   text,
   monument,
@@ -545,9 +546,15 @@ const EnhancedTextElement = ({
   // 核心逻辑 5: 材质同步 (polish 材质)
   // ----------------------------------------------------------------
   useEffect(() => {
+    // If no monument, don't try to sync materials
+    if (!monument) {
+      setMonumentMaterial(null);
+      return;
+    }
+
     let rafId;
     const trySetMaterial = () => {
-      if (!monument || text.engraveType !== 'polish') {
+      if (text.engraveType !== 'polish') {
         setMonumentMaterial(null);
         return;
       }
@@ -639,7 +646,27 @@ const EnhancedTextElement = ({
   }, []);
 
   const writeBackPoseToState = useCallback(() => {
-    if (!groupRef.current || !monument) return;
+    // If no monument, write back position directly without transformation
+    if (!groupRef.current) return;
+
+    if (!monument) {
+      // Write position and rotation directly in world coordinates
+      const worldPosition = new THREE.Vector3();
+      const worldQuaternion = new THREE.Quaternion();
+      groupRef.current.getWorldPosition(worldPosition);
+      groupRef.current.getWorldQuaternion(worldQuaternion);
+      const euler = new THREE.Euler().setFromQuaternion(worldQuaternion, 'XYZ');
+
+      const doWrite = () => {
+        onTextPositionChange && onTextPositionChange(text.id, [worldPosition.x, worldPosition.y, worldPosition.z]);
+        onTextRotationChange && onTextRotationChange(text.id, [euler.x, euler.y, euler.z]);
+        rafWriteRef.current = null;
+      };
+      if (!rafWriteRef.current) rafWriteRef.current = requestAnimationFrame(doWrite);
+      return;
+    }
+
+    // Original monument-dependent code
     const monumentMesh = modelRefs.current[monument.id]?.getMesh();
     if (!monumentMesh) return;
     monumentMesh.updateWorldMatrix(true, false);
@@ -669,7 +696,24 @@ const EnhancedTextElement = ({
   }, [monument, text.id, onTextPositionChange, onTextRotationChange, modelRefs]);
 
   useEffect(() => {
-    if (!groupRef.current || !monument) return;
+    if (!groupRef.current) return;
+
+    // If no monument, position text directly in world coordinates
+    if (!monument) {
+      const x = Array.isArray(text.position) ? (text.position[0] || 0) : 0;
+      const y = Array.isArray(text.position) ? (text.position[1] || 0.3) : 0.3;
+      const z = Array.isArray(text.position) ? (text.position[2] || 0) : 0;
+
+      const localPoint = new THREE.Vector3(x, y, z);
+      groupRef.current.position.copy(localPoint);
+
+      const localEuler = new THREE.Euler(...(text.rotation || [0, 0, 0]), 'XYZ');
+      const localQuat = new THREE.Quaternion().setFromEuler(localEuler);
+      groupRef.current.quaternion.copy(localQuat);
+      return;
+    }
+
+    // Original monument-dependent positioning
     const monumentMesh = modelRefs.current[monument.id]?.getMesh();
     if (!monumentMesh) return;
 
@@ -701,6 +745,9 @@ const EnhancedTextElement = ({
   }, [monument, text.position, text.rotation, modelRefs, isDragging]);
 
   useEffect(() => {
+    // Skip initial positioning if no monument
+    if (!monument) return;
+
     const isDefault = Array.isArray(text.position)
       ? (text.position[0] === 0 && text.position[1] === 0 && text.position[2] === 0)
       : true;
@@ -712,6 +759,7 @@ const EnhancedTextElement = ({
   }, [text.id, text.position, monument, hasInitPosition]);
 
   useEffect(() => {
+    // Skip Z-sync if no monument
     if (!monument) return;
 
     if (surfaceZ !== null && surfaceZ !== undefined) {
