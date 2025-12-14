@@ -362,91 +362,94 @@ export const useDesignState = () => {
     const familyConfig = PRODUCT_FAMILIES[family];
 
     if (!familyConfig) return;
-    // ========== 新增：碑体数量校验（核心逻辑） ==========
-    const MAX_MONUMENTS = 2; // 最多2个碑体
-    if (designState.monuments.length >= MAX_MONUMENTS) {
-      message.warning('最多只能添加2个碑体，无法继续添加'); // 警告提示
-      return; // 直接返回，不执行后续添加逻辑
-    }
-
-    const newMonumentId = `monument-${Date.now()}`; // 记录新 ID
-    
 
     updateDesignState(prev => {
-      const newMonumentIndex = prev.monuments.length + 1;
       // 1. 创建新的碑体
       const monument = {
-        id: newMonumentId,
+        id: 'monument-1',
         type: 'monument',
         family,
         class: productClass,
         polish,
         color,
-        modelPath: productData.modelPath, // (来自 ModelLibrary.jsx)
+        modelPath: productData.modelPath,
         texturePath: "",
         position: [0, 0, 0],
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
-        label: `${family}${newMonumentIndex}` // 添加标识，如Tablet1, Tablet2
+        label: `${family}1`
       };
 
-      // 从现有 state 开始 (保留 vases, art, text, subBases 等)
-      const newState = { ...prev };
-      // ========== 修改：新增碑体（而非替换） ==========
-      // 原逻辑：newState.monuments = [monument]（替换）
-      // 新逻辑：追加新碑体（保留原有 + 新增，最多2个）
-      newState.monuments = [...prev.monuments, monument];
+      // 2. 清空现有状态，只保留新碑体
+      const newState = {
+        ...prev,
+        monuments: [monument],
+        bases: [],
+        subBases: []
+      };
 
-      // 获取旧的主碑 ID (假设通常只有一个主碑)
-      const oldMonumentId = prev.monuments.length > 0 ? prev.monuments[0].id : null;
-
-      // 如果之前有文字绑定在旧碑体上，将它们“过继”给新碑体
-      if (oldMonumentId && newState.textElements.length > 0) {
-        newState.textElements = newState.textElements.map(text => {
-          if (text.monumentId === oldMonumentId) {
-            return { ...text, monumentId: newMonumentId };
-          }
-          return text;
-        });
-      }
-
-      // 新增底座（和碑体一一对应，最多2个）
-      if (familyConfig.needsBase) { //
-        const newBaseIndex = prev.bases.length + 1;
+      // 3. 如果新产品需要底座，添加底座
+      if (familyConfig.needsBase) {
         const base = {
-          id: `base-${Date.now()}`,
+          id: 'base-1',
           type: 'base',
           polish: 'PT',
           color,
-          modelPath: "/models/Bases/Base.glb", //
-          texturePath: "", //
-          position: [0, 0, 0], // 重置位置
+          modelPath: "/models/Bases/Base.glb",
+          texturePath: "",
+          position: [0, 0, 0],
           dimensions: { length: 0, width: 0, height: 0 },
           weight: 0,
-          label: `Base${newBaseIndex}` // Base1、Base2...
+          label: `Base1`
         };
-        // 追加底座，和碑体数量匹配
-        newState.bases = [...prev.bases, base];
-      } else {
-        // 如果新产品不需要底座，则清空底座和地基 (遵循原始逻辑)
-        newState.bases = []; //
-        newState.subBases = []; //
+        newState.bases = [base];
       }
 
       return newState;
     });
-  }, [designState, updateDesignState]); 
+  }, [designState, updateDesignState]);
 
-  // --- 合并点：从同事的 DesignerPage.jsx 中添加 addTablet ---
+  // 修改：添加第二个碑体，不需要底座，y轴与第一个碑体一致
   const addTablet = useCallback(() => {
-    // 【V_MODIFICATION】: 我们需要模拟 ModelLibrary 提供的 productData 对象
-    addProduct({
-      family: 'Tablet',
-      class: 'Serp Top',
-      polish: 'P5',
-      modelPath: "/models/Shapes/Tablet/Serp Top.glb" // 添加缺失的 modelPath
+    const MAX_MONUMENTS = 2;
+    
+    // 检查是否已满
+    if (designState.monuments.length >= MAX_MONUMENTS) {
+      message.warning('最多只能添加2个碑体，无法继续添加');
+      return;
+    }
+
+    // 获取第一个碑体的y轴位置
+    const firstMonument = designState.monuments[0];
+    const yPosition = firstMonument ? firstMonument.position[1] : 0;
+
+    updateDesignState(prev => {
+      const newMonumentIndex = prev.monuments.length + 1;
+      
+      const monument = {
+        id: `monument-${Date.now()}`,
+        type: 'monument',
+        family: 'Tablet',
+        class: 'Serp Top',
+        polish: 'P5',
+        color: prev.currentMaterial,
+        modelPath: "/models/Shapes/Tablet/Serp Top.glb",
+        texturePath: "",
+        position: [0, yPosition, 0], // y轴与第一个碑体一致
+        dimensions: { length: 0, width: 0, height: 0 },
+        weight: 0,
+        label: `Tablet${newMonumentIndex}`
+      };
+
+      // 添加新碑体，保留现有碑体
+      return {
+        ...prev,
+        monuments: [...prev.monuments, monument]
+        // 注意：不添加底座
+      };
     });
-  }, [addProduct]);
+  }, [designState, updateDesignState]);
+
 
   // 暂时屏蔽 addBase功能
   // const addBase = useCallback(() => {
