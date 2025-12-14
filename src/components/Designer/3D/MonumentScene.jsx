@@ -428,8 +428,38 @@ const MonumentScene = forwardRef(({
     }
   }, [mainMonument, designState.monuments, autoSurfaceZ, monumentThickness]);
 
+  // --- 网格显示逻辑改进 ---
+  const [gridSide, setGridSide] = useState('front');
+
+  // 当网格开关开启时，检测一次摄像机位置，决定显示在正面还是反面
+  useEffect(() => {
+    if (isGridEnabled) {
+      // 在 Three.js 坐标系中，若摄像机 z > 0 通常在物体前方(Front/Back取决于物体建模)
+      // 根据 ArtPlane 的逻辑：isBackView = camera.position.z > 0;
+      // 所以我们以此为基准：正 Z 轴方向为 'back' (背面), 负 Z 轴方向为 'front' (正面)
+      const isBack = camera.position.z > 0;
+      setGridSide(isBack ? 'back' : 'front');
+    }
+  }, [isGridEnabled, camera]);
+
+  // 根据朝向计算网格的最终 Z 坐标
+  const gridZ = useMemo(() => {
+    if (autoSurfaceZ === null) return 0;
+    if (gridSide === 'back') {
+      // 反面位置: 前表面Z + 厚度 + 偏移量
+      // autoSurfaceZ = box.min.z - 0.005
+      // box.max.z = box.min.z + thickness
+      // 所以 box.max.z = autoSurfaceZ + 0.005 + thickness
+      // 我们希望网格在背面之后一点点: box.max.z + 0.005
+      // 最终计算: autoSurfaceZ + thickness + 0.01
+      return autoSurfaceZ + monumentThickness + 0.01;
+    }
+    // 正面位置: 前表面Z
+    return autoSurfaceZ;
+  }, [gridSide, autoSurfaceZ, monumentThickness]);
+
   // 移除了 (selectedElementId !== null || currentTextId !== null) 判断
-  // 现在的逻辑是：只有当开关开启 (isGridEnabled 为 true) 且不在填充模式时才显示designState={designState}
+  // 现在的逻辑是：只有当开关开启 (isGridEnabled 为 true) 且不在填充模式时才显示
   const showGrid = isGridEnabled && mainMonument && autoSurfaceZ !== null && !isFillModeActive;
 
 
@@ -529,7 +559,7 @@ const MonumentScene = forwardRef(({
           position={[
             positions[mainMonument.id][0],
             positions[mainMonument.id][1],
-            autoSurfaceZ
+            gridZ // 使用根据朝向计算出的 Z 值
           ]}
         />
       )}

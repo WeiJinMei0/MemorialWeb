@@ -225,19 +225,10 @@ const InteractiveArtPlane = forwardRef(({
       const isBack = art.side === 'back';
 
       // 修正偏移方向
-      // Front: baseZ (min.z - 0.005) 已经包含了 buffer。减去 uniqueOffset 以确保不重叠。
-      // Back: baseZ + thickness + buffer + uniqueOffset。
-      // manualOffset (0.005) 用于 buffer。
-
       let targetZ;
       if (isBack) {
-        // baseZ = min.z - 0.005
-        // max.z = min.z + thickness = baseZ + 0.005 + thickness
-        // targetZ = max.z + 0.005 + uniqueOffset
         targetZ = baseZ + 0.005 + monumentThickness + manualOffset + uniqueOffset;
       } else {
-        // min.z = baseZ + 0.005
-        // targetZ = min.z - 0.005 - uniqueOffset
         targetZ = baseZ - uniqueOffset;
       }
 
@@ -423,6 +414,25 @@ const InteractiveArtPlane = forwardRef(({
         onPointerOver={(e) => { e.stopPropagation(); setIsHovered(true); }}
         onPointerOut={(e) => { e.stopPropagation(); setIsHovered(false); }}
         onPointerDown={(e) => {
+          // 【关键修复】防止从背面选中正面的图案，或从正面选中背面的图案
+          const isBackView = camera.position.z > 0; // 假设 Z > 0 为正面视角(此时只能看到Front图案) ? 
+          // 修正：通常 Camera Z > 0 是看着 Front Face (Z正方向? No, Z负方向通常是前? 
+          // 让我们统一逻辑：Grid 逻辑是 isBack = camera.position.z > 0。
+          // 这意味着 Z > 0 的位置是 "背面视图" (看着 Back Face)。
+          // 那么 Z < 0 的位置是 "正面视图" (看着 Front Face)。
+
+          const isArtBack = art.side === 'back';
+
+          // 如果视角与图案面不匹配，则禁止选中
+          // Grid逻辑: Z > 0 是背面。此时应选中 Back 图案。
+          // 这里的变量 isBackView 是 "是否在背面"。
+
+          if (isBackView !== isArtBack) {
+            // 视角与图案不一致 (例如：在背面看正面图案，或在正面看背面图案)
+            // 此时应忽略点击
+            return;
+          }
+
           if (isFillModeActive) {
             e.stopPropagation();
             const { canvas, context, originalData } = artCanvasRef.current;

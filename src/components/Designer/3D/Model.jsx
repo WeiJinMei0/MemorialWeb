@@ -353,8 +353,11 @@ const Model = forwardRef(({
       ref={meshRef}
       object={model}
       onPointerDown={(e) => {
+        // 【关键修复】: 无论是否选中或处于填充模式，点击模型本体时都停止事件传播
+        // 防止射线穿透模型选中背后的物体
+        e.stopPropagation();
+
         if (isFillModeActive) {
-          e.stopPropagation();
           if (onFillClick) {
             onFillClick();
           }
