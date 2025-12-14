@@ -193,7 +193,14 @@
     "fillHintDisabled": "Disabled: Clicking pattern will drag or transform.",
     "lineColor": "Line color",
     "lineOpacity": "Line opacity",
-    "transparent": "Transparent (clear color)"
+    "transparent": "Transparent (clear color)",
+    "keepColor": "Keep Color",
+    "insert": "Insert",
+    "specialFilling": "Special Filling",
+    "surfaceColor": "Surface Color",
+    "outlineColor": "Outline Color",
+    "frost": "Frost",
+    "commonColors": "Common Colors"
   },
   "vaseEditor": {
     "title": "Edit Vase",
