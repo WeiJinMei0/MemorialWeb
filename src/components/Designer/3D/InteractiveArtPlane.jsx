@@ -415,21 +415,9 @@ const InteractiveArtPlane = forwardRef(({
         onPointerOut={(e) => { e.stopPropagation(); setIsHovered(false); }}
         onPointerDown={(e) => {
           // 【关键修复】防止从背面选中正面的图案，或从正面选中背面的图案
-          const isBackView = camera.position.z > 0; // 假设 Z > 0 为正面视角(此时只能看到Front图案) ? 
-          // 修正：通常 Camera Z > 0 是看着 Front Face (Z正方向? No, Z负方向通常是前? 
-          // 让我们统一逻辑：Grid 逻辑是 isBack = camera.position.z > 0。
-          // 这意味着 Z > 0 的位置是 "背面视图" (看着 Back Face)。
-          // 那么 Z < 0 的位置是 "正面视图" (看着 Front Face)。
-
+          const isBackView = camera.position.z > 0;
           const isArtBack = art.side === 'back';
-
-          // 如果视角与图案面不匹配，则禁止选中
-          // Grid逻辑: Z > 0 是背面。此时应选中 Back 图案。
-          // 这里的变量 isBackView 是 "是否在背面"。
-
           if (isBackView !== isArtBack) {
-            // 视角与图案不一致 (例如：在背面看正面图案，或在正面看背面图案)
-            // 此时应忽略点击
             return;
           }
 
@@ -464,6 +452,10 @@ const InteractiveArtPlane = forwardRef(({
           side={THREE.DoubleSide}
           polygonOffset={true} polygonOffsetFactor={-1} polygonOffsetUnits={-1}
           depthTest={true} depthWrite={false}
+          // --- 新增自发光属性 ---
+          emissive={0xffffff}
+          emissiveMap={canvasTexture}
+          emissiveIntensity={0.7} // 提亮白色，0.3 是一个比较自然的亮度
         />
 
         {isSelected && !isFillModeActive && (
@@ -489,29 +481,31 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
-            {/* 左上: 镜像 (贴合边框: 移除 transform 偏移) */}
-            <Html position={[-0.5 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]}>
+            {/* 修复：使用 center 属性确保图标居中对齐到角点/边缘 */}
+
+            {/* 左上: 镜像 */}
+            <Html position={[-0.5 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div style={btnStyle} onClick={handleMirror} title="镜像">
                 <SwapOutlined />
               </div>
             </Html>
 
-            {/* 左中: 镜像复制 (贴合边框: 移除 transform 偏移) */}
-            <Html position={[-0.5 * sx, 0, 0]} zIndexRange={[100, 0]}>
+            {/* 左中: 镜像复制 */}
+            <Html position={[-0.5 * sx, 0, 0]} zIndexRange={[100, 0]} center>
               <div style={btnStyle} onClick={handleMirrorCopy} title="镜像复制">
                 <CopyOutlined />
               </div>
             </Html>
 
-            {/* 右上: 删除 (贴合边框: 移除 transform 偏移) */}
-            <Html position={[0.5 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]}>
+            {/* 右上: 删除 */}
+            <Html position={[0.5 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div style={{ ...btnStyle, color: '#ff4d4f' }} onClick={handleDelete} title="删除">
                 <DeleteOutlined />
               </div>
             </Html>
 
-            {/* 左下: 旋转 (贴合边框: 移除 transform 偏移) */}
-            <Html position={[-0.5 * sx, -0.5 * sy, 0]} zIndexRange={[100, 0]}>
+            {/* 左下: 旋转 */}
+            <Html position={[-0.5 * sx, -0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div
                 style={{ ...btnStyle, cursor: 'alias' }}
                 onPointerDown={(e) => startInteraction(e.nativeEvent, 'rotate')}
@@ -521,8 +515,8 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
-            {/* 右下: 缩放 (贴合边框: 移除 transform 偏移) */}
-            <Html position={[0.5 * sx, -0.5 * sy, 0]} zIndexRange={[100, 0]}>
+            {/* 右下: 缩放 */}
+            <Html position={[0.5 * sx, -0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div
                 style={{ ...btnStyle, cursor: 'nwse-resize' }}
                 onPointerDown={(e) => startInteraction(e.nativeEvent, 'scale')}
@@ -532,8 +526,8 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
-            {/* 中上: 移动 (贴合边框: 移除 transform 偏移) */}
-            <Html position={[0, 0.5 * sy, 0]} zIndexRange={[100, 0]}>
+            {/* 中上: 移动 */}
+            <Html position={[0, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div
                 style={{
                   ...btnStyle,
