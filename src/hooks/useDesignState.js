@@ -233,7 +233,7 @@ const FONT_OPTIONS = [
   { family: 'ZapfChancery', variant: 'italic', name: 'ZapfChancery-MediumItalic Ex_Regular', path: '/fonts/ZapfChancery-MediumItalic Ex_Regular.json', cssFamily: 'serif' },
 
   // --- 中文字体 (Chinese Fonts) ---
-  { family: '標構體', variant: 'regular', name: '標構體', path: '/fonts/DFKai-SB_Regular.json', isChinese: true },
+  // { family: '標構體', variant: 'regular', name: '標構體', path: '/fonts/DFKai-SB_Regular.json', isChinese: true },
   { family: '方正粗楷', variant: 'regular', name: '方正粗楷简体', path: '/fonts/FZCuKaiS-R-GB_Regular.json', isChinese: true },
   { family: '方正楷体', variant: 'regular', name: '方正楷体简体', path: '/fonts/FZKai-Z03S_Regular.json', isChinese: true },
   { family: '方正隶二', variant: 'regular', name: '方正隶二繁体', path: '/fonts/FZLiShu II-S06T_Regular.json', isChinese: true },

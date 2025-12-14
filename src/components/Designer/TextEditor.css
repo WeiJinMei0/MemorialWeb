@@ -1,160 +1,159 @@
 .text-editor-panel {
-  padding: 8px;
-  max-height: 60vh;
-  overflow-y: auto;
-  box-sizing: border-box;
-  position: relative; /* 添加相对定位 */
-  z-index: 100 !important; /* 提高 z-index，加 !important 确保优先级 */
+  padding: 0;
+  width: 100%;
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  user-select: none;
 }
 
-.text-editor {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: white;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-.text-editor-header {
-  padding: 20px;
-  border-bottom: 1px solid #f0f0f0;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-}
-
-.text-editor-header h3 {
-  margin: 0 0 8px 0;
-  color: #333;
+/* 标题栏深色背景 */
+.panel-header {
+  background-color: #3E3A32;
+  /* 墨绿色/深褐灰 */
+  color: white;
+  padding: 8px 12px;
   font-size: 18px;
-  font-weight: 600;
-  text-align: center;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.text-editor-header p {
-  margin: 0;
-  color: #666;
-  font-size: 12px;
-  text-align: center;
+.panel-body {
+  background-color: #fff;
+  padding: 16px;
 }
 
-.text-form {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
+/* 统一行样式 */
+.control-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
 }
 
-.text-form .ant-form-item {
-  margin-bottom: 20px;
+/* 统一标签样式 */
+.control-label {
+  color: #000;
+  font-size: 14px;
+  width: 85px;
+  /* 对齐宽度 */
+  text-align: right;
+  margin-right: 12px;
 }
 
-.text-form .ant-form-item-label {
-  padding-bottom: 4px;
+/* --- 字体选择下拉框样式 --- */
+.font-select-dropdown {
+  min-width: 600px;
+  max-width: 700px;
 }
 
-.text-form .ant-form-item-label>label {
-  color: #333;
-  font-weight: 500;
+.font-select-option {
+  font-size: 40px;
+  padding: 8px 12px;
+}
+
+/* --- 自定义 InputNumber 样式 (复刻图片) --- */
+.custom-input-number {
+  width: 90px;
+  border-radius: 0;
+  border-color: #3E3A32;
+}
+
+/* 覆盖 Antd InputNumber 操作按钮区域背景 */
+.custom-input-number .ant-input-number-handler-wrap {
+  opacity: 1;
+  /* 始终显示 */
+  background: #3E3A32;
+  /* 深色背景 */
+  width: 22px;
+  border-left: 1px solid #3E3A32;
+  border-radius: 0;
+}
+
+.custom-input-number .ant-input-number-handler {
+  height: 50%;
+  border-top: none;
+  border-bottom: 1px solid #666;
+  /* 中间分割线 */
+}
+
+.custom-input-number .ant-input-number-handler:hover {
+  height: 50% !important;
+}
+
+.custom-input-number .ant-input-number-handler-up-inner,
+.custom-input-number .ant-input-number-handler-down-inner {
+  color: #fff;
+  /* 白色箭头 */
+  font-size: 8px;
+  /* 小箭头 */
+}
+
+/* 移除 Antd 默认的 SVG 图标，使用自定义字符 */
+.custom-input-number .anticon {
+  display: none;
+}
+
+/* 自定义箭头文字 */
+.arrow-text {
+  font-size: 8px;
+  transform: scale(0.8);
+  display: block;
+}
+
+.custom-input-number .ant-input-number-input {
+  padding-right: 25px;
+  /* 留出右侧空间 */
+}
+
+
+/* --- 自定义 Slider 样式 (复刻图片) --- */
+.custom-slider .ant-slider-rail {
+  background-color: #d9d9d9;
+  height: 4px;
+}
+
+.custom-slider .ant-slider-track {
+  background-color: #ccc;
+  /* 银灰色进度条 */
+  height: 4px;
+}
+
+.custom-slider .ant-slider-handle {
+  border: 1px solid #999;
+  background-color: #fff;
+  /* 白色手柄 */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+}
+
+.custom-slider:hover .ant-slider-handle::after {
+  display: none;
+  /* 移除悬停光晕 */
+}
+
+/* --- Radio 样式微调 --- */
+.ant-radio-checked .ant-radio-inner {
+  border-color: #3E3A32;
+}
+
+.ant-radio-checked .ant-radio-inner::after {
+  background-color: #3E3A32;
+  /* 深色圆点 */
+}
+
+.ant-radio-wrapper {
+  margin-right: 16px;
   font-size: 13px;
 }
 
-.text-form .ant-input,
-.text-form .ant-select-selector,
-.text-form .ant-input-number {
-  border-radius: 6px;
-}
-
-.text-form .ant-slider {
-  margin: 8px 0;
-}
-
-.text-form .ant-radio-group {
-  width: 100%;
-}
-
-.text-form .ant-radio-button-wrapper {
-  flex: 1;
-  text-align: center;
-}
-
-.form-row {
-  display: flex;
-  gap: 16px;
-}
-
-.form-half {
-  flex: 1;
-}
-
-.form-half .ant-form-item-control {
-  width: 100%;
-}
-
-.form-half .ant-input-number {
-  width: 100%;
-}
-
-/* 自定义滑块样式 */
-.ant-slider-track {
-  background: #1890ff;
-}
-
-.ant-slider-handle {
-  border: 2px solid #1890ff;
-}
-
-.ant-slider-mark-text {
-  color: #666;
-  font-size: 11px;
-}
-
+/* 字体预览 */
 .font-preview-tooltip {
   width: 200px;
   height: 110px;
   background: #ffffff !important;
-  border-radius: 10px;
+  border-radius: 4px;
   overflow: hidden;
-  border: 1px solid #ffffff;
-  /* 添加白色边框 */
-}
-
-.font-preview-tooltip canvas {
-  width: 100% !important;
-  height: 100% !important;
-  border-radius: 10px;
-  background: #ffffff;
-  border: none;
-  /* 确保canvas没有边框 */
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .text-editor-header {
-    padding: 16px;
-  }
-
-  .text-form {
-    padding: 16px;
-  }
-
-  .form-row {
-    flex-direction: column;
-    gap: 0;
-  }
-}
-
-/* TextEditor.css 或全局样式文件 */
-.text-control-button {
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-}
-
-.text-control-button:hover {
-  z-index: 1000;
-}
-
-/* 确保 Html 组件内容正确显示 */
-.text-control-button-container {
-  pointer-events: auto !important;
+  border: 1px solid #eee;
 }

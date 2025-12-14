@@ -5,7 +5,8 @@ import { Text3D, TransformControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { extend } from '@react-three/fiber';
-import { ReloadOutlined, DeleteOutlined, CheckOutlined, EditOutlined } from '@ant-design/icons';
+import { ReloadOutlined, DeleteOutlined, CheckOutlined, EditOutlined, } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 
 extend({ TextGeometry });
 
@@ -28,7 +29,6 @@ const HiddenTextarea = ({
   useEffect(() => {
     const timer = setTimeout(() => {
       if (inputRef.current) {
-        console.log('[Input] Auto-focusing...');
         inputRef.current.focus();
         const len = inputRef.current.value.length;
         inputRef.current.setSelectionRange(len, len);
@@ -65,7 +65,6 @@ const HiddenTextarea = ({
     }, 0);
 
     if (!isComposing.current) {
-      console.log('[Input] Real-time update:', newValue);
       onUpdate(newValue);
     }
   };
@@ -75,25 +74,21 @@ const HiddenTextarea = ({
   };
 
   const handleCompositionStart = () => {
-    console.log('[IME] Start');
     isComposing.current = true;
   };
 
   const handleCompositionEnd = (e) => {
-    console.log('[IME] End. Result:', e.target.value);
     isComposing.current = false;
     onUpdate(e.target.value);
     setTimeout(() => handleCursorMove(), 10);
   };
 
   const handleFocus = () => {
-    console.log('[Input] Focus');
     setHasFocus(true);
     if (onFocusChange) onFocusChange(true);
   };
 
   const handleBlur = () => {
-    console.log('[Input] Blur');
     setHasFocus(false);
     if (onFocusChange) onFocusChange(false);
     onUpdate(value);
@@ -173,7 +168,9 @@ const EnhancedTextElement = ({
   globalTransformMode,
   surfaceZ
 }) => {
+  const { t } = useTranslation();
   const groupRef = useRef();
+
   const { controls } = useThree();
   const [isDragging, setIsDragging] = useState(false);
   const [monumentMaterial, setMonumentMaterial] = useState(null);
@@ -200,22 +197,6 @@ const EnhancedTextElement = ({
     width: 0,
     height: 0
   });
-
-  // ----------------------------------------------------------------
-  // 核心逻辑 1: 光标闪烁逻辑 - 根据焦点状态控制
-  // ----------------------------------------------------------------
-  {/*useEffect(() => {
-    // 只有当输入框有焦点时才闪烁
-    if (isSelected && isTextEditing && inputHasFocus) {
-      const interval = setInterval(() => {
-        setShowCursor((prev) => !prev);
-      }, 500);
-      return () => clearInterval(interval);
-    } else {
-      // 没有焦点时不显示光标
-      setShowCursor(false);
-    }
-  }, [isSelected, isTextEditing, inputHasFocus]); // 依赖 inputHasFocus*/}
 
   // 处理焦点状态变化
   const handleFocusChange = (hasFocus) => {
@@ -252,9 +233,7 @@ const EnhancedTextElement = ({
     setCursorIndex(newIndex);
   };
 
-  // ----------------------------------------------------------------
-  // 核心逻辑 2: 计算 UI 包围盒（使用不含光标的文本）
-  // ----------------------------------------------------------------
+  //  计算 UI 包围盒（使用不含光标的文本）
   // 3. 计算 UI 包围盒 (增加 padding)  
   const recalculateBounds = useCallback(() => {
     // 简单的估算逻辑，用于定位 UI    
@@ -290,9 +269,7 @@ const EnhancedTextElement = ({
     return () => clearTimeout(timer);
   }, [recalculateBounds]);
 
-  // ----------------------------------------------------------------
-  // 核心逻辑 3: 材质逻辑 (保留 frost 和 polish)
-  // ----------------------------------------------------------------
+  // 材质逻辑 
   const localGetFontPath = useCallback((nameOrPath) => {
     return getFontPath ? getFontPath(nameOrPath) : (nameOrPath || '/fonts/helvetiker_regular.typeface.json');
   }, [getFontPath]);
@@ -349,9 +326,55 @@ const EnhancedTextElement = ({
     color: 0x000000, transparent: true, opacity: 0.5, side: THREE.FrontSide
   }), []);
 
-  // ----------------------------------------------------------------
-  // 核心逻辑 4: 对齐偏移计算 (保留 left, center, right)
-  // ----------------------------------------------------------------
+  //  材质同步 (polish 材质)
+  useEffect(() => {
+    if (!monument) {
+      setMonumentMaterial(null);
+      return;
+    }
+
+    let rafId;
+    const trySetMaterial = () => {
+      if (text.engraveType !== 'polish') {
+        setMonumentMaterial(null);
+        return;
+      }
+
+      const monumentMesh = modelRefs.current[monument.id]?.getMesh();
+      if (!monumentMesh) {
+        rafId = requestAnimationFrame(trySetMaterial);
+        return;
+      }
+
+      let found = false;
+      monumentMesh.traverse((child) => {
+        if (found) return;
+        if (child.isMesh && child.material) {
+          const baseMat = child.material;
+          const cloned = baseMat.clone();
+          cloned.map = baseMat.map || cloned.map;
+          if (cloned.map) cloned.map.needsUpdate = true;
+          cloned.roughness = 0.1 + ((text.polishBlend || 0.5) * 0.4);
+          cloned.metalness = 0.5 - ((text.polishBlend || 0.5) * 0.2);
+          if (cloned.clearcoat !== undefined) {
+            cloned.clearcoat = 0.5;
+            cloned.clearcoatRoughness = 0.1 + ((text.polishBlend || 0.5) * 0.3);
+          }
+          cloned.transparent = true;
+          cloned.side = THREE.DoubleSide;
+          cloned.needsUpdate = true;
+          setMonumentMaterial(cloned);
+          found = true;
+        }
+      });
+      if (!found) rafId = requestAnimationFrame(trySetMaterial);
+    };
+    trySetMaterial();
+    return () => { if (rafId) cancelAnimationFrame(rafId); };
+  }, [monument, text.engraveType, text.polishBlend, modelRefs]);
+
+
+  //  对齐偏移计算 (保留 left, center, right)
   const lineRefs = useRef([]);
   const [lineOffsets, setLineOffsets] = useState([]);
 
@@ -541,53 +564,9 @@ const EnhancedTextElement = ({
     return Math.abs(text.curveAmount) > 0 ? renderCurvedText() : renderNormalText();
   };
 
-  // ----------------------------------------------------------------
-  // 核心逻辑 5: 材质同步 (polish 材质)
-  // ----------------------------------------------------------------
-  useEffect(() => {
-    let rafId;
-    const trySetMaterial = () => {
-      if (!monument || text.engraveType !== 'polish') {
-        setMonumentMaterial(null);
-        return;
-      }
 
-      const monumentMesh = modelRefs.current[monument.id]?.getMesh();
-      if (!monumentMesh) {
-        rafId = requestAnimationFrame(trySetMaterial);
-        return;
-      }
 
-      let found = false;
-      monumentMesh.traverse((child) => {
-        if (found) return;
-        if (child.isMesh && child.material) {
-          const baseMat = child.material;
-          const cloned = baseMat.clone();
-          cloned.map = baseMat.map || cloned.map;
-          if (cloned.map) cloned.map.needsUpdate = true;
-          cloned.roughness = 0.1 + ((text.polishBlend || 0.5) * 0.4);
-          cloned.metalness = 0.5 - ((text.polishBlend || 0.5) * 0.2);
-          if (cloned.clearcoat !== undefined) {
-            cloned.clearcoat = 0.5;
-            cloned.clearcoatRoughness = 0.1 + ((text.polishBlend || 0.5) * 0.3);
-          }
-          cloned.transparent = true;
-          cloned.side = THREE.DoubleSide;
-          cloned.needsUpdate = true;
-          setMonumentMaterial(cloned);
-          found = true;
-        }
-      });
-      if (!found) rafId = requestAnimationFrame(trySetMaterial);
-    };
-    trySetMaterial();
-    return () => { if (rafId) cancelAnimationFrame(rafId); };
-  }, [monument, text.engraveType, text.polishBlend, modelRefs]);
-
-  // ----------------------------------------------------------------
-  // 核心逻辑 6: 事件处理
-  // ----------------------------------------------------------------
+  // 事件处理
 
   const handleInputUpdate = (newVal) => {
     if (onTextContentChange) {
@@ -614,6 +593,9 @@ const EnhancedTextElement = ({
   const handleDelete = (e) => {
     e.stopPropagation();
     onDeleteText?.(text.id);
+    if (onTextSelect) {
+      onTextSelect(null);
+    }
   };
 
   const handleDone = (e) => {
@@ -628,9 +610,8 @@ const EnhancedTextElement = ({
     }
   };
 
-  // ----------------------------------------------------------------
-  // 核心逻辑 7: 位置同步
-  // ----------------------------------------------------------------
+
+  //  位置同步
   const computeSurfaceZ = useCallback((sizeZ, engraveType) => {
     const surfaceZ = -sizeZ / 2;
     if (engraveType === 'vcut' || engraveType === 'frost') return surfaceZ + 0.021;
@@ -639,7 +620,27 @@ const EnhancedTextElement = ({
   }, []);
 
   const writeBackPoseToState = useCallback(() => {
-    if (!groupRef.current || !monument) return;
+    // If no monument, write back position directly without transformation
+    if (!groupRef.current) return;
+
+    if (!monument) {
+      // Write position and rotation directly in world coordinates
+      const worldPosition = new THREE.Vector3();
+      const worldQuaternion = new THREE.Quaternion();
+      groupRef.current.getWorldPosition(worldPosition);
+      groupRef.current.getWorldQuaternion(worldQuaternion);
+      const euler = new THREE.Euler().setFromQuaternion(worldQuaternion, 'XYZ');
+
+      const doWrite = () => {
+        onTextPositionChange && onTextPositionChange(text.id, [worldPosition.x, worldPosition.y, worldPosition.z]);
+        onTextRotationChange && onTextRotationChange(text.id, [euler.x, euler.y, euler.z]);
+        rafWriteRef.current = null;
+      };
+      if (!rafWriteRef.current) rafWriteRef.current = requestAnimationFrame(doWrite);
+      return;
+    }
+
+    // Original monument-dependent code
     const monumentMesh = modelRefs.current[monument.id]?.getMesh();
     if (!monumentMesh) return;
     monumentMesh.updateWorldMatrix(true, false);
@@ -669,7 +670,24 @@ const EnhancedTextElement = ({
   }, [monument, text.id, onTextPositionChange, onTextRotationChange, modelRefs]);
 
   useEffect(() => {
-    if (!groupRef.current || !monument) return;
+    if (!groupRef.current) return;
+
+    // If no monument, position text directly in world coordinates
+    if (!monument) {
+      const x = Array.isArray(text.position) ? (text.position[0] || 0) : 0;
+      const y = Array.isArray(text.position) ? (text.position[1] || 0.3) : 0.3;
+      const z = Array.isArray(text.position) ? (text.position[2] || 0) : 0;
+
+      const localPoint = new THREE.Vector3(x, y, z);
+      groupRef.current.position.copy(localPoint);
+
+      const localEuler = new THREE.Euler(...(text.rotation || [0, 0, 0]), 'XYZ');
+      const localQuat = new THREE.Quaternion().setFromEuler(localEuler);
+      groupRef.current.quaternion.copy(localQuat);
+      return;
+    }
+
+    // Original monument-dependent positioning
     const monumentMesh = modelRefs.current[monument.id]?.getMesh();
     if (!monumentMesh) return;
 
@@ -701,6 +719,9 @@ const EnhancedTextElement = ({
   }, [monument, text.position, text.rotation, modelRefs, isDragging]);
 
   useEffect(() => {
+    // Skip initial positioning if no monument
+    if (!monument) return;
+
     const isDefault = Array.isArray(text.position)
       ? (text.position[0] === 0 && text.position[1] === 0 && text.position[2] === 0)
       : true;
@@ -712,6 +733,7 @@ const EnhancedTextElement = ({
   }, [text.id, text.position, monument, hasInitPosition]);
 
   useEffect(() => {
+    // Skip Z-sync if no monument
     if (!monument) return;
 
     if (surfaceZ !== null && surfaceZ !== undefined) {
@@ -777,9 +799,8 @@ const EnhancedTextElement = ({
 
   }, [monument, text.id, text.position, text.engraveType, text.thickness, onTextPositionChange, modelRefs, computeSurfaceZ, surfaceZ]);
 
-  // ----------------------------------------------------------------
   // 渲染
-  // ----------------------------------------------------------------
+
   const btnStyle = {
     background: '#556B2F',
     color: 'white',
@@ -852,11 +873,11 @@ const EnhancedTextElement = ({
             >
               {inputHasFocus ? (
                 <>
-                  <EditOutlined /> Editing
+                  <EditOutlined /> {t('textEditor.editing')}
                 </>
               ) : (
                 <>
-                  <CheckOutlined /> Done
+                  <CheckOutlined />{t('textEditor.done')}
                 </>
               )}
             </div>

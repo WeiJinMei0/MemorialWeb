@@ -47,6 +47,7 @@ const MonumentScene = forwardRef(({
   isFillModeActive,
   fillColor,
   onModelFillClick,
+  onAddTextElement,
   onTextContentChange,
   onTextPositionChange,
   onTextRotationChange,
@@ -66,6 +67,105 @@ const MonumentScene = forwardRef(({
   const modelRefs = useRef({});
   const artPlaneRefs = useRef({});
   const vaseRefs = useRef({});
+
+  // 添加双击处理
+  useEffect(() => {
+    const handleDoubleClick = (event) => {
+      // 必须在非填充模式下才能添加文本
+      if (isFillModeActive) {
+        return;
+      }
+
+      // 设置射线
+      raycaster.setFromCamera(pointer, camera);
+
+      // 检测与场景中所有物体的交点
+      const intersects = raycaster.intersectObjects(scene.children, true);
+
+      // 查找第一个击中的可见 Mesh
+      const hit = intersects.find(i => i.object.isMesh && i.object.visible);
+
+      if (hit) {
+        // 向上遍历查找 monument 对象
+        let curr = hit.object;
+        let monument = null;
+
+        // 方法1: 检查是否直接匹配纪念碑的网格
+        for (const monumentObj of designState.monuments) {
+          const modelRef = modelRefs.current[monumentObj.id];
+          if (modelRef && modelRef.getMesh) {
+            const mesh = modelRef.getMesh();
+
+            // 直接匹配
+            if (mesh === curr) {
+              monument = monumentObj;
+              break;
+            }
+
+            // 遍历子对象匹配
+            let found = false;
+            mesh.traverse((child) => {
+              if (child === curr) {
+                monument = monumentObj;
+                found = true;
+              }
+            });
+
+            if (found) break;
+          }
+        }
+
+        // 如果还没找到，尝试通过 userData 查找
+        if (!monument) {
+          while (curr) {
+            // 检查对象是否有 monumentId 属性
+            if (curr.userData?.monumentId) {
+              monument = designState.monuments.find(m => m.id === curr.userData.monumentId);
+              break;
+            }
+
+            // 检查对象是否是 monument 模型
+            if (modelRefs.current) {
+              for (const [modelId, modelRef] of Object.entries(modelRefs.current)) {
+                if (modelRef && modelRef.getMesh && modelRef.getMesh() === curr) {
+                  monument = designState.monuments.find(m => m.id === modelId);
+                  if (monument) break;
+                }
+              }
+            }
+
+            if (monument) break;
+            if (curr === scene) break;
+            curr = curr.parent;
+          }
+        }
+
+        // 如果找到 monument，则创建一个新的文本元素
+        if (monument && onAddTextElement) {
+          // 创建新的文本元素
+          const newTextProperties = {
+            content: 'Enter Text',
+            font: 'Cambria_Regular',
+            size: 3,
+            monumentId: monument.id,
+            position: [0, 0.3, 0], // 默认位置
+            engraveType: 'vcut',
+            vcutColor: '#FFFFFF'
+          };
+
+          // 调用回调函数添加文本
+          onAddTextElement(newTextProperties);
+        }
+      }
+    };
+
+    const canvasDom = gl.domElement;
+    canvasDom.addEventListener('dblclick', handleDoubleClick);
+
+    return () => {
+      canvasDom.removeEventListener('dblclick', handleDoubleClick);
+    };
+  }, [gl.domElement, isFillModeActive, camera, raycaster, scene, pointer, designState.monuments, onAddTextElement, modelRefs]);
 
   // 点击空白退出 (修正后的逻辑)
   useEffect(() => {
@@ -299,6 +399,7 @@ const MonumentScene = forwardRef(({
   };
 
   const [autoSurfaceZ, setAutoSurfaceZ] = useState(null);
+  const [monumentThickness, setMonumentThickness] = useState(0.1);
   const mainMonument = designState.monuments[0];
 
   useLayoutEffect(() => {
@@ -311,12 +412,21 @@ const MonumentScene = forwardRef(({
 
     mesh.updateWorldMatrix(true, true);
     const box = new THREE.Box3().setFromObject(mesh);
+
+    // 计算前表面位置
     const newZ = box.min.z - 0.005;
+
+    // 计算碑体厚度 (Z轴方向长度)
+    const thickness = box.max.z - box.min.z;
 
     if (autoSurfaceZ === null || Math.abs(newZ - autoSurfaceZ) > 0.001) {
       setAutoSurfaceZ(newZ);
     }
-  }, [mainMonument, designState.monuments, autoSurfaceZ]);
+
+    if (Math.abs(thickness - monumentThickness) > 0.001) {
+      setMonumentThickness(thickness);
+    }
+  }, [mainMonument, designState.monuments, autoSurfaceZ, monumentThickness]);
 
   // 移除了 (selectedElementId !== null || currentTextId !== null) 判断
   // 现在的逻辑是：只有当开关开启 (isGridEnabled 为 true) 且不在填充模式时才显示designState={designState}
@@ -448,6 +558,7 @@ const MonumentScene = forwardRef(({
           fillColor={fillColor}
           isFillModeActive={isFillModeActive}
           surfaceZ={autoSurfaceZ}
+          monumentThickness={monumentThickness}
           onDelete={onDeleteElement}
           onFlip={onFlipElement}
           onMirrorCopy={onDuplicateElement}
@@ -466,4 +577,3 @@ const MonumentScene = forwardRef(({
 });
 
 export default MonumentScene;
-

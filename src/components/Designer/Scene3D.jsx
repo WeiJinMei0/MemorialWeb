@@ -21,6 +21,7 @@ const Scene3D = forwardRef(({
   isFillModeActive,
   fillColor,
   onModelFillClick,
+  onAddTextElement,
   onTextPositionChange,
   onTextRotationChange,
   onTextSelect,
@@ -72,6 +73,7 @@ const Scene3D = forwardRef(({
             isFillModeActive={isFillModeActive}
             fillColor={fillColor}
             onModelFillClick={onModelFillClick}
+            onAddTextElement={onAddTextElement}
             onTextPositionChange={onTextPositionChange}
             onTextRotationChange={onTextRotationChange}
             onTextSelect={onTextSelect}

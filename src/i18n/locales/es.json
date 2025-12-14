@@ -85,7 +85,6 @@
     "emailDownload": "Email/Descargar",
     "artOptions": "Opciones de arte",
     "recentlySaved": "Guardado recientemente",
-    "Grid": "rejilla",
     "selectForMaterial": "Seleccionar para cambio de material",
     "delete": "Eliminar"
   },
@@ -229,7 +228,7 @@
     "vcut": "V-Cut",
     "frost": "Escarchado",
     "polish": "Pulido",
-    "vcutColor": "Color V-Cut",
+    "color": "Color",
     "standardColors": "Colores estándar",
     "customColor": "Color personalizado",
     "current": "Actual:",
@@ -241,7 +240,9 @@
     "rotate": "Rotar (R)",
     "rotate90": "Rotar 90° derecha",
     "simplified": "简体",
-    "traditional": "繁体"
+    "traditional": "繁体",
+    "editing": "Editando",
+    "done": "Listo"
   },
   "common": {
     "close": "Cerrar",

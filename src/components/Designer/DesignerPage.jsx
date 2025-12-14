@@ -359,7 +359,7 @@ const DesignerPage = () => {
         if (targetMonumentId) {
           const newTextId = addText({
             content: 'Enter Text', // 默认文案
-            font: 'Cambria',
+            // font: '/fonts/Cambria_Regular.json',
             size: 3,
             monumentId: targetMonumentId,
             alignment: 'center',
@@ -553,17 +553,26 @@ const DesignerPage = () => {
   }, [updateTextRotation]);
 
   const handleTextAdd = useCallback((textProperties) => {
-    const targetMonumentId = designState.monuments.length > 0 ? designState.monuments[0].id : null;
-    if (!targetMonumentId) {
+    const defaultMonumentId = designState.monuments.length > 0 ? designState.monuments[0].id : null;
+    // 2. 决定最终使用的 monumentId：优先使用传入的属性，没有则使用默认
+    const finalMonumentId = textProperties.monumentId || defaultMonumentId;
+    if (!finalMonumentId) {
       message.error('请先添加一个主碑');
       return;
     }
+
     const newTextId = addText({
       ...textProperties,
-      monumentId: targetMonumentId,
+      // 3. 使用计算出的最终 ID
+      monumentId: finalMonumentId,
     });
+
     setCurrentTextId(newTextId);
     setIsTextEditing(true);
+    setActiveTool('text');
+    // 6. 关闭其他可能打开的面板（如 Vase 或 Art）
+    handleArtElementSelect(null);
+    handleCloseVaseEditor();
     message.success('文本添加成功');
   }, [designState.monuments, addText]);
 
@@ -1348,6 +1357,7 @@ const DesignerPage = () => {
                 onModelFillClick={() => { }}
 
                 // Text Props
+                onAddTextElement={handleTextAdd}
                 onTextSelect={handleTextSelect}
                 onTextPositionChange={handleTextPositionChange}
                 onTextRotationChange={handleTextRotationChange}
