@@ -82,6 +82,7 @@ const InteractiveArtPlane = forwardRef(({
   fillColor,
   isFillModeActive,
   surfaceZ,
+  monumentThickness = 0,
   onDelete,
   onFlip,
   onMirrorCopy
@@ -211,29 +212,72 @@ const InteractiveArtPlane = forwardRef(({
     canvasTexture.needsUpdate = true;
   }, [art.properties?.lineColor, art.properties?.lineAlpha, canvasTexture]);
 
-  // 初始化 Transform
+  // 初始化 Transform 及位置逻辑
   useLayoutEffect(() => {
     if (meshRef.current) {
       const pos = art.position || [0, 0, 0];
       const rot = art.rotation || [0, 0, 0];
-      const baseZ = (surfaceZ !== undefined && surfaceZ !== null) ? surfaceZ : pos[2];
-      const targetZ = baseZ - uniqueOffset + manualOffset;
 
+      // 1. 基础 Z 轴位置 (前表面的位置)
+      const baseZ = (surfaceZ !== undefined && surfaceZ !== null) ? surfaceZ : pos[2];
+
+      // 2. 根据当前 state 中的 side 计算偏移
+      const isBack = art.side === 'back';
+
+      // 修正偏移方向
+      // Front: baseZ (min.z - 0.005) 已经包含了 buffer。减去 uniqueOffset 以确保不重叠。
+      // Back: baseZ + thickness + buffer + uniqueOffset。
+      // manualOffset (0.005) 用于 buffer。
+
+      let targetZ;
+      if (isBack) {
+        // baseZ = min.z - 0.005
+        // max.z = min.z + thickness = baseZ + 0.005 + thickness
+        // targetZ = max.z + 0.005 + uniqueOffset
+        targetZ = baseZ + 0.005 + monumentThickness + manualOffset + uniqueOffset;
+      } else {
+        // min.z = baseZ + 0.005
+        // targetZ = min.z - 0.005 - uniqueOffset
+        targetZ = baseZ - uniqueOffset;
+      }
+
+      // 3. 应用位置 (默认情况, 或后续更新)
       meshRef.current.position.set(pos[0], pos[1], targetZ);
       meshRef.current.rotation.set(rot[0], rot[1], rot[2]);
 
+      // 4. 仅在初始加载时执行 (根据相机位置确定默认面并修正位置)
       if (isInitialLoadRef.current && aspectRatio) {
         isInitialLoadRef.current = false;
+
         const baseSize = 0.2;
         const scaleX = art.scale ? art.scale[0] : (baseSize * Math.sign(art.scale?.[0] || 1));
         const scaleY = Math.abs(scaleX) / aspectRatio * Math.sign(art.scale?.[1] || 1);
 
+        // --- 确定默认面 (Front/Back) ---
+        let finalSide = art.side;
+        if (!finalSide) {
+          const isBackView = camera.position.z > 0;
+          finalSide = isBackView ? 'back' : 'front';
+
+          // 如果初始判定为背面，需要立即重新计算 targetZ 并应用
+          if (finalSide === 'back') {
+            targetZ = baseZ + 0.005 + monumentThickness + manualOffset + uniqueOffset;
+            meshRef.current.position.set(pos[0], pos[1], targetZ);
+          } else {
+            targetZ = baseZ - uniqueOffset;
+            meshRef.current.position.set(pos[0], pos[1], targetZ);
+          }
+        }
+
         meshRef.current.scale.set(scaleX, scaleY, 1);
+
         onTransformEnd(art.id, {
           position: [pos[0], pos[1], targetZ],
           scale: [scaleX, scaleY, 1],
-          rotation: rot
+          rotation: rot,
+          side: finalSide // 保存 side 到数据中
         }, { replaceHistory: true });
+
       } else if (!isInitialLoadRef.current && art.scale) {
         meshRef.current.scale.set(art.scale[0], art.scale[1], art.scale[2] || 1);
       }
@@ -244,7 +288,7 @@ const InteractiveArtPlane = forwardRef(({
         height: Math.abs(meshRef.current.scale.y) * toInches
       });
     }
-  }, [art.id, art.position, art.scale, art.rotation, aspectRatio, surfaceZ]);
+  }, [art.id, art.position, art.scale, art.rotation, aspectRatio, surfaceZ, monumentThickness, art.side]);
 
   // --- 交互逻辑 ---
 

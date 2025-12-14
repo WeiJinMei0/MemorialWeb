@@ -399,6 +399,7 @@ const MonumentScene = forwardRef(({
   };
 
   const [autoSurfaceZ, setAutoSurfaceZ] = useState(null);
+  const [monumentThickness, setMonumentThickness] = useState(0.1);
   const mainMonument = designState.monuments[0];
 
   useLayoutEffect(() => {
@@ -411,12 +412,21 @@ const MonumentScene = forwardRef(({
 
     mesh.updateWorldMatrix(true, true);
     const box = new THREE.Box3().setFromObject(mesh);
+
+    // 计算前表面位置
     const newZ = box.min.z - 0.005;
+
+    // 计算碑体厚度 (Z轴方向长度)
+    const thickness = box.max.z - box.min.z;
 
     if (autoSurfaceZ === null || Math.abs(newZ - autoSurfaceZ) > 0.001) {
       setAutoSurfaceZ(newZ);
     }
-  }, [mainMonument, designState.monuments, autoSurfaceZ]);
+
+    if (Math.abs(thickness - monumentThickness) > 0.001) {
+      setMonumentThickness(thickness);
+    }
+  }, [mainMonument, designState.monuments, autoSurfaceZ, monumentThickness]);
 
   // 移除了 (selectedElementId !== null || currentTextId !== null) 判断
   // 现在的逻辑是：只有当开关开启 (isGridEnabled 为 true) 且不在填充模式时才显示designState={designState}
@@ -548,6 +558,7 @@ const MonumentScene = forwardRef(({
           fillColor={fillColor}
           isFillModeActive={isFillModeActive}
           surfaceZ={autoSurfaceZ}
+          monumentThickness={monumentThickness}
           onDelete={onDeleteElement}
           onFlip={onFlipElement}
           onMirrorCopy={onDuplicateElement}
@@ -566,4 +577,3 @@ const MonumentScene = forwardRef(({
 });
 
 export default MonumentScene;
-
