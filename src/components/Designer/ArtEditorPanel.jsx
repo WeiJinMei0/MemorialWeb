@@ -111,12 +111,13 @@ const ArtEditorPanel = ({
   useEffect(() => {
     if (currentLineAlpha === 0 && isFillModeActive) {
       setActiveMode('insert');
-    } else if (!isFillModeActive || isTransparent) {
+    } else if ((!isFillModeActive || isTransparent) && !isPartialFill) {
+      // 【修改】：当启用局部填充(p选项)时，即使选择了透明色，也不应该强制跳转到 keepColor
       setActiveMode('keepColor');
     } else {
       setActiveMode('specialFilling');
     }
-  }, [art.id, currentLineAlpha, isFillModeActive, isTransparent]);
+  }, [art.id, currentLineAlpha, isFillModeActive, isTransparent, isPartialFill]);
 
   const handleLineColor = (color) => {
     const hex = typeof color === 'string' ? color : color.toHexString();

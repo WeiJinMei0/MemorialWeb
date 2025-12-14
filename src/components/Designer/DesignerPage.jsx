@@ -288,6 +288,13 @@ const DesignerPage = () => {
       // setSelectedVaseId(null); // 取消选中花瓶
       setActiveTool(null);
       setTransformMode('translate');
+
+      // 【关键修复】：选中新图案时，重置填充状态
+      // 防止上一次操作残留的颜色（如透明或特定颜色）导致新选中的图案被自动填充
+      setIsFillModeActive(false);
+      setIsPartialFill(false);
+      setFillColor('#4285F4'); // 重置为默认蓝色，避免残留 transparent 导致自动洗白
+
     } else {
       setIsFillModeActive(false);
     }
@@ -761,13 +768,25 @@ const DesignerPage = () => {
       return;
     }
     try {
-      const artCanvasData = await sceneRef.current?.getArtCanvasData?.();
-      const currentArt = designState.artElements.find(art => art.id === artElement.id);
+      // 安全获取 canvas 数据
+      let artCanvasData = null;
+      if (sceneRef.current && typeof sceneRef.current.getArtCanvasData === 'function') {
+        artCanvasData = await sceneRef.current.getArtCanvasData();
+      }
+
+      // 优先从 state 获取最新状态，如果找不到则使用传入的 artElement
+      const currentArt = designState.artElements.find(art => art.id === artElement.id) || artElement;
+
+      // 确定图片数据: 优先使用新截图，其次是已有截图，最后是null
+      const imageData = artCanvasData?.[currentArt.id] || currentArt.modifiedImageData || null;
+
       const artToSave = {
         ...currentArt,
         id: `saved-art-${Date.now()}`,
-        type: 'art', // 18. 明确设置类型为 'art'
-        modifiedImageData: artCanvasData?.[currentArt.id] || null,
+        type: 'art', // 明确设置类型为 'art'
+        modifiedImageData: imageData,
+        // 关键修复：确保 imagePath 被保存，以便在 modifiedImageData 为空时回退
+        imagePath: currentArt.imagePath || artElement.imagePath,
         userId: user?.id,
         timestamp: new Date().toISOString(),
         slotIndex: emptySlot
@@ -776,7 +795,7 @@ const DesignerPage = () => {
       setSavedArtOptions(prev => {
         const newOptions = [...prev, artToSave];
 
-        // 19. 保存到 'savedItems' key
+        // 保存到 'savedItems' key
         const allSavedArt = JSON.parse(localStorage.getItem('savedItems') || '[]');
         const otherUsersArt = allSavedArt.filter(art => art.userId !== user?.id);
         const updatedAllArt = [...otherUsersArt, ...newOptions];
@@ -1290,6 +1309,7 @@ const DesignerPage = () => {
                 isFillModeActive={isFillModeActive}
                 onModelFillClick={() => { }}
                 isPartialFill={isPartialFill}
+                onSaveToArtOptions={handleSaveArtToOptions}
 
                 // Text Props
                 onAddTextElement={handleTextAdd}
