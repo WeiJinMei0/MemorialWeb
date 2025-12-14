@@ -187,7 +187,10 @@ const InteractiveArtPlane = forwardRef(({
 
   // 线稿着色
   useEffect(() => {
-    const { lineColor, lineAlpha } = art.properties || {};
+    // --- 修改：设置默认线条颜色为白色 (#FFFFFF) ---
+    const lineColor = art.properties?.lineColor || '#FFFFFF';
+    const lineAlpha = art.properties?.lineAlpha;
+
     const { context, originalData, canvas } = artCanvasRef.current;
     if (!context || !originalData || !canvasTexture) return;
 
@@ -197,6 +200,8 @@ const InteractiveArtPlane = forwardRef(({
     const o = originalData.data;
     const c = context.getImageData(0, 0, w, h).data;
     let rgb = null;
+
+    // 如果有颜色（现在默认为白色），则计算 RGB
     if (lineColor) rgb = new THREE.Color(lineColor).toArray().map(v => Math.round(v * 255));
 
     for (let i = 0; i < o.length; i += 4) {
@@ -455,7 +460,7 @@ const InteractiveArtPlane = forwardRef(({
           // --- 新增自发光属性 ---
           emissive={0xffffff}
           emissiveMap={canvasTexture}
-          emissiveIntensity={0.7} // 提亮白色，0.3 是一个比较自然的亮度
+          emissiveIntensity={0.3} // 提亮白色，0.3 是一个比较自然的亮度
         />
 
         {isSelected && !isFillModeActive && (
@@ -499,7 +504,7 @@ const InteractiveArtPlane = forwardRef(({
 
             {/* 右上: 删除 */}
             <Html position={[0.5 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
-              <div style={{ ...btnStyle, color: '#ff4d4f' }} onClick={handleDelete} title="删除">
+              <div style={btnStyle} onClick={handleDelete} title="删除">
                 <DeleteOutlined />
               </div>
             </Html>
