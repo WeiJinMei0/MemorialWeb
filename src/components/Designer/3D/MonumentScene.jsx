@@ -14,7 +14,7 @@ import EnhancedTextElement from './EnhancedTextElement.jsx';
 const MonumentGrid = ({ width, height, position }) => {
   if (!width || !height) return null;
   const INCH_IN_METERS = 0.0254;
-  const size = Math.max(width, height) * 3;
+  const size = Math.max(width, height) * 10;
   const divisions = Math.ceil(size / INCH_IN_METERS);
   const actualSize = divisions * INCH_IN_METERS;
 
@@ -34,6 +34,8 @@ const MonumentGrid = ({ width, height, position }) => {
 const MonumentScene = forwardRef(({
   designState,
   onDimensionsChange,
+  onSceneDrop,
+  isGridEnabled,
   onDuplicateElement,
   onDeleteElement,
   onFlipElement,
@@ -58,7 +60,7 @@ const MonumentScene = forwardRef(({
   selectedVaseId,
   vaseTransformMode,
   onUpdateVaseElementState,
-  onSceneDrop
+
 }, ref) => {
   const { gl, scene, camera, raycaster, pointer } = useThree();
   const sceneRef = useRef();
@@ -416,7 +418,10 @@ const MonumentScene = forwardRef(({
     }
   }, [mainMonument, designState.monuments, autoSurfaceZ]);
 
-  const showGrid = (selectedElementId !== null || currentTextId !== null) && mainMonument && autoSurfaceZ !== null && !isFillModeActive;
+  // 移除了 (selectedElementId !== null || currentTextId !== null) 判断
+  // 现在的逻辑是：只有当开关开启 (isGridEnabled 为 true) 且不在填充模式时才显示designState={designState}
+  const showGrid = isGridEnabled && mainMonument && autoSurfaceZ !== null && !isFillModeActive;
+
 
   return (
     <group ref={sceneRef}>

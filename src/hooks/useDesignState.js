@@ -448,32 +448,39 @@ export const useDesignState = () => {
     });
   }, [addProduct]);
 
+  // 暂时屏蔽 addBase功能
+  // const addBase = useCallback(() => {
+  //   updateDesignState(prev => { 
+  //     // 计算新底座的编号
+  //     const newBaseIndex = prev.bases.length + 1;
+  //     const base = {
+  //       id: `base-${Date.now()}`,
+  //       type: 'base',
+  //       polish: 'PT',
+  //       color: prev.currentMaterial,
+  //       // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
+  //       modelPath: "/models/Bases/Base.glb",
+  //       texturePath: "", // 不再需要，由 Scene3D.jsx 处理
+  //       position: [prev.bases.length * 2, 0, 0],
+  //       dimensions: { length: 0, width: 0, height: 0 },
+  //       weight: 0,
+  //       label: `Base${newBaseIndex}` // 添加标识，如 Base1, Base2
+  //     };
+
+  //     return {
+  //       ...prev,
+  //       bases: [...prev.bases, base]
+  //     };
+  //   });
+  // }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
   const addBase = useCallback(() => {
-    updateDesignState(prev => {
-      // 计算新底座的编号
-      const newBaseIndex = prev.bases.length + 1;
-      const base = {
-        id: `base-${Date.now()}`,
-        type: 'base',
-        polish: 'PT',
-        color: prev.currentMaterial,
-        // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
-        modelPath: "/models/Bases/Base.glb",
-        texturePath: "", // 不再需要，由 Scene3D.jsx 处理
-        position: [prev.bases.length * 2, 0, 0],
-        dimensions: { length: 0, width: 0, height: 0 },
-        weight: 0,
-        label: `Base${newBaseIndex}` // 添加标识，如 Base1, Base2
-      };
-
-      return {
-        ...prev,
-        bases: [...prev.bases, base]
-      };
-    });
-  }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
-
+    // 仅弹出提示，不执行任何添加底座的逻辑
+    message.info('墓碑默认已包含底座，无需额外添加！');
+    // 直接返回，终止函数
+    return;
+  }, [message]); // 依赖项保留message（确保提示正常）
+  
   const removeBase = useCallback((baseId) => {
     updateDesignState(prev => ({
       ...prev,

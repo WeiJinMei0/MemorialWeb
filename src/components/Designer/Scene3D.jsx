@@ -33,6 +33,7 @@ const Scene3D = forwardRef(({
   selectedVaseId,
   vaseTransformMode,
   onUpdateVaseElementState,
+  isGridEnabled,
   ...props
 }, ref) => {
   return (
@@ -84,6 +85,7 @@ const Scene3D = forwardRef(({
             selectedVaseId={selectedVaseId}
             vaseTransformMode={vaseTransformMode}
             onUpdateVaseElementState={onUpdateVaseElementState}
+            isGridEnabled={isGridEnabled}
             {...props}
           />
         </Suspense>

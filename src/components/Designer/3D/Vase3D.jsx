@@ -120,33 +120,7 @@ const Vase3D = forwardRef(({
     }
   }, [vase.position, vase.scale, vase.rotation]);
 
-  // --- 4. 键盘微调逻辑 ---
-  useEffect(() => {
-    if (!isSelected || transformMode !== 'translate') return;
-    const handleKeyDown = (e) => {
-      if (!groupRef.current) return;
-      const step = e.shiftKey ? 0.05 : 0.005;
-      let changed = false;
-      const pos = groupRef.current.position.clone();
-      switch (e.key) {
-        case 'ArrowUp': pos.y += step; changed = true; break;
-        case 'ArrowDown': pos.y -= step; changed = true; break;
-        case 'ArrowLeft': pos.x -= step; changed = true; break;
-        case 'ArrowRight': pos.x += step; changed = true; break;
-        default: return;
-      }
-      if (changed) {
-        e.preventDefault();
-        onUpdateVaseElementState(vase.id, {
-          position: pos.toArray(),
-          scale: groupRef.current.scale.toArray(),
-          rotation: groupRef.current.rotation.toArray().slice(0, 3)
-        });
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSelected, transformMode, vase.id, onUpdateVaseElementState]);
+
 
   // --- 5. 交互样式 ---
   useEffect(() => {
