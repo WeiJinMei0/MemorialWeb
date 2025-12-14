@@ -226,7 +226,7 @@
     "vcut": "V-Cut",
     "frost": "Frost",
     "polish": "Polish",
-    "vcutColor": "V-Cut Color",
+    "color": "Color",
     "standardColors": "Standard Colors",
     "customColor": "Custom color",
     "current": "Current:",
@@ -238,7 +238,9 @@
     "rotate": "Rotate (R)",
     "rotate90": "Rotate 90° right",
     "simplified": "简体",
-    "traditional": "繁体"
+    "traditional": "繁体",
+    "editing": "Editing",
+    "done": "Done"
   },
   "common": {
     "close": "Close",

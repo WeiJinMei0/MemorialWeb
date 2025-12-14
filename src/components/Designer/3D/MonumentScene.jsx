@@ -45,6 +45,7 @@ const MonumentScene = forwardRef(({
   isFillModeActive,
   fillColor,
   onModelFillClick,
+  onAddTextElement,
   onTextContentChange,
   onTextPositionChange,
   onTextRotationChange,
@@ -64,6 +65,105 @@ const MonumentScene = forwardRef(({
   const modelRefs = useRef({});
   const artPlaneRefs = useRef({});
   const vaseRefs = useRef({});
+
+  // 添加双击处理
+  useEffect(() => {
+    const handleDoubleClick = (event) => {
+      // 必须在非填充模式下才能添加文本
+      if (isFillModeActive) {
+        return;
+      }
+
+      // 设置射线
+      raycaster.setFromCamera(pointer, camera);
+
+      // 检测与场景中所有物体的交点
+      const intersects = raycaster.intersectObjects(scene.children, true);
+
+      // 查找第一个击中的可见 Mesh
+      const hit = intersects.find(i => i.object.isMesh && i.object.visible);
+
+      if (hit) {
+        // 向上遍历查找 monument 对象
+        let curr = hit.object;
+        let monument = null;
+
+        // 方法1: 检查是否直接匹配纪念碑的网格
+        for (const monumentObj of designState.monuments) {
+          const modelRef = modelRefs.current[monumentObj.id];
+          if (modelRef && modelRef.getMesh) {
+            const mesh = modelRef.getMesh();
+
+            // 直接匹配
+            if (mesh === curr) {
+              monument = monumentObj;
+              break;
+            }
+
+            // 遍历子对象匹配
+            let found = false;
+            mesh.traverse((child) => {
+              if (child === curr) {
+                monument = monumentObj;
+                found = true;
+              }
+            });
+
+            if (found) break;
+          }
+        }
+
+        // 如果还没找到，尝试通过 userData 查找
+        if (!monument) {
+          while (curr) {
+            // 检查对象是否有 monumentId 属性
+            if (curr.userData?.monumentId) {
+              monument = designState.monuments.find(m => m.id === curr.userData.monumentId);
+              break;
+            }
+
+            // 检查对象是否是 monument 模型
+            if (modelRefs.current) {
+              for (const [modelId, modelRef] of Object.entries(modelRefs.current)) {
+                if (modelRef && modelRef.getMesh && modelRef.getMesh() === curr) {
+                  monument = designState.monuments.find(m => m.id === modelId);
+                  if (monument) break;
+                }
+              }
+            }
+
+            if (monument) break;
+            if (curr === scene) break;
+            curr = curr.parent;
+          }
+        }
+
+        // 如果找到 monument，则创建一个新的文本元素
+        if (monument && onAddTextElement) {
+          // 创建新的文本元素
+          const newTextProperties = {
+            content: 'Enter Text',
+            font: 'Cambria_Regular',
+            size: 3,
+            monumentId: monument.id,
+            position: [0, 0.3, 0], // 默认位置
+            engraveType: 'vcut',
+            vcutColor: '#FFFFFF'
+          };
+
+          // 调用回调函数添加文本
+          onAddTextElement(newTextProperties);
+        }
+      }
+    };
+
+    const canvasDom = gl.domElement;
+    canvasDom.addEventListener('dblclick', handleDoubleClick);
+
+    return () => {
+      canvasDom.removeEventListener('dblclick', handleDoubleClick);
+    };
+  }, [gl.domElement, isFillModeActive, camera, raycaster, scene, pointer, designState.monuments, onAddTextElement, modelRefs]);
 
   // 点击空白退出 (修正后的逻辑)
   useEffect(() => {
@@ -197,7 +297,7 @@ const MonumentScene = forwardRef(({
   // 计算所有模型位置（含碑体、底座、副底座）
   const positions = useMemo(() => {
     const positions = {};
-  
+
     // 工具函数：获取模型尺寸
     const getModelLength = (modelId) => {
       const mesh = modelRefs.current[modelId]?.getMesh();
@@ -210,7 +310,7 @@ const MonumentScene = forwardRef(({
       const model = [...designState.subBases, ...designState.bases, ...designState.monuments].find(m => m.id === modelId);
       return model ? (model.dimensions.length || 0) : 0;
     };
-  
+
     const getModelHeight = (modelId) => {
       const mesh = modelRefs.current[modelId]?.getMesh();
       if (mesh) {
@@ -222,13 +322,13 @@ const MonumentScene = forwardRef(({
       const model = [...designState.subBases, ...designState.bases, ...designState.monuments].find(m => m.id === modelId);
       return model ? (model.dimensions.height || 0) : 0;
     };
-  
+
     // 配置项
     const PAIR_SPACING = 1.0;
     const NO_SPACING = 0;
     const ALIGN_Z = -0.103;
     const baseInitY = -0.5;
-  
+
     // 1. 先计算所有Base和Monument的动态居中位置（核心：先算完所有底座位置）
     const basePositionMap = {}; // 存储底座ID和最新位置的映射
     if (designState.monuments.length > 0) {
@@ -238,16 +338,16 @@ const MonumentScene = forwardRef(({
         const baseLength = base ? getModelLength(base.id) : monumentLength;
         return Math.max(monumentLength, baseLength);
       });
-  
+
       const totalComboWidth = comboLengths.reduce((sum, len) => sum + len + PAIR_SPACING, 0) - PAIR_SPACING;
       const centerOffsetX = -totalComboWidth / 2;
-  
+
       designState.monuments.forEach((monument, index) => {
         const prevComboTotal = comboLengths.slice(0, index).reduce((sum, len) => sum + len + PAIR_SPACING, 0);
         const currentComboLength = comboLengths[index];
         const comboCenterOffset = currentComboLength / 2;
         const finalX = centerOffsetX + prevComboTotal + comboCenterOffset;
-  
+
         // 设置底座位置，并存入映射表
         const base = designState.bases[index];
         if (base) {
@@ -255,7 +355,7 @@ const MonumentScene = forwardRef(({
           positions[base.id] = basePos;
           basePositionMap[base.id] = basePos; // 关键：记录底座最新位置
         }
-  
+
         // 设置碑体位置
         const currentBaseY = base ? positions[base.id][1] : baseInitY;
         const currentBaseHeight = base ? getModelHeight(base.id) : 0;
@@ -266,7 +366,7 @@ const MonumentScene = forwardRef(({
         ];
       });
     }
-  
+
     // 2. 计算SubBase位置（根据bindBaseId匹配底座最新位置，确保跟随）
     if (designState.subBases.length > 0 && Object.keys(basePositionMap).length > 0) {
       designState.subBases.forEach(subBase => {
@@ -286,7 +386,7 @@ const MonumentScene = forwardRef(({
         }
       });
     }
-  
+
     return positions;
   }, [designState.subBases, designState.bases, designState.monuments]);
 

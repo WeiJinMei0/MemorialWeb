@@ -1,33 +1,6 @@
 import React, { useState, useCallback, useEffect, Suspense, useMemo, Component } from 'react';
-import {
-  Button,
-  Input,
-  Select,
-  Slider,
-  Space,
-  Divider,
-  ColorPicker,
-  Card,
-  message,
-  Tooltip,
-  Popover,
-  Radio,
-  Row,
-  Col
-} from 'antd';
-import {
-  PlusOutlined,
-  CheckOutlined,
-  AlignLeftOutlined,
-  AlignCenterOutlined,
-  AlignRightOutlined,
-  SaveOutlined,
-  CloseOutlined,
-  BoldOutlined,
-  ItalicOutlined,
-  LayoutOutlined,
-  VerticalAlignTopOutlined
-} from '@ant-design/icons';
+import { Button, Input, Select, Slider, Space, Divider, ColorPicker, Card, message, Tooltip, Popover, Radio, Row, Col } from 'antd';
+import { PlusOutlined, CheckOutlined, AlignLeftOutlined, AlignCenterOutlined, AlignRightOutlined, SaveOutlined, CloseOutlined, BoldOutlined, ItalicOutlined, LayoutOutlined, VerticalAlignTopOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Canvas } from '@react-three/fiber';
 import { Text3D } from '@react-three/drei';
@@ -145,7 +118,7 @@ const TextEditor = ({
     return result;
   }, [fontOptions]);
 
-  // --- 核心逻辑 2: 智能解析最佳字体文件 ---
+  // 解析最佳字体文件 ---
   const resolveBestFont = useCallback((familyName, targetBold, targetItalic) => {
     const variants = fontOptions.filter(f => f.family === familyName);
     let targetVariant = 'regular';
@@ -487,7 +460,7 @@ const TextEditor = ({
         borderTopLeftRadius: '4px',
         borderTopRightRadius: '4px'
       }}>
-        <span>Text</span>
+        <span>{t('textEditor.title')}</span>
         <Button
           type="text"
           size="small"
@@ -505,7 +478,7 @@ const TextEditor = ({
         {/* Font 字体选择 */}
 
         <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
-          <span style={{ fontSize: '14px', width: '60px', marginRight: '8px' }}>Font</span>
+          <span style={{ fontSize: '14px', width: '60px', marginRight: '8px' }}>{t('textEditor.font')}</span>
           <Select
             value={currentFamilyName}
             onChange={handleFamilyChange}
@@ -534,7 +507,7 @@ const TextEditor = ({
 
         {/* Size 大小选择 */}
         <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
-          <span style={{ fontSize: '14px', width: '60px', marginRight: '8px' }}>Size</span>
+          <span style={{ fontSize: '14px', width: '60px', marginRight: '8px' }}>{t('textEditor.size')}</span>
           <Input
             type="number"
             value={textProperties.size}
@@ -603,7 +576,7 @@ const TextEditor = ({
             flexShrink: 0,
             lineHeight: '1.5'  // 确保行高与Radio一致
           }}>
-            Direction:
+            {t('textEditor.direction')}
           </span>
           <Radio.Group
             onChange={handleDirectionChange}
@@ -614,8 +587,8 @@ const TextEditor = ({
               gap: '12px'  // Radio之间的间距
             }}
           >
-            <Radio value="horizontal" style={{ margin: 0, padding: 0 }}>Horizontal</Radio>
-            <Radio value="vertical" style={{ margin: 0, padding: 0 }}>Vertical</Radio>
+            <Radio value={t('textEditor.horizontal')} style={{ margin: 0, padding: 0 }}>Horizontal</Radio>
+            <Radio value={t('textEditor.vertical')} style={{ margin: 0, padding: 0 }}>Vertical</Radio>
           </Radio.Group>
         </div>
 
@@ -640,7 +613,7 @@ const TextEditor = ({
 
         {/* Kerning 字间距 */}
         <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center' }}>
-          <span style={{ fontSize: '14px', width: '90px', textAlign: 'right', marginRight: '12px' }}>Kerning</span>
+          <span style={{ fontSize: '14px', width: '90px', textAlign: 'right', marginRight: '12px' }}>{t('textEditor.kerning')}</span>
           <Input
             type="number"
             value={textProperties.kerning}
@@ -655,7 +628,7 @@ const TextEditor = ({
 
         {/* Line Space 行间距 */}
         <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center' }}>
-          <span style={{ fontSize: '14px', width: '90px', textAlign: 'right', marginRight: '12px' }}>Line Space</span>
+          <span style={{ fontSize: '14px', width: '90px', textAlign: 'right', marginRight: '12px' }}>{t('textEditor.lineSpace')}</span>
           <Input
             type="number"
             value={textProperties.lineSpacing}
@@ -670,7 +643,7 @@ const TextEditor = ({
 
         {/* Shape 弯曲 */}
         <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center' }}>
-          <span style={{ fontSize: '14px', width: '90px', textAlign: 'right', marginRight: '12px' }}>Shape</span>
+          <span style={{ fontSize: '14px', width: '90px', textAlign: 'right', marginRight: '12px' }}>{t('textEditor.shape')}</span>
           <Slider
             min={-45}
             max={45}
@@ -683,7 +656,7 @@ const TextEditor = ({
 
         {/* Color / Engrave Type */}
         <div style={{ marginTop: '10px' }}>
-          <div style={{ textAlign: 'center', marginBottom: '8px', fontSize: '14px' }}>Color</div>
+          <div style={{ textAlign: 'center', marginBottom: '8px', fontSize: '14px' }}>{t('textEditor.color')}</div>
 
           {/* V-Cut + Colors */}
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
@@ -700,7 +673,7 @@ const TextEditor = ({
               icon={engraveTypes.vcut ? <CheckOutlined /> : null}
               onClick={() => handleEngraveTypeChange('vcut')}
             >
-              VCut
+              {t('textEditor.vcut')}
             </Button>
 
             <div style={{ display: 'flex', gap: '4px' }}>
@@ -774,7 +747,7 @@ const TextEditor = ({
               }}
               onClick={() => handleEngraveTypeChange('frost')}
             >
-              + Frost
+              + {t('textEditor.frost')}
             </Button>
             <Button
               style={{
@@ -788,7 +761,7 @@ const TextEditor = ({
               }}
               onClick={() => handleEngraveTypeChange('polish')}
             >
-              + Polish
+              + {t('textEditor.polish')}
             </Button>
           </div>
         </div>
