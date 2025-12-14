@@ -986,3 +986,43 @@
   margin-top: 2px;
   flex-shrink: 0;
 }
+
+/* 花瓶控制样式 */
+.vase-control {
+  background: #f0f5ff;
+}
+
+.vase-control .vase-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 100px;
+}
+
+.vase-control .vase-name {
+  font-size: 12px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+/* 纹理选择勾选框样式 */
+.dimension-control .ant-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.dimension-control .ant-checkbox-wrapper .ant-checkbox {
+  transform: scale(1.1);
+}
+
+.dimension-control .ant-checkbox-wrapper .ant-checkbox-checked .ant-checkbox-inner {
+  background-color: #1890ff;
+  border-color: #1890ff;
+}
+
+.dimension-control .ant-checkbox-wrapper:hover .ant-checkbox-inner {
+  border-color: #1890ff;
+}

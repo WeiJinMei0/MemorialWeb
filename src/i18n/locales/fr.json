@@ -85,7 +85,9 @@
     "emailDownload": "Email/Télécharger",
     "artOptions": "Options d'art",
     "recentlySaved": "Récemment sauvegardé",
-    "Grid": "Grille"
+    "Grid": "Grille",
+    "selectForMaterial": "Sélectionner pour changer le matériau",
+    "delete": "Supprimer"
   },
   "savedDesigns": {
     "pageTitle": "Conceptions sauvegardées",

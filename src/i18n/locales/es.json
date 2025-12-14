@@ -85,7 +85,9 @@
     "emailDownload": "Email/Descargar",
     "artOptions": "Opciones de arte",
     "recentlySaved": "Guardado recientemente",
-    "Grid": "rejilla"
+    "Grid": "rejilla",
+    "selectForMaterial": "Seleccionar para cambio de material",
+    "delete": "Eliminar"
   },
   "savedDesigns": {
     "pageTitle": "Diseños guardados",

@@ -57,6 +57,7 @@
     "orderHistory": "Order History",
     "artPanels": "Art/Panels",
     "vases": "Vases",
+    "vase": "Vase",
     "text": "Text",
     "base": "Base",
     "shapes": "Shapes",
@@ -85,7 +86,9 @@
     "emailDownload": "Email/Download",
     "artOptions": "Art Options",
     "recentlySaved": "Recently Saved",
-    "Grid": "Grid"
+    "Grid": "Grid",
+    "selectForMaterial": "Select for material change",
+    "delete": "Delete"
   },
   "savedDesigns": {
     "pageTitle": "Saved Designs",

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Layout, Button, message, Space, Select, Tooltip, InputNumber, App, Popover, Input, Modal } from 'antd';
+import { Layout, Button, message, Space, Select, Tooltip, InputNumber, App, Popover, Input, Modal, Checkbox } from 'antd';
 import {
   UndoOutlined,
   RedoOutlined,
@@ -64,6 +64,9 @@ const DesignerPage = () => {
   const [selectedUnit, setSelectedUnit] = useState('feet');
   const [currentTextId, setCurrentTextId] = useState(null);
   const [isTextEditing, setIsTextEditing] = useState(false);
+
+  // 纹理批量切换选中状态
+  const [selectedPartsForMaterial, setSelectedPartsForMaterial] = useState(new Set());
 
   // 新增状态
   const [orderModalVisible, setOrderModalVisible] = useState(false);
@@ -195,6 +198,28 @@ const DesignerPage = () => {
       message.error('无法生成截图，请重试');
     }
   }, []);
+
+  // 处理纹理批量切换勾选框
+  const handlePartSelectionChange = useCallback((partId, checked) => {
+    setSelectedPartsForMaterial(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(partId);
+      } else {
+        newSet.delete(partId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // 处理纹理切换（支持选择性更新）
+  const handleMaterialChange = useCallback((materialId) => {
+    // 只有在有选中部件时才更新
+    if (selectedPartsForMaterial.size > 0) {
+      updateMaterial(materialId, Array.from(selectedPartsForMaterial));
+    }
+    // 如果没有选中任何部件，不做任何操作
+  }, [selectedPartsForMaterial, updateMaterial]);
 
   // 【新增】: 移除素材库项目的辅助函数
   const removeItemFromArtOptions = useCallback((itemToRemove) => {
@@ -1212,6 +1237,48 @@ const DesignerPage = () => {
             style={{ padding: '0 4px', width: '24px', height: '24px' }}
           />
         </Tooltip>
+        <Tooltip title={t('designer.selectForMaterial')}>
+          <Checkbox
+            checked={selectedPartsForMaterial.has(element.id)}
+            onChange={(e) => handlePartSelectionChange(element.id, e.target.checked)}
+            style={{ marginLeft: '8px' }}
+          />
+        </Tooltip>
+      </div>
+    );
+  };
+
+  // VaseControl 组件 - 花瓶简化控制
+  const VaseControl = ({ vase, index }) => {
+    const handleDelete = () => {
+      if (deleteElement) {
+        deleteElement(vase.id, 'vase');
+      }
+    };
+
+    return (
+      <div className="dimension-control vase-control">
+        <label>{`${t('designer.vase')}${index + 1}`}</label>
+        <div className="vase-info">
+          <span className="vase-name">{vase.name || vase.class}</span>
+        </div>
+        <Tooltip title={t('designer.delete')}>
+          <Button
+            type="text"
+            danger
+            size="small"
+            icon={<CloseOutlined />}
+            onClick={handleDelete}
+            style={{ padding: '0 4px', width: '24px', height: '24px' }}
+          />
+        </Tooltip>
+        <Tooltip title={t('designer.selectForMaterial')}>
+          <Checkbox
+            checked={selectedPartsForMaterial.has(vase.id)}
+            onChange={(e) => handlePartSelectionChange(vase.id, e.target.checked)}
+            style={{ marginLeft: '8px' }}
+          />
+        </Tooltip>
       </div>
     );
   };
@@ -1224,7 +1291,7 @@ const DesignerPage = () => {
         <Toolbar tools={tools} activeTool={activeTool} onToolSelect={handleToolSelect} />
         {!collapsed && (
           <div className="material-section">
-            <MaterialPanel currentMaterial={designState.currentMaterial} onMaterialChange={updateMaterial} compact={true} />
+            <MaterialPanel currentMaterial={designState.currentMaterial} onMaterialChange={handleMaterialChange} compact={true} />
           </div>
         )}
       </Sider>
@@ -1374,6 +1441,14 @@ const DesignerPage = () => {
                     element={subBase}
                     elementType="subBase"
                     label={`${t('designer.subBase')}${index + 1}`}
+                  />
+                ))}
+                {/* 花瓶：添加索引 index */}
+                {designState.vases.map((vase, index) => (
+                  <VaseControl
+                    key={vase.id}
+                    vase={vase}
+                    index={index}
                   />
                 ))}
               </div>

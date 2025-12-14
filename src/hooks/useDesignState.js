@@ -545,26 +545,44 @@ export const useDesignState = () => {
   }, [updateDesignState]);
 
 
-  const updateMaterial = useCallback((color) => {
+  const updateMaterial = useCallback((color, selectedPartIds = null) => {
     updateDesignState(prev => {
+      // 如果传入了 selectedPartIds 但为空数组，则不更新任何部件
+      const hasSelectedParts = selectedPartIds && selectedPartIds.length > 0;
+      
       // 【V_MODIFICATION】:
       // 碑体、底座使用新逻辑 (isMultiTextureBase=true)
       // 它们只需要 color 属性
+      // 如果传入了 selectedPartIds，则只更新选中的部件
       const updateMultiTextureElements = (elements) =>
-        elements.map(element => ({
-          ...element,
-          color, // 只更新 color
-        }));
+        elements.map(element => {
+          // 如果有选中的部件列表，只更新选中的部件
+          if (hasSelectedParts) {
+            if (selectedPartIds.includes(element.id)) {
+              return { ...element, color };
+            }
+          }
+          // 如果没有选中任何部件，不更新
+          return element;
+        });
 
       // 花瓶使用旧逻辑 (isMultiTextureBase=false)
       // 它们需要更新 texturePath
       const updateVaseMaterial = (elements) =>
-        elements.map(element => ({
-          ...element,
-          color,
-          // (这个逻辑来自您的原始文件，是正确的)
-          texturePath: element.texturePath.replace(/_[^_]+\.jpg$/, `_${color}.jpg`)
-        }));
+        elements.map(element => {
+          // 如果有选中的部件列表，只更新选中的部件
+          if (hasSelectedParts) {
+            if (selectedPartIds.includes(element.id)) {
+              return {
+                ...element,
+                color,
+                texturePath: element.texturePath.replace(/_[^_]+\.jpg$/, `_${color}.jpg`)
+              };
+            }
+          }
+          // 如果没有选中任何部件，不更新
+          return element;
+        });
 
       return {
         ...prev,
