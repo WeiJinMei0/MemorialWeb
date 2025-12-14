@@ -10,7 +10,7 @@ import {
   ReloadOutlined,
   DragOutlined,
   CopyOutlined,
-  SaveOutlined // 【新增】：引入保存图标
+  SaveOutlined
 } from '@ant-design/icons';
 
 // --- 辅助函数 ---
@@ -87,7 +87,7 @@ const InteractiveArtPlane = forwardRef(({
   onDelete,
   onFlip,
   onMirrorCopy,
-  onSave, // 【新增】：接收保存回调
+  onSave,
   isPartialFill = false
 }, ref) => {
   const { camera, gl, raycaster } = useThree();
@@ -221,6 +221,11 @@ const InteractiveArtPlane = forwardRef(({
   // 自动填充逻辑 (Auto Fill)
   useEffect(() => {
     if (!canvasTexture || !artCanvasRef.current.context) return;
+
+    // 【重要修复】：只有当前被选中的图案才响应全局填充颜色的变化
+    // 防止更改颜色时错误地填充所有图案
+    if (!isSelected) return;
+
     if (isFillModeActive && isPartialFill) {
       return;
     }
@@ -233,7 +238,7 @@ const InteractiveArtPlane = forwardRef(({
         canvasTexture.needsUpdate = true;
       }
     }
-  }, [fillColor, isPartialFill, isFillModeActive, canvasTexture]);
+  }, [fillColor, isPartialFill, isFillModeActive, canvasTexture, isSelected]); // 添加 isSelected 依赖
 
   // 初始化 Transform 及位置逻辑
   useLayoutEffect(() => {
@@ -288,7 +293,12 @@ const InteractiveArtPlane = forwardRef(({
   // --- 交互逻辑 ---
 
   const startInteraction = (e, mode) => {
-    if (!isSelected || !meshRef.current || isFillModeActive) return;
+    if (!isSelected || !meshRef.current) return;
+
+    // 【重要修复】：如果处于填充模式但禁用了局部填充（即 Insert 模式），允许交互（移动/缩放）
+    // 只在局部填充模式下（需要点击像素）禁用交互
+    if (isFillModeActive && isPartialFill) return;
+
     if (e.button !== 0) return;
 
     e.stopPropagation();
@@ -387,7 +397,6 @@ const InteractiveArtPlane = forwardRef(({
     if (onMirrorCopy) onMirrorCopy(art.id, 'art');
   };
 
-  // 【新增】：保存按钮处理函数
   const handleSave = (e) => {
     e.stopPropagation();
     if (onSave) onSave(art);
@@ -415,6 +424,11 @@ const InteractiveArtPlane = forwardRef(({
   const sx = Math.sign(art.scale?.[0] || 1);
   const sy = Math.sign(art.scale?.[1] || 1);
 
+  // 【关键】：决定是否显示选择框控件
+  // 如果被选中，且 (不是填充模式 或者 (是填充模式但未开启局部填充))，则显示
+  // 这确保了在 Insert 模式下（全局填充，P为off），选择框依然可见
+  const showControls = isSelected && (!isFillModeActive || !isPartialFill);
+
   return (
     <group ref={ref}>
       <mesh
@@ -423,7 +437,7 @@ const InteractiveArtPlane = forwardRef(({
         onPointerOver={(e) => { e.stopPropagation(); setIsHovered(true); }}
         onPointerOut={(e) => { e.stopPropagation(); setIsHovered(false); }}
         onPointerDown={(e) => {
-          // 【关键修复】防止从背面选中正面的图案，或从正面选中背面的图案
+          // 防止从背面选中正面的图案，或从正面选中背面的图案
           const isBackView = camera.position.z > 0;
           const isArtBack = art.side === 'back';
           if (isBackView !== isArtBack) {
@@ -470,7 +484,7 @@ const InteractiveArtPlane = forwardRef(({
           emissiveIntensity={0.3}
         />
 
-        {isSelected && !isFillModeActive && (
+        {showControls && (
           <>
             <lineSegments>
               <edgesGeometry args={[new THREE.PlaneGeometry(1, 1)]} />
@@ -549,7 +563,6 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
-            {/* 【新增】：保存按钮渲染 (Visual Right Center) */}
             <Html position={[0.5 * sx, 0, 0]} zIndexRange={[100, 0]} center>
               <div style={btnStyle} onClick={handleSave} title="保存到库">
                 <SaveOutlined />
