@@ -9,7 +9,8 @@ import {
   ExpandOutlined,
   ReloadOutlined,
   DragOutlined,
-  CopyOutlined
+  CopyOutlined,
+  SaveOutlined // 【新增】：引入保存图标
 } from '@ant-design/icons';
 
 // --- 辅助函数 ---
@@ -85,7 +86,9 @@ const InteractiveArtPlane = forwardRef(({
   monumentThickness = 0,
   onDelete,
   onFlip,
-  onMirrorCopy
+  onMirrorCopy,
+  onSave, // 【新增】：接收保存回调
+  isPartialFill = false
 }, ref) => {
   const { camera, gl, raycaster } = useThree();
   const meshRef = useRef();
@@ -185,9 +188,8 @@ const InteractiveArtPlane = forwardRef(({
     });
   }, [art.imagePath, art.modifiedImageData]);
 
-  // 线稿着色
+  // 线稿着色 (Line Color) Logic
   useEffect(() => {
-    // --- 修改：设置默认线条颜色为白色 (#FFFFFF) ---
     const lineColor = art.properties?.lineColor || '#FFFFFF';
     const lineAlpha = art.properties?.lineAlpha;
 
@@ -201,7 +203,6 @@ const InteractiveArtPlane = forwardRef(({
     const c = context.getImageData(0, 0, w, h).data;
     let rgb = null;
 
-    // 如果有颜色（现在默认为白色），则计算 RGB
     if (lineColor) rgb = new THREE.Color(lineColor).toArray().map(v => Math.round(v * 255));
 
     for (let i = 0; i < o.length; i += 4) {
@@ -217,45 +218,47 @@ const InteractiveArtPlane = forwardRef(({
     canvasTexture.needsUpdate = true;
   }, [art.properties?.lineColor, art.properties?.lineAlpha, canvasTexture]);
 
+  // 自动填充逻辑 (Auto Fill)
+  useEffect(() => {
+    if (!canvasTexture || !artCanvasRef.current.context) return;
+    if (isFillModeActive && isPartialFill) {
+      return;
+    }
+    const isTransparent = fillColor === 'transparent' || fillColor === 'rgba(0, 0, 0, 0)';
+    if (isTransparent || isFillModeActive) {
+      const { canvas, context, originalData } = artCanvasRef.current;
+      if (canvas && context && originalData) {
+        const rgbaColor = parseColorToRGBA(fillColor || '#4285F4');
+        globalFill(context, canvas, originalData, rgbaColor);
+        canvasTexture.needsUpdate = true;
+      }
+    }
+  }, [fillColor, isPartialFill, isFillModeActive, canvasTexture]);
+
   // 初始化 Transform 及位置逻辑
   useLayoutEffect(() => {
     if (meshRef.current) {
       const pos = art.position || [0, 0, 0];
       const rot = art.rotation || [0, 0, 0];
-
-      // 1. 基础 Z 轴位置 (前表面的位置)
       const baseZ = (surfaceZ !== undefined && surfaceZ !== null) ? surfaceZ : pos[2];
-
-      // 2. 根据当前 state 中的 side 计算偏移
       const isBack = art.side === 'back';
-
-      // 修正偏移方向
       let targetZ;
       if (isBack) {
         targetZ = baseZ + 0.005 + monumentThickness + manualOffset + uniqueOffset;
       } else {
         targetZ = baseZ - uniqueOffset;
       }
-
-      // 3. 应用位置 (默认情况, 或后续更新)
       meshRef.current.position.set(pos[0], pos[1], targetZ);
       meshRef.current.rotation.set(rot[0], rot[1], rot[2]);
-
-      // 4. 仅在初始加载时执行 (根据相机位置确定默认面并修正位置)
       if (isInitialLoadRef.current && aspectRatio) {
         isInitialLoadRef.current = false;
-
         const baseSize = 0.2;
         const scaleX = art.scale ? art.scale[0] : (baseSize * Math.sign(art.scale?.[0] || 1));
         const scaleY = Math.abs(scaleX) / aspectRatio * Math.sign(art.scale?.[1] || 1);
-
-        // --- 确定默认面 (Front/Back) ---
         let finalSide = art.side;
         if (!finalSide) {
           const isBackView = camera.position.z > 0;
           finalSide = isBackView ? 'back' : 'front';
-
-          // 如果初始判定为背面，需要立即重新计算 targetZ 并应用
           if (finalSide === 'back') {
             targetZ = baseZ + 0.005 + monumentThickness + manualOffset + uniqueOffset;
             meshRef.current.position.set(pos[0], pos[1], targetZ);
@@ -264,20 +267,16 @@ const InteractiveArtPlane = forwardRef(({
             meshRef.current.position.set(pos[0], pos[1], targetZ);
           }
         }
-
         meshRef.current.scale.set(scaleX, scaleY, 1);
-
         onTransformEnd(art.id, {
           position: [pos[0], pos[1], targetZ],
           scale: [scaleX, scaleY, 1],
           rotation: rot,
-          side: finalSide // 保存 side 到数据中
+          side: finalSide
         }, { replaceHistory: true });
-
       } else if (!isInitialLoadRef.current && art.scale) {
         meshRef.current.scale.set(art.scale[0], art.scale[1], art.scale[2] || 1);
       }
-
       const toInches = 39.37;
       setDimensionsLabel({
         width: Math.abs(meshRef.current.scale.x) * toInches,
@@ -383,10 +382,15 @@ const InteractiveArtPlane = forwardRef(({
     if (onFlip) onFlip(art.id, 'x', 'art');
   };
 
-  // 处理镜像复制
   const handleMirrorCopy = (e) => {
     e.stopPropagation();
     if (onMirrorCopy) onMirrorCopy(art.id, 'art');
+  };
+
+  // 【新增】：保存按钮处理函数
+  const handleSave = (e) => {
+    e.stopPropagation();
+    if (onSave) onSave(art);
   };
 
   // 样式
@@ -431,9 +435,13 @@ const InteractiveArtPlane = forwardRef(({
             const { canvas, context, originalData } = artCanvasRef.current;
             if (canvas && context && originalData && canvasTexture) {
               const rgbaColor = parseColorToRGBA(fillColor || '#4285F4');
-              if (e.shiftKey && e.uv) {
+
+              // 逻辑更新：使用 isPartialFill 属性判断是否局部填充
+              // Shift 键仍然作为辅助快捷键保留
+              if ((isPartialFill || e.shiftKey) && e.uv) {
                 floodFill(context, canvas, originalData, canvasTexture, Math.floor(e.uv.x * canvas.width), Math.floor((1 - e.uv.y) * canvas.height), rgbaColor);
               } else {
+                // 如果不是局部模式，点击时执行一次全局填充 (虽然可能已经自动填充，但点击可以作为重置或确认)
                 globalFill(context, canvas, originalData, rgbaColor);
               }
               onTransformEnd(art.id, { modifiedImageData: canvas.toDataURL('image/png') });
@@ -457,10 +465,9 @@ const InteractiveArtPlane = forwardRef(({
           side={THREE.DoubleSide}
           polygonOffset={true} polygonOffsetFactor={-1} polygonOffsetUnits={-1}
           depthTest={true} depthWrite={false}
-          // --- 新增自发光属性 ---
           emissive={0xffffff}
           emissiveMap={canvasTexture}
-          emissiveIntensity={0.3} // 提亮白色，0.3 是一个比较自然的亮度
+          emissiveIntensity={0.3}
         />
 
         {isSelected && !isFillModeActive && (
@@ -486,30 +493,24 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
-            {/* 修复：使用 center 属性确保图标居中对齐到角点/边缘 */}
-
-            {/* 左上: 镜像 */}
             <Html position={[-0.5 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div style={btnStyle} onClick={handleMirror} title="镜像">
                 <SwapOutlined />
               </div>
             </Html>
 
-            {/* 左中: 镜像复制 */}
             <Html position={[-0.5 * sx, 0, 0]} zIndexRange={[100, 0]} center>
               <div style={btnStyle} onClick={handleMirrorCopy} title="镜像复制">
                 <CopyOutlined />
               </div>
             </Html>
 
-            {/* 右上: 删除 */}
             <Html position={[0.5 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div style={btnStyle} onClick={handleDelete} title="删除">
                 <DeleteOutlined />
               </div>
             </Html>
 
-            {/* 左下: 旋转 */}
             <Html position={[-0.5 * sx, -0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div
                 style={{ ...btnStyle, cursor: 'alias' }}
@@ -520,7 +521,6 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
-            {/* 右下: 缩放 */}
             <Html position={[0.5 * sx, -0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div
                 style={{ ...btnStyle, cursor: 'nwse-resize' }}
@@ -531,7 +531,6 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
-            {/* 中上: 移动 */}
             <Html position={[0, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div
                 style={{
@@ -547,6 +546,13 @@ const InteractiveArtPlane = forwardRef(({
                 title="移动"
               >
                 <DragOutlined style={{ fontSize: '12px' }} />
+              </div>
+            </Html>
+
+            {/* 【新增】：保存按钮渲染 (Visual Right Center) */}
+            <Html position={[0.5 * sx, 0, 0]} zIndexRange={[100, 0]} center>
+              <div style={btnStyle} onClick={handleSave} title="保存到库">
+                <SaveOutlined />
               </div>
             </Html>
 

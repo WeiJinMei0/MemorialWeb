@@ -50,6 +50,7 @@ const DesignerPage = () => {
   const [transformMode, setTransformMode] = useState('translate')
   const [fillColor, setFillColor] = useState('#4285F4');
   const [isFillModeActive, setIsFillModeActive] = useState(false);
+  const [isPartialFill, setIsPartialFill] = useState(false);
 
   // Art Options 拖拽保存状态
   const [savedArtOptions, setSavedArtOptions] = useState([]);
@@ -1288,6 +1289,7 @@ const DesignerPage = () => {
                 fillColor={fillColor}
                 isFillModeActive={isFillModeActive}
                 onModelFillClick={() => { }}
+                isPartialFill={isPartialFill}
 
                 // Text Props
                 onAddTextElement={handleTextAdd}
@@ -1335,9 +1337,11 @@ const DesignerPage = () => {
                   isFillModeActive={isFillModeActive}
                   setIsFillModeActive={setIsFillModeActive}
                   onSaveToArtOptions={handleSaveArtToOptions}
+                  isPartialFill={isPartialFill}
+                  setIsPartialFill={setIsPartialFill}
                 />
               )}
-              {/* 花瓶编辑面板 (新增) */}
+              {/* 花瓶编辑面板*/}
               {selectedVase && (
                 <VaseEditorPanel
                   vase={selectedVase}
