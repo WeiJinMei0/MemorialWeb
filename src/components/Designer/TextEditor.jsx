@@ -587,8 +587,8 @@ const TextEditor = ({
               gap: '12px'  // Radio之间的间距
             }}
           >
-            <Radio value={t('textEditor.horizontal')} style={{ margin: 0, padding: 0 }}>Horizontal</Radio>
-            <Radio value={t('textEditor.vertical')} style={{ margin: 0, padding: 0 }}>Vertical</Radio>
+            <Radio value="horizontal" style={{ margin: 0, padding: 0 }}>{t('textEditor.horizontal')}</Radio>
+            <Radio value="vertical" style={{ margin: 0, padding: 0 }}>{t('textEditor.vertical')}</Radio>
           </Radio.Group>
         </div>
 
