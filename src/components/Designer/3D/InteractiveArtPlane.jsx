@@ -2,7 +2,7 @@ import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, us
 import { Html } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { floodFill } from './utils';
+import { floodFill, getFrostTexturePath } from './utils';
 import {
   DeleteOutlined,
   SwapOutlined,
@@ -18,6 +18,8 @@ import {
 const parseColorToRGBA = (colorStr) => {
   if (!colorStr) return [66, 133, 244, 255];
   if (colorStr === 'transparent' || colorStr === 'rgba(0, 0, 0, 0)') return [0, 0, 0, 0];
+  if (colorStr === 'frost') return [255, 255, 255, 255]; // Frost 模式占位颜色
+
   if (typeof colorStr === 'string' && colorStr.startsWith('rgba')) {
     const parts = colorStr.match(/(\d+(\.\d+)?)/g);
     if (parts && parts.length >= 4) {
@@ -33,12 +35,19 @@ const parseColorToRGBA = (colorStr) => {
   return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255), 255];
 };
 
-const globalFill = (context, canvas, originalData, rgbaColor) => {
+// 【修改】globalFill 支持 patternData
+const globalFill = (context, canvas, originalData, rgbaColor, patternData = null) => {
   const width = canvas.width;
   const height = canvas.height;
   const currentImageData = context.getImageData(0, 0, width, height);
   const data = currentImageData.data;
   const oData = originalData.data;
+
+  // 图案数据
+  const pData = patternData ? patternData.data : null;
+  const pWidth = patternData ? patternData.width : 0;
+  const pHeight = patternData ? patternData.height : 0;
+
   const visited = new Uint8Array(width * height);
   const queue = [];
   const getIdx = (x, y) => y * width + x;
@@ -60,13 +69,31 @@ const globalFill = (context, canvas, originalData, rgbaColor) => {
     const { x, y } = queue[head++];
     checkAndAdd(x + 1, y); checkAndAdd(x - 1, y); checkAndAdd(x, y + 1); checkAndAdd(x, y - 1);
   }
+
   const [r, g, b, a] = rgbaColor;
+
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = getIdx(x, y);
       if (visited[idx] === 0 && !isLine(x, y)) {
         const i = idx * 4;
-        data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = a;
+
+        if (patternData) {
+          // --- 图案填充逻辑 ---
+          let px = x % pWidth;
+          let py = y % pHeight;
+          if (px < 0) px += pWidth;
+          if (py < 0) py += pHeight;
+          const pIdx = (py * pWidth + px) * 4;
+
+          data[i] = pData[pIdx];
+          data[i + 1] = pData[pIdx + 1];
+          data[i + 2] = pData[pIdx + 2];
+          data[i + 3] = pData[pIdx + 3]; // Usually 255
+        } else {
+          // --- 纯色填充逻辑 ---
+          data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = a;
+        }
       }
     }
   }
@@ -84,6 +111,7 @@ const InteractiveArtPlane = forwardRef(({
   isFillModeActive,
   surfaceZ,
   monumentThickness = 0,
+  monumentColor = 'Black', // 【新增】接收碑体颜色
   onDelete,
   onFlip,
   onMirrorCopy,
@@ -97,6 +125,9 @@ const InteractiveArtPlane = forwardRef(({
   const isInitialLoadRef = useRef(true);
   const [dimensionsLabel, setDimensionsLabel] = useState({ width: 0, height: 0 });
   const [isHovered, setIsHovered] = useState(false);
+
+  // 【新增】保存加载的扫砂纹理数据
+  const [frostImageData, setFrostImageData] = useState(null);
 
   // 交互状态Ref
   const interactionRef = useRef({
@@ -188,6 +219,32 @@ const InteractiveArtPlane = forwardRef(({
     });
   }, [art.imagePath, art.modifiedImageData]);
 
+  // 【新增】加载 Frost 纹理
+  useEffect(() => {
+    if (fillColor === 'frost' && isFillModeActive) {
+      const texturePath = getFrostTexturePath(monumentColor);
+      const img = new Image();
+      img.src = texturePath;
+      img.crossOrigin = "Anonymous";
+      img.onload = () => {
+        // 创建一个临时的 canvas 来获取 ImageData
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = img.naturalWidth;
+        tempCanvas.height = img.naturalHeight;
+        const ctx = tempCanvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        setFrostImageData(data);
+      };
+      img.onerror = () => {
+        console.error('Failed to load frost texture:', texturePath);
+        setFrostImageData(null);
+      }
+    } else {
+      // 退出 frost 模式时可以清理，也可以保留缓存
+    }
+  }, [fillColor, isFillModeActive, monumentColor]);
+
   // 线稿着色 (Line Color) Logic
   useEffect(() => {
     const lineColor = art.properties?.lineColor || '#FFFFFF';
@@ -221,24 +278,28 @@ const InteractiveArtPlane = forwardRef(({
   // 自动填充逻辑 (Auto Fill)
   useEffect(() => {
     if (!canvasTexture || !artCanvasRef.current.context) return;
-
-    // 【重要修复】：只有当前被选中的图案才响应全局填充颜色的变化
-    // 防止更改颜色时错误地填充所有图案
     if (!isSelected) return;
 
     if (isFillModeActive && isPartialFill) {
       return;
     }
+
+    // 【修改】处理 frost
+    const isFrost = fillColor === 'frost';
+    // 如果是 frost 模式，必须等 frostImageData 加载完毕
+    if (isFrost && !frostImageData) return;
+
     const isTransparent = fillColor === 'transparent' || fillColor === 'rgba(0, 0, 0, 0)';
-    if (isTransparent || isFillModeActive) {
+    if (isTransparent || isFillModeActive || isFrost) {
       const { canvas, context, originalData } = artCanvasRef.current;
       if (canvas && context && originalData) {
         const rgbaColor = parseColorToRGBA(fillColor || '#4285F4');
-        globalFill(context, canvas, originalData, rgbaColor);
+        // 传递 patternData
+        globalFill(context, canvas, originalData, rgbaColor, isFrost ? frostImageData : null);
         canvasTexture.needsUpdate = true;
       }
     }
-  }, [fillColor, isPartialFill, isFillModeActive, canvasTexture, isSelected]); // 添加 isSelected 依赖
+  }, [fillColor, isPartialFill, isFillModeActive, canvasTexture, isSelected, frostImageData]); // 添加 frostImageData 依赖
 
   // 初始化 Transform 及位置逻辑
   useLayoutEffect(() => {
@@ -294,9 +355,6 @@ const InteractiveArtPlane = forwardRef(({
 
   const startInteraction = (e, mode) => {
     if (!isSelected || !meshRef.current) return;
-
-    // 【重要修复】：如果处于填充模式但禁用了局部填充（即 Insert 模式），允许交互（移动/缩放）
-    // 只在局部填充模式下（需要点击像素）禁用交互
     if (isFillModeActive && isPartialFill) return;
 
     if (e.button !== 0) return;
@@ -420,13 +478,8 @@ const InteractiveArtPlane = forwardRef(({
     border: '1px solid #e0e0e0'
   };
 
-  // 计算当前的缩放符号，用于反向调整 HUD 位置
   const sx = Math.sign(art.scale?.[0] || 1);
   const sy = Math.sign(art.scale?.[1] || 1);
-
-  // 【关键】：决定是否显示选择框控件
-  // 如果被选中，且 (不是填充模式 或者 (是填充模式但未开启局部填充))，则显示
-  // 这确保了在 Insert 模式下（全局填充，P为off），选择框依然可见
   const showControls = isSelected && (!isFillModeActive || !isPartialFill);
 
   return (
@@ -437,7 +490,6 @@ const InteractiveArtPlane = forwardRef(({
         onPointerOver={(e) => { e.stopPropagation(); setIsHovered(true); }}
         onPointerOut={(e) => { e.stopPropagation(); setIsHovered(false); }}
         onPointerDown={(e) => {
-          // 防止从背面选中正面的图案，或从正面选中背面的图案
           const isBackView = camera.position.z > 0;
           const isArtBack = art.side === 'back';
           if (isBackView !== isArtBack) {
@@ -449,14 +501,23 @@ const InteractiveArtPlane = forwardRef(({
             const { canvas, context, originalData } = artCanvasRef.current;
             if (canvas && context && originalData && canvasTexture) {
               const rgbaColor = parseColorToRGBA(fillColor || '#4285F4');
+              const isFrost = fillColor === 'frost';
 
-              // 逻辑更新：使用 isPartialFill 属性判断是否局部填充
-              // Shift 键仍然作为辅助快捷键保留
               if ((isPartialFill || e.shiftKey) && e.uv) {
-                floodFill(context, canvas, originalData, canvasTexture, Math.floor(e.uv.x * canvas.width), Math.floor((1 - e.uv.y) * canvas.height), rgbaColor);
+                // 【修改】传递 frostImageData 给 floodFill
+                floodFill(
+                  context,
+                  canvas,
+                  originalData,
+                  canvasTexture,
+                  Math.floor(e.uv.x * canvas.width),
+                  Math.floor((1 - e.uv.y) * canvas.height),
+                  rgbaColor,
+                  isFrost ? frostImageData : null
+                );
               } else {
-                // 如果不是局部模式，点击时执行一次全局填充 (虽然可能已经自动填充，但点击可以作为重置或确认)
-                globalFill(context, canvas, originalData, rgbaColor);
+                // 【修改】传递 frostImageData 给 globalFill
+                globalFill(context, canvas, originalData, rgbaColor, isFrost ? frostImageData : null);
               }
               onTransformEnd(art.id, { modifiedImageData: canvas.toDataURL('image/png') });
               canvasTexture.needsUpdate = true;

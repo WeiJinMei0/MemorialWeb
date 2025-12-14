@@ -48,6 +48,7 @@ const MonumentScene = forwardRef(({
   fillColor,
   isPartialFill,
   onModelFillClick,
+  monumentColor, // 【新增】接收主碑颜色
   onAddTextElement,
   onTextContentChange,
   onTextPositionChange,
@@ -598,6 +599,8 @@ const MonumentScene = forwardRef(({
           isFillModeActive={isFillModeActive}
           // 在这里传递 isPartialFill
           isPartialFill={isPartialFill}
+          // 【新增】传递碑体颜色
+          monumentColor={monumentColor}
           surfaceZ={autoSurfaceZ}
           monumentThickness={monumentThickness}
           onDelete={onDeleteElement}

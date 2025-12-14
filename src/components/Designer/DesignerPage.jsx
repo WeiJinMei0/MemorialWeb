@@ -1245,6 +1245,13 @@ const DesignerPage = () => {
     );
   };
 
+  // 【新增】获取当前主碑的颜色，用于 ArtEditorPanel
+  const getMainMonumentColor = () => {
+    if (designState.monuments.length > 0) {
+      return designState.monuments[0].color || 'Black';
+    }
+    return 'Black';
+  };
 
   // --- 渲染 ---
   return (
@@ -1310,6 +1317,9 @@ const DesignerPage = () => {
                 onModelFillClick={() => { }}
                 isPartialFill={isPartialFill}
                 onSaveToArtOptions={handleSaveArtToOptions}
+
+                // 【新增】传入主碑颜色
+                monumentColor={getMainMonumentColor()}
 
                 // Text Props
                 onAddTextElement={handleTextAdd}

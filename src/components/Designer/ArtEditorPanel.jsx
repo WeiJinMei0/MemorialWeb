@@ -105,19 +105,21 @@ const ArtEditorPanel = ({
   const currentLineAlpha = art.properties?.lineAlpha ?? 1.0;
   const isTransparent = fillColor === 'transparent' || fillColor === 'rgba(0, 0, 0, 0)';
   const currentFillColor = isTransparent ? 'transparent' : (fillColor || '#4285F4');
+  const isFrost = fillColor === 'frost';
 
   const displayColors = ['transparent', ...simplePresetColors.slice(0, 5)];
 
   useEffect(() => {
     if (currentLineAlpha === 0 && isFillModeActive) {
       setActiveMode('insert');
-    } else if ((!isFillModeActive || isTransparent) && !isPartialFill) {
+    } else if ((!isFillModeActive || isTransparent) && !isPartialFill && !isFrost) {
       // 【修改】：当启用局部填充(p选项)时，即使选择了透明色，也不应该强制跳转到 keepColor
+      // 【新增】：当选择了 Frost 模式时，也不要跳转到 keepColor
       setActiveMode('keepColor');
     } else {
       setActiveMode('specialFilling');
     }
-  }, [art.id, currentLineAlpha, isFillModeActive, isTransparent, isPartialFill]);
+  }, [art.id, currentLineAlpha, isFillModeActive, isTransparent, isPartialFill, isFrost]);
 
   const handleLineColor = (color) => {
     const hex = typeof color === 'string' ? color : color.toHexString();
@@ -138,6 +140,10 @@ const ArtEditorPanel = ({
   const handleFillColor = (color) => {
     if (color === 'transparent') {
       setFillColor('transparent');
+      setIsFillModeActive(true);
+    } else if (color === 'frost') {
+      // 【新增】处理 Frost 模式
+      setFillColor('frost');
       setIsFillModeActive(true);
     } else {
       const val = typeof color === 'string' ? color : color.toRgbString();
@@ -257,7 +263,16 @@ const ArtEditorPanel = ({
                   {activeMode === 'insert' && <CheckOutlined style={{ marginRight: 8 }} />}
                   {t('artEditor.insert', 'Insert')}
                 </Button>
-                <Button size="small" disabled className="small-btn">
+                {/* 【启用 Frost 按钮】 */}
+                <Button
+                  size="small"
+                  className={`small-btn ${isFrost && activeMode === 'insert' ? 'active-frost' : ''}`}
+                  onClick={() => {
+                    handleSetMode('insert');
+                    handleFillColor('frost');
+                  }}
+                  style={isFrost && activeMode === 'insert' ? { borderColor: '#1890ff', color: '#1890ff', background: '#e6f7ff' } : {}}
+                >
                   {t('artEditor.frost', 'Frost')}
                 </Button>
                 <PartialButton forMode="insert" />
@@ -269,11 +284,11 @@ const ArtEditorPanel = ({
                   <ColorSwatches
                     colors={displayColors}
                     onColorSelect={handleFillColor}
-                    selectedColor={currentFillColor}
+                    selectedColor={isFrost ? null : currentFillColor}
                     t={t}
                   />
                   <ColorPicker
-                    value={currentFillColor === 'transparent' ? '#FFFFFF' : currentFillColor}
+                    value={currentFillColor === 'transparent' || isFrost ? '#FFFFFF' : currentFillColor}
                     onChange={handleFillColor}
                     size="small"
                     className="color-picker-sm"
@@ -300,7 +315,16 @@ const ArtEditorPanel = ({
                   <div className="header-row">
                     <Text style={{ fontSize: '12px' }}>{t('artEditor.surfaceColor', 'Surface Color')}</Text>
                     <div className="btn-group-right">
-                      <Button size="small" disabled className="small-btn">
+                      {/* 【启用 Frost 按钮】 */}
+                      <Button
+                        size="small"
+                        className={`small-btn ${isFrost && activeMode === 'specialFilling' ? 'active-frost' : ''}`}
+                        onClick={() => {
+                          handleSetMode('specialFilling');
+                          handleFillColor('frost');
+                        }}
+                        style={isFrost && activeMode === 'specialFilling' ? { borderColor: '#1890ff', color: '#1890ff', background: '#e6f7ff' } : {}}
+                      >
                         {t('artEditor.frost', 'Frost')}
                       </Button>
                       <PartialButton forMode="specialFilling" />
@@ -310,11 +334,11 @@ const ArtEditorPanel = ({
                     <ColorSwatches
                       colors={displayColors}
                       onColorSelect={handleFillColor}
-                      selectedColor={currentFillColor}
+                      selectedColor={isFrost ? null : currentFillColor}
                       t={t}
                     />
                     <ColorPicker
-                      value={currentFillColor === 'transparent' ? '#FFFFFF' : currentFillColor}
+                      value={currentFillColor === 'transparent' || isFrost ? '#FFFFFF' : currentFillColor}
                       onChange={handleFillColor}
                       size="small"
                       className="color-picker-sm"
@@ -326,11 +350,7 @@ const ArtEditorPanel = ({
                 <div>
                   <div className="header-row">
                     <Text style={{ fontSize: '12px' }}>{t('artEditor.outlineColor', 'Outline Color')}</Text>
-                    <div className="btn-group-right">
-                      <Button size="small" disabled className="small-btn">
-                        {t('artEditor.frost', 'Frost')}
-                      </Button>
-                    </div>
+                    {/* 已移除 Outline Color 的 Frost 选项 */}
                   </div>
                   <div className="color-row">
                     <ColorSwatches
