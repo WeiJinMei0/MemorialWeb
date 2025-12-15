@@ -678,32 +678,98 @@ export const useDesignState = () => {
   }, [updateDesignState]);
 
 
-  const addVase = useCallback((vaseData) => {
-    // 【V_MODIFICATION】: 
-    // 花瓶的逻辑保持不变，因为它们使用 (isMultiTextureBase=false)
-    // 它们确实需要唯一的 modelPath 和 texturePath。
-    const vase = {
-      id: `vase-${Date.now()}`,
-      type: 'vase',
-      class: vaseData.class,
-      name: vaseData.name,
-      color: designState.currentMaterial,
-      modelPath: vaseData.modelPath,
-      texturePath: `./textures/Vases/${vaseData.class}/${vaseData.name.replace(/\.glb$/, '')}_${designState.currentMaterial}.jpg`,
-      position: [-0.5, -0.5, -0.5],
-      dimensions: { length: 0.5, width: 0.5, height: 0.5 },
-      weight: 0,
-      rotation: vaseData.rotation || [0, 0, 0],
-      scale: vaseData.scale || [1, 1, 1],
-      isSelected: false,
-      isVaseModel: true
-    };
+  // 新增：更新模型位置
+  const updateModelPosition = useCallback((elementId, newPosition, elementType) => {
+    updateDesignState(prev => {
+      const updateElement = (elements) =>
+        elements.map(element => {
+          if (element.id === elementId) {
+            return {
+              ...element,
+              position: newPosition
+            };
+          }
+          return element;
+        });
 
-    updateDesignState(prev => ({
-      ...prev,
-      vases: [...prev.vases, vase]
-    }));
-  }, [designState, updateDesignState]);
+      let updatedState = { ...prev };
+
+      switch (elementType) {
+        case 'monument':
+          updatedState.monuments = updateElement(prev.monuments);
+          break;
+        case 'base':
+          updatedState.bases = updateElement(prev.bases);
+          break;
+        case 'subBase':
+          updatedState.subBases = updateElement(prev.subBases);
+          break;
+        default:
+          break;
+      }
+
+      return updatedState;
+    });
+  }, [updateDesignState]);
+
+  // 修改 addVase 函数以调整花瓶默认位置
+  const addVase = useCallback((vaseData) => {
+    updateDesignState(prev => {
+      // 计算花瓶的默认位置：放在第一个底座的天面宽度居中
+      
+      let vasePosition = [-0.5, -0.5, -0.5];
+      let vaseRotation = vaseData.rotation || [0, 0, 0];
+      
+      // 如果有底座，计算居中位置
+      if (prev.bases.length > 0) {
+        const base = prev.bases[0];
+        const basePosition = base.position || [0, 0, 0];
+        const baseDimensions = base.dimensions || { length: 1, width: 1, height: 1 };
+        
+        // 底座天面中心位置
+        const baseTopY = basePosition[1] + (baseDimensions.height / 2);
+        
+        // 假设花瓶高度为0.5米，放在底座天面上方一点
+        const vaseHeight = 0.5;
+        const vaseTopY = baseTopY-0.4;
+        
+        // X轴居中
+        const centerX = basePosition[0]-baseDimensions.length/2+0.05;
+        
+        // Z轴与底座对齐
+        const baseZ = basePosition[2];
+        
+        vasePosition = [centerX, vaseTopY, baseZ];
+        
+        // 如果花瓶是Planter类型，可以调整旋转
+        if (vaseData.class === 'Planter Vase') {
+          vaseRotation = [0, 0, 0];
+        }
+      }
+      
+      const vase = {
+        id: `vase-${Date.now()}`,
+        type: 'vase',
+        class: vaseData.class,
+        name: vaseData.name,
+        color: prev.currentMaterial,
+        modelPath: vaseData.modelPath,
+        texturePath: `./textures/Vases/${vaseData.class}/${vaseData.name.replace(/\.glb$/, '')}_${prev.currentMaterial}.jpg`,
+        position: vasePosition,
+        dimensions: { length: 0.5, width: 0.5, height: 0.5 },
+        weight: 0,
+        rotation: vaseRotation,
+        scale: vaseData.scale || [1, 1, 1],
+        isSelected: false,
+        isVaseModel: true
+      };
+
+      return {
+        ...prev,
+        vases: [...prev.vases, vase]
+      };
+    });
+  }, [updateDesignState]);
 
 
   // 这是您的 addArt (for InteractiveArtPlane)
@@ -995,6 +1061,7 @@ export const useDesignState = () => {
     updateDimensions,
     updatePolish,
     updateMaterial,
+    updateModelPosition,
     addProduct,
     addBase,
     removeBase,
