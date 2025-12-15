@@ -62,7 +62,7 @@ const DesignerPage = () => {
   const [vaseTransformMode, setVaseTransformMode] = useState('translate');
 
   // Text 和 Unit 状态
-  const [selectedUnit, setSelectedUnit] = useState('feet');
+  const [selectedUnit, setSelectedUnit] = useState('inches');
   const [currentTextId, setCurrentTextId] = useState(null);
   const [isTextEditing, setIsTextEditing] = useState(false);
 
@@ -1399,7 +1399,7 @@ const DesignerPage = () => {
                     key={monument.id}
                     element={monument}
                     elementType="monument"
-                    label={`${t('designer.tablet')}${index + 1}`}
+                    label={`${t('designer.tablet')}`}
                   />
                 ))}
                 {/* 底座：添加索引 index，label 拼接序号 */}
@@ -1408,7 +1408,7 @@ const DesignerPage = () => {
                     key={base.id}
                     element={base}
                     elementType="base"
-                    label={`${t('designer.base')}${index + 1}`}
+                    label={`${t('designer.base')}`}
                   />
                 ))}
                 {/* 子底座：添加索引 index，label 拼接序号 */}
@@ -1417,7 +1417,7 @@ const DesignerPage = () => {
                     key={subBase.id}
                     element={subBase}
                     elementType="subBase"
-                    label={`${t('designer.subBase')}${index + 1}`}
+                    label={`${t('designer.subBase')}`}
                   />
                 ))}
               </div>
@@ -1430,12 +1430,12 @@ const DesignerPage = () => {
                   <Button size="small" onClick={addSubBase}>{t('designer.addSubBase')}</Button>
                   <p> {t('designer.format')}</p>
                   <select
-                    value={selectedUnit || 'feet'}
+                    value={selectedUnit || 'inches'}
                     onChange={(e) => setSelectedUnit(e.target.value)}
                     id="size-selection"
                   >
-                    <option value="feet">{t('designer.Feet')}</option>
                     <option value="inches">{t('designer.Inches')}</option>
+                    <option value="feet">{t('designer.Feet')}</option>
                   </select>
                 </Space>
               </div>

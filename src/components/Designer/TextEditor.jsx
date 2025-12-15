@@ -599,13 +599,11 @@ const TextEditor = ({
 
           <div style={{ display: 'flex' }}>
             <ConversionIcon
-              char="繁"
-              label='繁转简' // 繁转简
+              label='Traditional to Simplified' // 繁转简
               onClick={() => handleConvert('t2s')}
             />
             <ConversionIcon
-              char="简"
-              label='简转繁' // 简转繁
+              label='Simplified to Traditional' // 简转繁
               onClick={() => handleConvert('s2t')}
             />
           </div>

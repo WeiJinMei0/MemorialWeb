@@ -6,6 +6,16 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import * as THREE from 'three';
 import { getColorValue } from './utils';
 
+// 重用的向量和平面
+const _mouse = new THREE.Vector2();
+const _target = new THREE.Vector3();
+const _offset = new THREE.Vector3();
+const _startPoint = new THREE.Vector3();
+const _originalPos = new THREE.Vector3();
+const _planeNormal = new THREE.Vector3(0, 0, 1);
+const _plane = new THREE.Plane(_planeNormal, 0);
+const _raycaster = new THREE.Raycaster();
+
 /**
  * Model 负责加载 GLB、绑定贴图、回传尺寸并兼容拖拽/填色模式。
  * 修正了尺寸映射：Width 对应 Z (厚度), Height 对应 Y (高度)

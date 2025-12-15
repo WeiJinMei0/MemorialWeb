@@ -523,7 +523,7 @@ export const useDesignState = () => {
         id: `subbase-${Date.now()}`,
         type: 'subBase',
         bindBaseId: targetBase.id, // 绑定底座ID，而非位置，确保跟随
-        polish: 'PT',
+        polish: 'P5',
         color: prev.currentMaterial,
         modelPath: "/models/Bases/Base.glb",
         texturePath: "",
