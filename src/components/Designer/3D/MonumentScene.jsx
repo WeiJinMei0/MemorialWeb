@@ -46,7 +46,9 @@ const MonumentScene = forwardRef(({
   onArtElementSelect,
   isFillModeActive,
   fillColor,
+  isPartialFill,
   onModelFillClick,
+  monumentColor, // 【新增】接收主碑颜色
   onAddTextElement,
   onTextContentChange,
   onTextPositionChange,
@@ -60,6 +62,7 @@ const MonumentScene = forwardRef(({
   selectedVaseId,
   vaseTransformMode,
   onUpdateVaseElementState,
+  onSaveToArtOptions,
 
 }, ref) => {
   const { gl, scene, camera, raycaster, pointer } = useThree();
@@ -170,8 +173,9 @@ const MonumentScene = forwardRef(({
   // 点击空白退出 (修正后的逻辑)
   useEffect(() => {
     const handleGlobalClick = (event) => {
-      // 1. 基础检查：必须点击的是 canvas 且非填充模式
-      if (event.target !== gl.domElement || isFillModeActive) {
+      // 1. 基础检查：必须点击的是 canvas
+      // 【修改】：移除了 || isFillModeActive，允许在填充模式下进入射线检测
+      if (event.target !== gl.domElement) {
         return;
       }
 
@@ -186,7 +190,6 @@ const MonumentScene = forwardRef(({
 
       if (hit) {
         // 【关键修复】：向上遍历父级，检查是否属于“受保护”的物体（花瓶或图案）
-        // 这能解决花瓶换色后 Mesh 替换导致的选中失效问题
         let curr = hit.object;
         let isProtected = false;
         while (curr) {
@@ -194,17 +197,24 @@ const MonumentScene = forwardRef(({
             isProtected = true;
             break;
           }
-          // 防止死循环（虽然在 Three.js 场景图中 parent 最终为 null）
+          // 防止死循环
           if (curr === scene) break;
           curr = curr.parent;
         }
 
+        // 如果点击的是图案或花瓶，不取消选中
         if (isProtected) {
+          return;
+        }
+
+        // 【新增】：如果在填充模式下击中了非受保护物体（如墓碑主体），
+        // 意味着用户可能在尝试填充墓碑颜色，此时不应该关闭编辑面板。
+        if (isFillModeActive) {
           return;
         }
       }
 
-      // 4. 如果击中了其他物体（如墓碑底座）或者什么都没击中，才执行取消选中
+      // 4. 执行取消选中（只有当什么都没击中，或者击中物体但不在填充模式时）
       onArtElementSelect(null);
       if (isTextEditing && onTextSelect) {
         onTextSelect(null);
@@ -587,11 +597,16 @@ const MonumentScene = forwardRef(({
           transformMode={transformMode}
           fillColor={fillColor}
           isFillModeActive={isFillModeActive}
+          // 在这里传递 isPartialFill
+          isPartialFill={isPartialFill}
+          // 【新增】传递碑体颜色
+          monumentColor={monumentColor}
           surfaceZ={autoSurfaceZ}
           monumentThickness={monumentThickness}
           onDelete={onDeleteElement}
           onFlip={onFlipElement}
           onMirrorCopy={onDuplicateElement}
+          onSave={onSaveToArtOptions} // 【新增】：传递保存回调
         />
       ))}
 

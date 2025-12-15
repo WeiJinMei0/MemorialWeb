@@ -193,7 +193,14 @@
     "fillHintDisabled": "Désactivé : Cliquer sur le motif le déplacera ou le transformera.",
     "lineColor": "Couleur des lignes",
     "lineOpacity": "Opacité des lignes",
-    "transparent": "Transparent (effacer la couleur)"
+    "transparent": "Transparent (effacer la couleur)",
+    "keepColor": "Conserver la couleur",
+    "insert": "Insérer",
+    "specialFilling": "Remplissage spécial",
+    "surfaceColor": "Couleur de surface",
+    "outlineColor": "Couleur de contour",
+    "frost": "Givré",
+    "commonColors": "Couleurs courantes"
   },
   "vaseEditor": {
     "title": "Modifier le vase",

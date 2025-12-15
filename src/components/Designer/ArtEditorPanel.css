@@ -1,0 +1,189 @@
+/* 面板整体容器 */
+.art-editor-panel {
+  width: 360px;
+  position: fixed;
+  z-index: 100;
+  top: 100px;
+  right: 20px;
+}
+
+/* 覆盖 Antd Card Body 的 padding */
+.art-editor-card-body {
+  padding: 16px !important;
+}
+
+/* --- ColorSwatches 组件相关 --- */
+.swatches-space {
+  gap: 6px !important;
+}
+
+.swatch-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0 !important;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  transition: all 0.2s;
+}
+
+.swatch-btn.selected {
+  border: 2px solid #1677ff !important;
+}
+
+.swatch-btn.not-selected {
+  border: 1px solid #d9d9d9;
+}
+
+/* 透明背景棋盘格样式 */
+.swatch-btn.is-transparent {
+  background-color: #fff;
+  background-image: linear-gradient(45deg, #ccc 25%, transparent 25%),
+    linear-gradient(-45deg, #ccc 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #ccc 75%),
+    linear-gradient(-45deg, transparent 75%, #ccc 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+}
+
+/* 透明色块上的红色斜杠 */
+.transparent-slash {
+  width: 150%;
+  height: 1px;
+  background: #ff4d4f;
+  transform: rotate(-45deg);
+  transform-origin: center;
+}
+
+/* --- 按钮样式 --- */
+.small-btn {
+  height: 24px;
+  line-height: 1;
+  font-size: 12px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+/* Partial (P) 按钮 */
+.partial-btn {
+  font-weight: bold;
+}
+
+.partial-btn.active {
+  background: #3E3A32 !important;
+  color: #fff !important;
+  border: 1px solid #3E3A32 !important;
+}
+
+.partial-btn.inactive {
+  background: #fff;
+  color: rgba(0, 0, 0, 0.88);
+  border: 1px solid #d9d9d9;
+}
+
+/* 模式切换按钮 (Keep Color, Insert, Special Filling) */
+.mode-btn {
+  height: 32px;
+  padding-left: 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  /* 强制左对齐 */
+  text-align: left;
+  box-shadow: none;
+  margin-bottom: 8px;
+  border: 1px solid transparent;
+}
+
+.mode-btn.active {
+  background: #3E3A32 !important;
+  color: #fff !important;
+  border-color: #3E3A32 !important;
+}
+
+.mode-btn.inactive {
+  background: #f5f5f5;
+  color: #000;
+  border-color: #f0f0f0;
+}
+
+.mode-btn .ant-typography,
+.mode-btn span {
+  color: inherit;
+}
+
+/* --- 布局辅助类 --- */
+.panel-content-space {
+  width: 100%;
+  gap: 12px;
+}
+
+.section-padding {
+  padding-left: 8px;
+}
+
+.section-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 颜色选择行布局 */
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-row.mb-4 {
+  margin-bottom: 4px;
+}
+
+/* 标签文字 */
+.color-label {
+  font-size: 12px;
+  width: 36px;
+  /* 固定宽度确保对齐 */
+}
+
+/* 标题栏布局 */
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  align-items: center;
+}
+
+/* 按钮组容器 */
+.btn-group-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.btn-group-right {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* 小号颜色选择器 */
+.color-picker-sm {
+  width: 24px;
+  height: 24px;
+}
+
+.color-picker-sm .ant-color-picker-trigger {
+  width: 100% !important;
+  height: 100% !important;
+}

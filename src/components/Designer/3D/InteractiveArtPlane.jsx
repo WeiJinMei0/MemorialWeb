@@ -2,14 +2,15 @@ import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, us
 import { Html } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { floodFill } from './utils';
+import { floodFill, getFrostTexturePath } from './utils';
 import {
   DeleteOutlined,
   SwapOutlined,
   ExpandOutlined,
   ReloadOutlined,
   DragOutlined,
-  CopyOutlined
+  CopyOutlined,
+  SaveOutlined
 } from '@ant-design/icons';
 
 // --- 辅助函数 ---
@@ -17,6 +18,8 @@ import {
 const parseColorToRGBA = (colorStr) => {
   if (!colorStr) return [66, 133, 244, 255];
   if (colorStr === 'transparent' || colorStr === 'rgba(0, 0, 0, 0)') return [0, 0, 0, 0];
+  if (colorStr === 'frost') return [255, 255, 255, 255]; // Frost 模式占位颜色
+
   if (typeof colorStr === 'string' && colorStr.startsWith('rgba')) {
     const parts = colorStr.match(/(\d+(\.\d+)?)/g);
     if (parts && parts.length >= 4) {
@@ -32,12 +35,19 @@ const parseColorToRGBA = (colorStr) => {
   return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255), 255];
 };
 
-const globalFill = (context, canvas, originalData, rgbaColor) => {
+// 【修改】globalFill 支持 patternData
+const globalFill = (context, canvas, originalData, rgbaColor, patternData = null) => {
   const width = canvas.width;
   const height = canvas.height;
   const currentImageData = context.getImageData(0, 0, width, height);
   const data = currentImageData.data;
   const oData = originalData.data;
+
+  // 图案数据
+  const pData = patternData ? patternData.data : null;
+  const pWidth = patternData ? patternData.width : 0;
+  const pHeight = patternData ? patternData.height : 0;
+
   const visited = new Uint8Array(width * height);
   const queue = [];
   const getIdx = (x, y) => y * width + x;
@@ -59,13 +69,31 @@ const globalFill = (context, canvas, originalData, rgbaColor) => {
     const { x, y } = queue[head++];
     checkAndAdd(x + 1, y); checkAndAdd(x - 1, y); checkAndAdd(x, y + 1); checkAndAdd(x, y - 1);
   }
+
   const [r, g, b, a] = rgbaColor;
+
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = getIdx(x, y);
       if (visited[idx] === 0 && !isLine(x, y)) {
         const i = idx * 4;
-        data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = a;
+
+        if (patternData) {
+          // --- 图案填充逻辑 ---
+          let px = x % pWidth;
+          let py = y % pHeight;
+          if (px < 0) px += pWidth;
+          if (py < 0) py += pHeight;
+          const pIdx = (py * pWidth + px) * 4;
+
+          data[i] = pData[pIdx];
+          data[i + 1] = pData[pIdx + 1];
+          data[i + 2] = pData[pIdx + 2];
+          data[i + 3] = pData[pIdx + 3]; // Usually 255
+        } else {
+          // --- 纯色填充逻辑 ---
+          data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = a;
+        }
       }
     }
   }
@@ -83,9 +111,12 @@ const InteractiveArtPlane = forwardRef(({
   isFillModeActive,
   surfaceZ,
   monumentThickness = 0,
+  monumentColor = 'Black', // 【新增】接收碑体颜色
   onDelete,
   onFlip,
-  onMirrorCopy
+  onMirrorCopy,
+  onSave,
+  isPartialFill = false
 }, ref) => {
   const { camera, gl, raycaster } = useThree();
   const meshRef = useRef();
@@ -94,6 +125,9 @@ const InteractiveArtPlane = forwardRef(({
   const isInitialLoadRef = useRef(true);
   const [dimensionsLabel, setDimensionsLabel] = useState({ width: 0, height: 0 });
   const [isHovered, setIsHovered] = useState(false);
+
+  // 【新增】保存加载的扫砂纹理数据
+  const [frostImageData, setFrostImageData] = useState(null);
 
   // 交互状态Ref
   const interactionRef = useRef({
@@ -185,9 +219,34 @@ const InteractiveArtPlane = forwardRef(({
     });
   }, [art.imagePath, art.modifiedImageData]);
 
-  // 线稿着色
+  // 【新增】加载 Frost 纹理
   useEffect(() => {
-    // --- 修改：设置默认线条颜色为白色 (#FFFFFF) ---
+    if (fillColor === 'frost' && isFillModeActive) {
+      const texturePath = getFrostTexturePath(monumentColor);
+      const img = new Image();
+      img.src = texturePath;
+      img.crossOrigin = "Anonymous";
+      img.onload = () => {
+        // 创建一个临时的 canvas 来获取 ImageData
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = img.naturalWidth;
+        tempCanvas.height = img.naturalHeight;
+        const ctx = tempCanvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        setFrostImageData(data);
+      };
+      img.onerror = () => {
+        console.error('Failed to load frost texture:', texturePath);
+        setFrostImageData(null);
+      }
+    } else {
+      // 退出 frost 模式时可以清理，也可以保留缓存
+    }
+  }, [fillColor, isFillModeActive, monumentColor]);
+
+  // 线稿着色 (Line Color) Logic
+  useEffect(() => {
     const lineColor = art.properties?.lineColor || '#FFFFFF';
     const lineAlpha = art.properties?.lineAlpha;
 
@@ -201,7 +260,6 @@ const InteractiveArtPlane = forwardRef(({
     const c = context.getImageData(0, 0, w, h).data;
     let rgb = null;
 
-    // 如果有颜色（现在默认为白色），则计算 RGB
     if (lineColor) rgb = new THREE.Color(lineColor).toArray().map(v => Math.round(v * 255));
 
     for (let i = 0; i < o.length; i += 4) {
@@ -217,45 +275,56 @@ const InteractiveArtPlane = forwardRef(({
     canvasTexture.needsUpdate = true;
   }, [art.properties?.lineColor, art.properties?.lineAlpha, canvasTexture]);
 
+  // 自动填充逻辑 (Auto Fill)
+  useEffect(() => {
+    if (!canvasTexture || !artCanvasRef.current.context) return;
+    if (!isSelected) return;
+
+    if (isFillModeActive && isPartialFill) {
+      return;
+    }
+
+    // 【修改】处理 frost
+    const isFrost = fillColor === 'frost';
+    // 如果是 frost 模式，必须等 frostImageData 加载完毕
+    if (isFrost && !frostImageData) return;
+
+    const isTransparent = fillColor === 'transparent' || fillColor === 'rgba(0, 0, 0, 0)';
+    if (isTransparent || isFillModeActive || isFrost) {
+      const { canvas, context, originalData } = artCanvasRef.current;
+      if (canvas && context && originalData) {
+        const rgbaColor = parseColorToRGBA(fillColor || '#4285F4');
+        // 传递 patternData
+        globalFill(context, canvas, originalData, rgbaColor, isFrost ? frostImageData : null);
+        canvasTexture.needsUpdate = true;
+      }
+    }
+  }, [fillColor, isPartialFill, isFillModeActive, canvasTexture, isSelected, frostImageData]); // 添加 frostImageData 依赖
+
   // 初始化 Transform 及位置逻辑
   useLayoutEffect(() => {
     if (meshRef.current) {
       const pos = art.position || [0, 0, 0];
       const rot = art.rotation || [0, 0, 0];
-
-      // 1. 基础 Z 轴位置 (前表面的位置)
       const baseZ = (surfaceZ !== undefined && surfaceZ !== null) ? surfaceZ : pos[2];
-
-      // 2. 根据当前 state 中的 side 计算偏移
       const isBack = art.side === 'back';
-
-      // 修正偏移方向
       let targetZ;
       if (isBack) {
         targetZ = baseZ + 0.005 + monumentThickness + manualOffset + uniqueOffset;
       } else {
         targetZ = baseZ - uniqueOffset;
       }
-
-      // 3. 应用位置 (默认情况, 或后续更新)
       meshRef.current.position.set(pos[0], pos[1], targetZ);
       meshRef.current.rotation.set(rot[0], rot[1], rot[2]);
-
-      // 4. 仅在初始加载时执行 (根据相机位置确定默认面并修正位置)
       if (isInitialLoadRef.current && aspectRatio) {
         isInitialLoadRef.current = false;
-
         const baseSize = 0.2;
         const scaleX = art.scale ? art.scale[0] : (baseSize * Math.sign(art.scale?.[0] || 1));
         const scaleY = Math.abs(scaleX) / aspectRatio * Math.sign(art.scale?.[1] || 1);
-
-        // --- 确定默认面 (Front/Back) ---
         let finalSide = art.side;
         if (!finalSide) {
           const isBackView = camera.position.z > 0;
           finalSide = isBackView ? 'back' : 'front';
-
-          // 如果初始判定为背面，需要立即重新计算 targetZ 并应用
           if (finalSide === 'back') {
             targetZ = baseZ + 0.005 + monumentThickness + manualOffset + uniqueOffset;
             meshRef.current.position.set(pos[0], pos[1], targetZ);
@@ -264,20 +333,16 @@ const InteractiveArtPlane = forwardRef(({
             meshRef.current.position.set(pos[0], pos[1], targetZ);
           }
         }
-
         meshRef.current.scale.set(scaleX, scaleY, 1);
-
         onTransformEnd(art.id, {
           position: [pos[0], pos[1], targetZ],
           scale: [scaleX, scaleY, 1],
           rotation: rot,
-          side: finalSide // 保存 side 到数据中
+          side: finalSide
         }, { replaceHistory: true });
-
       } else if (!isInitialLoadRef.current && art.scale) {
         meshRef.current.scale.set(art.scale[0], art.scale[1], art.scale[2] || 1);
       }
-
       const toInches = 39.37;
       setDimensionsLabel({
         width: Math.abs(meshRef.current.scale.x) * toInches,
@@ -289,7 +354,9 @@ const InteractiveArtPlane = forwardRef(({
   // --- 交互逻辑 ---
 
   const startInteraction = (e, mode) => {
-    if (!isSelected || !meshRef.current || isFillModeActive) return;
+    if (!isSelected || !meshRef.current) return;
+    if (isFillModeActive && isPartialFill) return;
+
     if (e.button !== 0) return;
 
     e.stopPropagation();
@@ -383,10 +450,14 @@ const InteractiveArtPlane = forwardRef(({
     if (onFlip) onFlip(art.id, 'x', 'art');
   };
 
-  // 处理镜像复制
   const handleMirrorCopy = (e) => {
     e.stopPropagation();
     if (onMirrorCopy) onMirrorCopy(art.id, 'art');
+  };
+
+  const handleSave = (e) => {
+    e.stopPropagation();
+    if (onSave) onSave(art);
   };
 
   // 样式
@@ -407,9 +478,9 @@ const InteractiveArtPlane = forwardRef(({
     border: '1px solid #e0e0e0'
   };
 
-  // 计算当前的缩放符号，用于反向调整 HUD 位置
   const sx = Math.sign(art.scale?.[0] || 1);
   const sy = Math.sign(art.scale?.[1] || 1);
+  const showControls = isSelected && (!isFillModeActive || !isPartialFill);
 
   return (
     <group ref={ref}>
@@ -419,7 +490,6 @@ const InteractiveArtPlane = forwardRef(({
         onPointerOver={(e) => { e.stopPropagation(); setIsHovered(true); }}
         onPointerOut={(e) => { e.stopPropagation(); setIsHovered(false); }}
         onPointerDown={(e) => {
-          // 【关键修复】防止从背面选中正面的图案，或从正面选中背面的图案
           const isBackView = camera.position.z > 0;
           const isArtBack = art.side === 'back';
           if (isBackView !== isArtBack) {
@@ -431,10 +501,23 @@ const InteractiveArtPlane = forwardRef(({
             const { canvas, context, originalData } = artCanvasRef.current;
             if (canvas && context && originalData && canvasTexture) {
               const rgbaColor = parseColorToRGBA(fillColor || '#4285F4');
-              if (e.shiftKey && e.uv) {
-                floodFill(context, canvas, originalData, canvasTexture, Math.floor(e.uv.x * canvas.width), Math.floor((1 - e.uv.y) * canvas.height), rgbaColor);
+              const isFrost = fillColor === 'frost';
+
+              if ((isPartialFill || e.shiftKey) && e.uv) {
+                // 【修改】传递 frostImageData 给 floodFill
+                floodFill(
+                  context,
+                  canvas,
+                  originalData,
+                  canvasTexture,
+                  Math.floor(e.uv.x * canvas.width),
+                  Math.floor((1 - e.uv.y) * canvas.height),
+                  rgbaColor,
+                  isFrost ? frostImageData : null
+                );
               } else {
-                globalFill(context, canvas, originalData, rgbaColor);
+                // 【修改】传递 frostImageData 给 globalFill
+                globalFill(context, canvas, originalData, rgbaColor, isFrost ? frostImageData : null);
               }
               onTransformEnd(art.id, { modifiedImageData: canvas.toDataURL('image/png') });
               canvasTexture.needsUpdate = true;
@@ -457,13 +540,12 @@ const InteractiveArtPlane = forwardRef(({
           side={THREE.DoubleSide}
           polygonOffset={true} polygonOffsetFactor={-1} polygonOffsetUnits={-1}
           depthTest={true} depthWrite={false}
-          // --- 新增自发光属性 ---
           emissive={0xffffff}
           emissiveMap={canvasTexture}
-          emissiveIntensity={0.3} // 提亮白色，0.3 是一个比较自然的亮度
+          emissiveIntensity={0.3}
         />
 
-        {isSelected && !isFillModeActive && (
+        {showControls && (
           <>
             <lineSegments>
               <edgesGeometry args={[new THREE.PlaneGeometry(1, 1)]} />
@@ -486,30 +568,24 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
-            {/* 修复：使用 center 属性确保图标居中对齐到角点/边缘 */}
-
-            {/* 左上: 镜像 */}
             <Html position={[-0.5 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div style={btnStyle} onClick={handleMirror} title="镜像">
                 <SwapOutlined />
               </div>
             </Html>
 
-            {/* 左中: 镜像复制 */}
             <Html position={[-0.5 * sx, 0, 0]} zIndexRange={[100, 0]} center>
               <div style={btnStyle} onClick={handleMirrorCopy} title="镜像复制">
                 <CopyOutlined />
               </div>
             </Html>
 
-            {/* 右上: 删除 */}
             <Html position={[0.5 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div style={btnStyle} onClick={handleDelete} title="删除">
                 <DeleteOutlined />
               </div>
             </Html>
 
-            {/* 左下: 旋转 */}
             <Html position={[-0.5 * sx, -0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div
                 style={{ ...btnStyle, cursor: 'alias' }}
@@ -520,7 +596,6 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
-            {/* 右下: 缩放 */}
             <Html position={[0.5 * sx, -0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div
                 style={{ ...btnStyle, cursor: 'nwse-resize' }}
@@ -531,7 +606,6 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
-            {/* 中上: 移动 */}
             <Html position={[0, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div
                 style={{
@@ -547,6 +621,12 @@ const InteractiveArtPlane = forwardRef(({
                 title="移动"
               >
                 <DragOutlined style={{ fontSize: '12px' }} />
+              </div>
+            </Html>
+
+            <Html position={[0.5 * sx, 0, 0]} zIndexRange={[100, 0]} center>
+              <div style={btnStyle} onClick={handleSave} title="保存到库">
+                <SaveOutlined />
               </div>
             </Html>
 

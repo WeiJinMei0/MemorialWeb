@@ -192,7 +192,14 @@
     "fillHintDisabled": "Deshabilitado: Clic en el patrón lo arrastrará o transformará.",
     "lineColor": "Color de línea",
     "lineOpacity": "Opacidad de línea",
-    "transparent": "Transparente (limpiar color)"
+    "transparent": "Transparente (limpiar color)",
+    "keepColor": "Mantener color",
+    "insert": "Insertar",
+    "specialFilling": "Relleno especial",
+    "surfaceColor": "Color de superficie",
+    "outlineColor": "Color del contorno",
+    "frost": "Escarchado",
+    "commonColors": "Colores comunes"
   },
   "vaseEditor": {
     "title": "Editar jarrón",
