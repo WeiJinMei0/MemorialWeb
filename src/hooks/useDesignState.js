@@ -315,6 +315,14 @@ export const useDesignState = () => {
     const polish = 'P5';
     const color = 'Black';
 
+    // 计算默认位置：碑在底座上面，紧贴着
+    const basePosition = [0, -0.2, 0];
+    const monumentPosition = [
+      0, // X轴居中（底座宽度小于14英寸）
+       -0.5+0.4, // Y轴在底座上面
+      0 // Z轴与底座对齐
+    ];
+
     const monument = {
       id: 'monument-1',
       type: 'monument',
@@ -325,10 +333,11 @@ export const useDesignState = () => {
       // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
       modelPath: "/models/Shapes/Tablet/Serp Top.glb",
       texturePath: "", // 不再需要，由 Scene3D.jsx 处理
-      position: [0, 0, 0],
+      position: monumentPosition, // 设置默认位置
       dimensions: { length: 0, width: 0, height: 0 },
       weight: 0,
-      label: `${family}1` // 初始墓碑标识
+      label: `${family}1`, // 初始墓碑标识
+      isSelected: false
     };
     // console.log(monument)
 
@@ -340,10 +349,11 @@ export const useDesignState = () => {
       // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
       modelPath: "/models/Bases/Base.glb",
       texturePath: "", // 不再需要，由 Scene3D.jsx 处理
-      position: [0, 0, 0],
+      position: basePosition, // 设置默认位置
       dimensions: { length: 0, width: 0, height: 0 },
       weight: 0,
-      label: `Base1` // 初始底座标识
+      label: `Base1`, // 初始底座标识
+      isSelected: false
     };
 
     console.log("更新历史记录")
@@ -377,7 +387,8 @@ export const useDesignState = () => {
         position: [0, 0, 0],
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
-        label: `${family}1`
+        label: `${family}1`,
+        isSelected: false
       };
 
       // 2. 清空现有状态，只保留新碑体
@@ -400,7 +411,8 @@ export const useDesignState = () => {
           position: [0, 0, 0],
           dimensions: { length: 0, width: 0, height: 0 },
           weight: 0,
-          label: `Base1`
+          label: `Base1`,
+          isSelected: false
         };
         newState.bases = [base];
       }
@@ -438,7 +450,8 @@ export const useDesignState = () => {
         position: [0, yPosition, 0], // y轴与第一个碑体一致
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
-        label: `Tablet${newMonumentIndex}`
+        label: `Tablet${newMonumentIndex}`,
+        isSelected: false
       };
 
       // 添加新碑体，保留现有碑体
@@ -620,97 +633,108 @@ export const useDesignState = () => {
   }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
 
-  const updateDimensions = useCallback((elementId, newDimensions, elementType) => {
-    updateDesignState(prev => {
-      const updateElement = (elements) =>
-        elements.map(element => {
-          if (element.id === elementId) {
-            const currentDims = element.dimensions;
-            const newDims = {
-              length: Number(newDimensions.length) || 1,
-              width: Number(newDimensions.width) || 1,
-              height: Number(newDimensions.height) || 1
-            };
-            if (
-              currentDims.length === newDims.length &&
-              currentDims.width === newDims.width &&
-              currentDims.height === newDims.height
-            ) {
-              return element;
+  // 在 updateDimensions 函数中，尺寸改变时重新计算位置
+const updateDimensions = useCallback((elementId, newDimensions, elementType) => {
+  updateDesignState(prev => {
+    const updateElement = (elements) =>
+      elements.map(element => {
+        if (element.id === elementId) {
+          const currentDims = element.dimensions;
+          const newDims = {
+            length: Number(newDimensions.length) || 1,
+            width: Number(newDimensions.width) || 1,
+            height: Number(newDimensions.height) || 1
+          };
+          
+          if (
+            currentDims.length === newDims.length &&
+            currentDims.width === newDims.width &&
+            currentDims.height === newDims.height
+          ) {
+            return element;
+          }
+          
+          // 尺寸改变后，如果需要重新计算位置
+          let newPosition = element.position;
+          
+          // 如果是底座或碑，根据规则重新计算位置
+          if (elementType === 'base' || elementType === 'monument') {
+            // 查找对应的碑或底座
+            const isBase = elementType === 'base';
+            const targetId = isBase ? element.id : element.bindBaseId;
+            const relatedElements = isBase ? 
+              prev.monuments.filter(m => m.bindBaseId === targetId) :
+              prev.bases.filter(b => b.id === targetId);
+            
+            if (relatedElements.length > 0) {
+              const related = relatedElements[0];
+              const INCH_IN_METERS = 0.0254;
+              
+              if (isBase) {
+                // 底座尺寸改变，重新计算碑的位置
+                const baseWidth = newDims.width;
+                const monumentLength = related.dimensions.length || 0;
+                
+                let monumentX = element.position[0];
+                if (baseWidth < 14 * INCH_IN_METERS) {
+                  // 底座宽度小于14"，碑在底座前后宽度居中
+                  monumentX = element.position[0] + (newDims.length - monumentLength) / 2;
+                } else {
+                  // 底座宽度大于14"，碑背面离底座边缘3"
+                  const threeInches = 3 * INCH_IN_METERS;
+                  monumentX = element.position[0] + newDims.length - monumentLength - threeInches;
+                }
+                
+                newPosition = [
+                  monumentX,
+                  element.position[1] + newDims.height,
+                  element.position[2]
+                ];
+              } else {
+                // 碑尺寸改变，重新计算底座位置（如果需要）
+                // 这里可以根据需要调整底座位置
+              }
             }
-            return {
-              ...element,
-              dimensions: newDims,
-              weight: calculateWeight(newDims)
-            };
           }
-          return element;
-        });
+          
+          return {
+            ...element,
+            dimensions: newDims,
+            position: newPosition,
+            weight: calculateWeight(newDims)
+          };
+        }
+        return element;
+      });
 
-      let updatedState = { ...prev };
+    let updatedState = { ...prev };
 
-      switch (elementType) {
-        case 'monument':
-          updatedState.monuments = updateElement(prev.monuments);
-          break;
-        case 'base':
-          updatedState.bases = updateElement(prev.bases);
-          break;
-        case 'subBase':
-          updatedState.subBases = updateElement(prev.subBases);
-          break;
-        case 'vase':
-          updatedState.vases = updateElement(prev.vases);
-          break;
-        case 'art':
-          // 您的代码 (src/hooks/useDesignState.js) 没有这个 case,
-          // 同事的 (useDesignState.js) 有。
-          // 您的 art (InteractiveArtPlane) 使用 updateArtElementState (scale)
-          // 所以这个 case 可能是旧的，但保留它以防万一
-          updatedState.artElements = updateElement(prev.artElements);
-          break;
-        default:
-          break;
-      }
+    switch (elementType) {
+      case 'monument':
+        updatedState.monuments = updateElement(prev.monuments);
+        break;
+      case 'base':
+        updatedState.bases = updateElement(prev.bases);
+        // 同时更新对应的碑位置
+        const updatedBase = updatedState.bases.find(b => b.id === elementId);
+        if (updatedBase) {
+          updatedState.monuments = updatedState.monuments.map(monument => {
+            if (monument.bindBaseId === elementId) {
+              return {
+                ...monument,
+                position: monument.position // 使用计算后的新位置
+              };
+            }
+            return monument;
+          });
+        }
+        break;
+      // ... 其他类型
+    }
 
-      return updatedState;
-    });
-  }, [updateDesignState]);
-
-
-  // 新增：更新模型位置
-  const updateModelPosition = useCallback((elementId, newPosition, elementType) => {
-    updateDesignState(prev => {
-      const updateElement = (elements) =>
-        elements.map(element => {
-          if (element.id === elementId) {
-            return {
-              ...element,
-              position: newPosition
-            };
-          }
-          return element;
-        });
-
-      let updatedState = { ...prev };
-
-      switch (elementType) {
-        case 'monument':
-          updatedState.monuments = updateElement(prev.monuments);
-          break;
-        case 'base':
-          updatedState.bases = updateElement(prev.bases);
-          break;
-        case 'subBase':
-          updatedState.subBases = updateElement(prev.subBases);
-          break;
-        default:
-          break;
-      }
-
-      return updatedState;
-    });
-  }, [updateDesignState]);
+    return updatedState;
+  });
+}, [updateDesignState]);
 
   // 修改 addVase 函数以调整花瓶默认位置
   const addVase = useCallback((vaseData) => {
@@ -1052,6 +1076,64 @@ export const useDesignState = () => {
     }), options);
   }, [updateDesignState]);
 
+  // 新增：选中元素
+  const selectElement = useCallback((elementId, elementType) => {
+    updateDesignState(prev => {
+      // 清除所有元素的选中状态
+      const clearSelected = (elements) => 
+        elements.map(el => ({ ...el, isSelected: false }));
+      
+      // 设置指定元素为选中状态
+      const setSelected = (elements) => 
+        elements.map(el => ({
+          ...el,
+          isSelected: el.id === elementId
+        }));
+      
+      return {
+        ...prev,
+        monuments: elementType === 'monument' ? setSelected(prev.monuments) : clearSelected(prev.monuments),
+        bases: elementType === 'base' ? setSelected(prev.bases) : clearSelected(prev.bases),
+        subBases: elementType === 'subBase' ? setSelected(prev.subBases) : clearSelected(prev.subBases),
+        vases: elementType === 'vase' ? setSelected(prev.vases) : clearSelected(prev.vases),
+        artElements: elementType === 'art' ? setSelected(prev.artElements) : clearSelected(prev.artElements),
+      };
+    });
+  }, [updateDesignState]);
+
+  // 新增：取消所有选中
+  const clearAllSelection = useCallback(() => {
+    updateDesignState(prev => ({
+      ...prev,
+      monuments: prev.monuments.map(el => ({ ...el, isSelected: false })),
+      bases: prev.bases.map(el => ({ ...el, isSelected: false })),
+      subBases: prev.subBases.map(el => ({ ...el, isSelected: false })),
+      vases: prev.vases.map(el => ({ ...el, isSelected: false })),
+      artElements: prev.artElements.map(el => ({ ...el, isSelected: false })),
+      textElements: prev.textElements.map(el => ({ ...el, isSelected: false })),
+    }));
+  }, [updateDesignState]);
+
+  const updateModelPosition = useCallback((elementId, newPosition, elementType) => {
+    updateDesignState(prev => {
+      const updateElementInArray = (array) => 
+        array.map(el => 
+          el.id === elementId ? { ...el, position: newPosition } : el
+        );
+
+      switch (elementType) {
+        case 'monument':
+          return { ...prev, monuments: updateElementInArray(prev.monuments) };
+        case 'base':
+          return { ...prev, bases: updateElementInArray(prev.bases) };
+        case 'subBase':
+          return { ...prev, subBases: updateElementInArray(prev.subBases) };
+        default:
+          return prev;
+      }
+    });
+  }, [updateDesignState]);
+
 
   return {
     designState,
@@ -1092,6 +1174,8 @@ export const useDesignState = () => {
     getFontPath,
     updateTextPosition,
     updateTextRotation,
+    selectElement,
+    clearAllSelection,
     // (来自同事 useDesignState.js 的额外函数，以防万一)
     // transformText,
     // updateTextRelativePosition

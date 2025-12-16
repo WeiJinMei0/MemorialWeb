@@ -63,6 +63,9 @@ const MonumentScene = forwardRef(({
   vaseTransformMode,
   onUpdateVaseElementState,
   onSaveToArtOptions,
+  onSelectElement,
+  onClearSelection,
+  onModelPositionChange,
 
 }, ref) => {
   const { gl, scene, camera, raycaster, pointer } = useThree();
@@ -70,6 +73,44 @@ const MonumentScene = forwardRef(({
   const modelRefs = useRef({});
   const artPlaneRefs = useRef({});
   const vaseRefs = useRef({});
+
+  // 选中状态管理
+  const [selectedModelId, setSelectedModelId] = useState(null);
+  const [selectedModelType, setSelectedModelType] = useState(null);
+
+  // 全局点击处理（点击空白处取消选中）
+  useEffect(() => {
+    const handleGlobalClick = (event) => {
+      // 只处理canvas上的点击
+      if (event.target !== gl.domElement) return;
+      
+      // 检查是否点击到了模型
+      raycaster.setFromCamera(pointer, camera);
+      const intersects = raycaster.intersectObjects(scene.children, true);
+      
+      // 查找第一个击中的可见 Mesh
+      const hit = intersects.find(i => i.object.isMesh && i.object.visible);
+      
+      if (!hit) {
+        // 点击空白处，清除所有选中
+        setSelectedModelId(null);
+        setSelectedModelType(null);
+        if (onClearSelection) onClearSelection();
+        
+        // 同时清除其他元素的选中状态
+        if (onArtElementSelect) onArtElementSelect(null);
+        if (onTextSelect) onTextSelect(null);
+        if (onVaseSelect) onVaseSelect(null);
+      }
+    };
+
+    const canvasDom = gl.domElement;
+    canvasDom.addEventListener('click', handleGlobalClick);
+
+    return () => {
+      canvasDom.removeEventListener('click', handleGlobalClick);
+    };
+  }, [gl.domElement, onClearSelection, onArtElementSelect, onTextSelect, onVaseSelect, camera, raycaster, scene, pointer]);
 
   // 添加双击处理
   useEffect(() => {
@@ -88,7 +129,7 @@ const MonumentScene = forwardRef(({
       // 查找第一个击中的可见 Mesh
       const hit = intersects.find(i => i.object.isMesh && i.object.visible);
 
-      if (hit) {
+      if (hit && onAddTextElement) {
         // 向上遍历查找 monument 对象
         let curr = hit.object;
         let monument = null;
@@ -168,70 +209,32 @@ const MonumentScene = forwardRef(({
     return () => {
       canvasDom.removeEventListener('dblclick', handleDoubleClick);
     };
-  }, [gl.domElement, isFillModeActive, camera, raycaster, scene, pointer, designState.monuments, onAddTextElement, modelRefs]);
+  },[gl.domElement, isFillModeActive, camera, raycaster, scene, pointer, onAddTextElement, modelRefs]);
 
-  // 点击空白退出 (修正后的逻辑)
-  useEffect(() => {
-    const handleGlobalClick = (event) => {
-      // 1. 基础检查：必须点击的是 canvas
-      // 【修改】：移除了 || isFillModeActive，允许在填充模式下进入射线检测
-      if (event.target !== gl.domElement) {
-        return;
-      }
+  // 处理元素选中
+  const handleSelectElement = useCallback((elementId, elementType) => {
+    // 设置当前选中
+    setSelectedModelId(elementId);
+    setSelectedModelType(elementType);
+    
+    // 调用外部回调
+    if (onSelectElement) {
+      onSelectElement(elementId, elementType);
+    }
+    
+    // 清除其他元素的选中
+    if (onArtElementSelect) onArtElementSelect(null);
+    if (onTextSelect) onTextSelect(null);
+    if (onVaseSelect) onVaseSelect(null);
+  }, [onSelectElement, onArtElementSelect, onTextSelect, onVaseSelect]);
 
-      // 2. 使用射线检测判断是否击中了场景中的物体
-      raycaster.setFromCamera(pointer, camera);
-
-      // 检测与场景中所有物体的交点
-      const intersects = raycaster.intersectObjects(scene.children, true);
-
-      // 3. 查找第一个击中的可见 Mesh
-      const hit = intersects.find(i => i.object.isMesh && i.object.visible);
-
-      if (hit) {
-        // 【关键修复】：向上遍历父级，检查是否属于“受保护”的物体（花瓶或图案）
-        let curr = hit.object;
-        let isProtected = false;
-        while (curr) {
-          if (curr.userData?.isArtPlane || curr.userData?.isVase) {
-            isProtected = true;
-            break;
-          }
-          // 防止死循环
-          if (curr === scene) break;
-          curr = curr.parent;
-        }
-
-        // 如果点击的是图案或花瓶，不取消选中
-        if (isProtected) {
-          return;
-        }
-
-        // 【新增】：如果在填充模式下击中了非受保护物体（如墓碑主体），
-        // 意味着用户可能在尝试填充墓碑颜色，此时不应该关闭编辑面板。
-        if (isFillModeActive) {
-          return;
-        }
-      }
-
-      // 4. 执行取消选中（只有当什么都没击中，或者击中物体但不在填充模式时）
-      onArtElementSelect(null);
-      if (isTextEditing && onTextSelect) {
-        onTextSelect(null);
-      }
-      if (onVaseSelect) {
-        onVaseSelect(null);
-      }
-    };
-
-    const canvasDom = gl.domElement;
-    canvasDom.addEventListener('click', handleGlobalClick);
-
-    return () => {
-      canvasDom.removeEventListener('click', handleGlobalClick);
-    };
-  }, [gl.domElement, isFillModeActive, onArtElementSelect, isTextEditing, onTextSelect, onVaseSelect, camera, raycaster, scene, pointer]);
-
+  // 处理模型位置变化
+  const handleModelPositionChange = useCallback((elementId, newPosition, elementType) => {
+    if (onModelPositionChange) {
+      onModelPositionChange(elementId, newPosition, elementType);
+    }
+  }, [onModelPositionChange]);
+  
   // 支持从外部拖入保存的艺术元素 JSON
   const handleSceneDrop = useCallback((e) => {
     e.preventDefault();
@@ -308,99 +311,80 @@ const MonumentScene = forwardRef(({
 
   // 计算所有模型位置（含碑体、底座、副底座）
   const positions = useMemo(() => {
-    const positions = {};
-
-    // 工具函数：获取模型尺寸
-    const getModelLength = (modelId) => {
-      const mesh = modelRefs.current[modelId]?.getMesh();
-      if (mesh) {
-        const box = new THREE.Box3().setFromObject(mesh);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        return size.x;
-      }
-      const model = [...designState.subBases, ...designState.bases, ...designState.monuments].find(m => m.id === modelId);
-      return model ? (model.dimensions.length || 0) : 0;
-    };
-
-    const getModelHeight = (modelId) => {
-      const mesh = modelRefs.current[modelId]?.getMesh();
-      if (mesh) {
-        const box = new THREE.Box3().setFromObject(mesh);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        return size.y;
-      }
-      const model = [...designState.subBases, ...designState.bases, ...designState.monuments].find(m => m.id === modelId);
-      return model ? (model.dimensions.height || 0) : 0;
-    };
-
-    // 配置项
-    const PAIR_SPACING = 1.0;
-    const NO_SPACING = 0;
-    const ALIGN_Z = -0.103;
-    const baseInitY = -0.5;
-
-    // 1. 先计算所有Base和Monument的动态居中位置（核心：先算完所有底座位置）
-    const basePositionMap = {}; // 存储底座ID和最新位置的映射
-    if (designState.monuments.length > 0) {
-      const comboLengths = designState.monuments.map((monument, index) => {
-        const monumentLength = getModelLength(monument.id);
-        const base = designState.bases[index];
-        const baseLength = base ? getModelLength(base.id) : monumentLength;
-        return Math.max(monumentLength, baseLength);
-      });
-
-      const totalComboWidth = comboLengths.reduce((sum, len) => sum + len + PAIR_SPACING, 0) - PAIR_SPACING;
-      const centerOffsetX = -totalComboWidth / 2;
-
-      designState.monuments.forEach((monument, index) => {
-        const prevComboTotal = comboLengths.slice(0, index).reduce((sum, len) => sum + len + PAIR_SPACING, 0);
-        const currentComboLength = comboLengths[index];
-        const comboCenterOffset = currentComboLength / 2;
-        const finalX = centerOffsetX + prevComboTotal + comboCenterOffset;
-
-        // 设置底座位置，并存入映射表
-        const base = designState.bases[index];
-        if (base) {
-          const basePos = [finalX, baseInitY, ALIGN_Z];
-          positions[base.id] = basePos;
-          basePositionMap[base.id] = basePos; // 关键：记录底座最新位置
-        }
-
-        // 设置碑体位置
-        const currentBaseY = base ? positions[base.id][1] : baseInitY;
-        const currentBaseHeight = base ? getModelHeight(base.id) : 0;
-        positions[monument.id] = [
-          finalX,
-          currentBaseY + currentBaseHeight + NO_SPACING,
-          ALIGN_Z
-        ];
-      });
+  const positions = {};
+  
+  // 配置项
+  const PAIR_SPACING = 1.0;
+  const NO_SPACING = 0;
+  const ALIGN_Z = -0.103;
+  const baseInitY = -0.5;
+  
+  // 只在默认加载时计算初始位置
+  // 如果已经有位置数据，使用用户拖拽后的位置
+  designState.bases.forEach((base, index) => {
+    // 如果底座已经有位置（用户拖拽过），使用用户设置的位置
+    if (base.position && base.position.length === 3 && 
+        !(base.position[0] === 0 && base.position[1] === 0 && base.position[2] === 0)) {
+      positions[base.id] = base.position;
+    } else {
+      // 否则计算默认位置（仅第一次加载时）
+      const baseLength = base.dimensions.length || 1;
+      const totalWidth = designState.bases.reduce((sum, b, i) => {
+        const len = b.dimensions.length || 1;
+        return sum + len + (i < designState.bases.length - 1 ? PAIR_SPACING : 0);
+      }, 0);
+      
+      const centerOffsetX = -totalWidth / 2;
+      const prevBasesTotal = designState.bases.slice(0, index).reduce((sum, b) => {
+        return sum + (b.dimensions.length || 1) + PAIR_SPACING;
+      }, 0);
+      
+      const finalX = centerOffsetX + prevBasesTotal + baseLength / 2;
+      positions[base.id] = [finalX, baseInitY, ALIGN_Z];
     }
-
-    // 2. 计算SubBase位置（根据bindBaseId匹配底座最新位置，确保跟随）
-    if (designState.subBases.length > 0 && Object.keys(basePositionMap).length > 0) {
-      designState.subBases.forEach(subBase => {
-        // 根据绑定的base.id获取底座最新位置
-        const targetBasePos = basePositionMap[subBase.bindBaseId];
-        if (targetBasePos) {
-          const baseHeight = getModelHeight(subBase.bindBaseId); // 获取对应底座高度
-          // SubBase位置：X/Y贴合底座底部，Z轴统一
-          positions[subBase.id] = [
-            targetBasePos[0], // X轴完全跟随底座
-            targetBasePos[1] - baseHeight + NO_SPACING, // Y轴贴底座底部
-            ALIGN_Z // Z轴统一
-          ];
+  });
+  
+  designState.monuments.forEach((monument, index) => {
+    // 如果碑已经有位置（用户拖拽过），使用用户设置的位置
+    if (monument.position && monument.position.length === 3 && 
+        !(monument.position[0] === 0 && monument.position[1] === 0 && monument.position[2] === 0)) {
+      positions[monument.id] = monument.position;
+    } else {
+      // 否则根据底座位置计算默认位置
+      const base = designState.bases[index];
+      if (base && positions[base.id]) {
+        const basePos = positions[base.id];
+        const baseHeight = base.dimensions.height || 0;
+        const baseWidth = base.dimensions.width || 0;
+        const monumentLength = monument.dimensions.length || 0;
+        
+        // 根据规则计算X轴位置
+        const INCH_IN_METERS = 0.0254;
+        let monumentX = basePos[0];
+        
+        if (baseWidth < 14 * INCH_IN_METERS) {
+          // 底座宽度小于14"，碑在底座前后宽度居中
+          monumentX = basePos[0] + (base.dimensions.length - monumentLength) / 2;
         } else {
-          // 兜底位置（无匹配底座时）
-          positions[subBase.id] = [0, baseInitY - 1, ALIGN_Z];
+          // 底座宽度大于14"，碑背面离底座边缘3"
+          const threeInches = 3 * INCH_IN_METERS;
+          monumentX = basePos[0] + base.dimensions.length - monumentLength - threeInches;
         }
-      });
+        
+        positions[monument.id] = [
+          monumentX,
+          basePos[1] + baseHeight + NO_SPACING,
+          basePos[2]
+        ];
+      } else {
+        // 兜底位置
+        positions[monument.id] = [0, baseInitY + 0.1, ALIGN_Z];
+      }
     }
-
-    return positions;
-  }, [designState.subBases, designState.bases, designState.monuments]);
+  });
+  
+  return positions;
+}, [designState.subBases, designState.bases, designState.monuments]);
 
   const handleModelLoad = (elementId, elementType, dimensions) => {
     if (onDimensionsChange) {
@@ -477,7 +461,7 @@ const MonumentScene = forwardRef(({
     <group ref={sceneRef}>
 
       <OrbitControls
-        enabled={selectedElementId === null && currentTextId === null && selectedVaseId === null && !isFillModeActive}
+        enabled={!selectedModelId && !selectedElementId && !currentTextId && !selectedVaseId && !isFillModeActive}
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
@@ -500,6 +484,16 @@ const MonumentScene = forwardRef(({
           onDimensionsChange={(dims) => handleModelLoad(subBase.id, 'subBase', dims)}
           isFillModeActive={isFillModeActive}
           onFillClick={() => onModelFillClick(subBase.id, 'subBase')}
+          isDraggable={true}
+          isSelected={selectedModelId === subBase.id && selectedModelType === 'subBase'}
+          elementId={subBase.id}
+          elementType="subBase"
+          onSelectElement={handleSelectElement}
+          onPositionChange={onModelPositionChange}
+          onClearSelection={() => {
+            setSelectedModelId(null);
+            setSelectedModelType(null);
+          }}
         />
       ))}
 
@@ -516,6 +510,16 @@ const MonumentScene = forwardRef(({
           onDimensionsChange={(dims) => handleModelLoad(base.id, 'base', dims)}
           isFillModeActive={isFillModeActive}
           onFillClick={() => onModelFillClick(base.id, 'base')}
+          isDraggable={true}
+          isSelected={selectedModelId === base.id && selectedModelType === 'base'}
+          elementId={base.id}
+          elementType="base"
+          onSelectElement={handleSelectElement}
+          onPositionChange={onModelPositionChange}
+          onClearSelection={() => {
+            setSelectedModelId(null);
+            setSelectedModelType(null);
+          }}
         />
       ))}
 
@@ -532,6 +536,16 @@ const MonumentScene = forwardRef(({
           onDimensionsChange={(dims) => handleModelLoad(monument.id, 'monument', dims)}
           isFillModeActive={isFillModeActive}
           onFillClick={() => onModelFillClick(monument.id, 'monument')}
+          isDraggable={true}
+          isSelected={selectedModelId === monument.id && selectedModelType === 'monument'}
+          elementId={monument.id}
+          elementType="monument"
+          onSelectElement={handleSelectElement}
+          onPositionChange={onModelPositionChange}
+          onClearSelection={() => {
+            setSelectedModelId(null);
+            setSelectedModelType(null);
+          }}
         />
       ))}
 

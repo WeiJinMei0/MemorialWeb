@@ -1,12 +1,12 @@
 // src/components/Designer/3d/Model.jsx
-import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, useLayoutEffect } from 'react';
+import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useCallback } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import { Html, TransformControls } from '@react-three/drei';
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import * as THREE from 'three';
 import { getColorValue } from './utils';
 
-// 重用的向量和平面
+// --- 性能优化：全局复用数学对象 ---
 const _mouse = new THREE.Vector2();
 const _target = new THREE.Vector3();
 const _offset = new THREE.Vector3();
@@ -35,14 +35,43 @@ const Model = forwardRef(({
   isDraggable = false,
   onSelect,
   isSelected = false,
+  elementId,
+  elementType,
+  onSelectElement, // 新增：选中回调
+  onPositionChange, // 新增：位置变化回调
+  onClearSelection, // 新增：清除选中回调
 }, ref) => {
-  const meshRef = useRef();
-  const sceneObjectRef = useRef(null);
-  const { scene } = useThree();
+  const groupRef = useRef();
+  const { scene, gl, camera, controls } = useThree();
   const [model, setModel] = useState(null);
   const [error, setError] = useState(false);
   const [originalDimensions, setOriginalDimensions] = useState(null);
   const [hasReportedDimensions, setHasReportedDimensions] = useState(false);
+
+  // 拖拽相关状态
+  const [isHovered, setIsHovered] = useState(false);
+  const [selectionBox, setSelectionBox] = useState(null);
+
+  // 拖拽状态Ref
+  const dragRef = useRef({
+    isDragging: false,
+    rect: null,
+    startWorldPos: new THREE.Vector3(),
+    originalLocalPos: new THREE.Vector3(),
+  });
+
+  // 本地位置状态，用于实时更新
+  const [localPosition, setLocalPosition] = useState(() => new THREE.Vector3(...position));
+
+  // 同步外部位置变化
+  useEffect(() => {
+    if (!dragRef.current.isDragging) {
+      setLocalPosition(new THREE.Vector3(...position));
+      if (groupRef.current) {
+        groupRef.current.position.set(...position);
+      }
+    }
+  }, [position]);
 
   // 底座状态
   const [multiTextureParts, setMultiTextureParts] = useState({
@@ -59,9 +88,157 @@ const Model = forwardRef(({
   const textureLoaderRef = useRef(new THREE.TextureLoader());
 
   useImperativeHandle(ref, () => ({
-    getMesh: () => meshRef.current,
-    getDimensions: () => originalDimensions
+    getMesh: () => groupRef.current,
+    getDimensions: () => originalDimensions,
+    getPosition: () => localPosition.toArray(),
   }));
+
+  //  // --- 选中框逻辑 ---
+  //  useEffect(() => {
+  //   if (isSelected && groupRef.current) {
+  //     // 计算包围盒
+  //     const box = new THREE.Box3().setFromObject(groupRef.current);
+  //     const size = new THREE.Vector3();
+  //     box.getSize(size);
+  //     const center = new THREE.Vector3();
+  //     box.getCenter(center);
+      
+  //     // 设置选中框数据
+  //     setSelectionBox({
+  //       size: size.toArray(),
+  //       center: center.toArray()
+  //     });
+  //   } else {
+  //     setSelectionBox(null);
+  //   }
+  // }, [isSelected, dimensions, position, isDragging]);
+
+  const getIntersection = useCallback((clientX, clientY, rect, cameraZ) => {
+    const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    _mouse.set(x, y);
+    _raycaster.setFromCamera(_mouse, camera);
+    _plane.constant = -cameraZ;
+    return _raycaster.ray.intersectPlane(_plane, _target);
+  }, [camera]);
+
+  const handlePointerDown = useCallback((e) => {
+    e.stopPropagation();
+    
+    // 填充模式处理
+    if (isFillModeActive && onFillClick) {
+      onFillClick();
+      return;
+    }
+    
+    // 选中元素
+    if (!isSelected && onSelectElement) {
+      onSelectElement(elementId, elementType);
+    }
+    
+    if (!isSelected || !groupRef.current || !isDraggable) return;
+    
+    // 开始拖拽
+    dragRef.current.isDragging = true;
+    dragRef.current.rect = gl.domElement.getBoundingClientRect();
+    
+    // 记录初始位置
+    dragRef.current.startWorldPos.copy(groupRef.current.getWorldPosition(new THREE.Vector3()));
+    dragRef.current.originalLocalPos.copy(groupRef.current.position);
+    _originalPos.copy(groupRef.current.position);
+    
+    // 禁用相机控制
+    if (controls) {
+      controls.enabled = false;
+    }
+    
+    // 获取拖拽起点
+    const hit = getIntersection(
+      e.nativeEvent.clientX,
+      e.nativeEvent.clientY,
+      dragRef.current.rect,
+      _originalPos.z
+    );
+    
+    if (hit) {
+      _startPoint.copy(hit);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+    }
+    
+    // 阻止默认行为
+    e.preventDefault();
+  }, [isFillModeActive, isSelected, isDraggable, elementId, elementType, onSelectElement, onFillClick, gl, controls, getIntersection]);
+
+  const onPointerMove = useCallback((e) => {
+    if (!dragRef.current.isDragging || !dragRef.current.rect || !groupRef.current) return;
+    
+    const hit = getIntersection(
+      e.clientX,
+      e.clientY,
+      dragRef.current.rect,
+      _originalPos.z
+    );
+    
+    if (hit) {
+      _offset.subVectors(hit, _startPoint);
+      
+      // 如果按住Shift键，限制移动轴
+      if (e.shiftKey) {
+        if (Math.abs(_offset.x) > Math.abs(_offset.y)) {
+          _offset.y = 0;
+        } else {
+          _offset.x = 0;
+        }
+      }
+      
+      // 只更新X和Y轴，保持Z轴不变
+      _target.set(
+        _originalPos.x + _offset.x,
+        _originalPos.y + _offset.y,
+        _originalPos.z // Z轴保持不变
+      );
+      
+      // 直接更新模型位置（实时反馈）
+      groupRef.current.position.copy(_target);
+      setLocalPosition(_target.clone());
+      
+      // 实时更新外部状态（不防抖，确保流畅性）
+      if (onPositionChange) {
+        onPositionChange(elementId, _target.toArray(), elementType);
+      }
+    }
+  }, [getIntersection, elementId, elementType, onPositionChange]);
+
+  const onPointerUp = useCallback(() => {
+    if (dragRef.current.isDragging) {
+      dragRef.current.isDragging = false;
+      dragRef.current.rect = null;
+      
+      // 恢复相机控制
+      if (controls) {
+        controls.enabled = true;
+      }
+      
+      // 提交最终位置
+      if (groupRef.current && onPositionChange) {
+        onPositionChange(elementId, groupRef.current.position.toArray(), elementType);
+      }
+      
+      // 移除事件监听器
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    }
+  }, [controls, elementId, elementType, onPositionChange, onPointerMove]);
+
+  // 清理事件监听器
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [onPointerMove]);
+
 
   // 加载底座/碑体贴图
   useEffect(() => {
@@ -116,54 +293,26 @@ const Model = forwardRef(({
 
     const loadModel = async () => {
       try {
-        if (sceneObjectRef.current && scene) {
-          scene.remove(sceneObjectRef.current);
-          sceneObjectRef.current.traverse((child) => {
-            if (child.isMesh) {
-              if (child.geometry) child.geometry.dispose();
-              if (child.material) {
-                if (Array.isArray(child.material)) {
-                  child.material.forEach(mat => {
-                    if (mat.map) mat.map.dispose();
-                    mat.dispose();
-                  });
-                } else {
-                  if (child.material.map) child.material.map.dispose();
-                  child.material.dispose();
-                }
-              }
-            }
-          });
-          sceneObjectRef.current = null;
-        }
-
         const loader = new GLTFLoader();
         const gltf = await loader.loadAsync(modelPath);
         if (!isMounted) return;
 
         const clonedScene = gltf.scene.clone();
-        clonedScene.position.set(position[0], position[1], position[2]);
+        clonedScene.position.copy(localPosition);
 
-        scene.add(clonedScene);
-        sceneObjectRef.current = clonedScene;
-        currentSceneObject = clonedScene;
-
-        if (meshRef.current !== clonedScene) {
-          meshRef.current = clonedScene;
-        }
+        if (!isMounted) return;
 
         const box = new THREE.Box3().setFromObject(clonedScene);
         const size = new THREE.Vector3();
         box.getSize(size);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
 
-        // 【关键修正】：确保尺寸映射正确
-        // Length -> X
-        // Width  -> Z (厚度/Depth)
-        // Height -> Y (高度/Up)
         const originalDims = { length: size.x, width: size.z, height: size.y };
-
         if (!isMounted) return;
+        
         setOriginalDimensions(originalDims);
+        setSelectionBox({ size: size.toArray(), center: center.toArray() });
 
         if (onDimensionsChange && !hasReportedDimensions &&
           (dimensions.length === 0 || dimensions.width === 0 || dimensions.height === 0)) {
@@ -229,15 +378,11 @@ const Model = forwardRef(({
 
     return () => {
       isMounted = false;
-      if (currentSceneObject && scene) {
-        scene.remove(currentSceneObject);
-      }
-      if (sceneObjectRef.current && scene) {
-        scene.remove(sceneObjectRef.current);
-        sceneObjectRef.current = null;
+      if (currentSceneObject && gl.scene) {
+        gl.scene.remove(currentSceneObject);
       }
     };
-  }, [modelPath, color, texturePath, scene, isMultiTextureBase]);
+  }, [modelPath, color, texturePath, isMultiTextureBase, localPosition]);
 
   // 动态贴图应用
   useEffect(() => {
@@ -285,63 +430,57 @@ const Model = forwardRef(({
 
   }, [isMultiTextureBase, polish, baseTextures, multiTextureParts, modelPath]);
 
+  // 位置和缩放同步
   useLayoutEffect(() => {
-    const currentModel = sceneObjectRef.current || model;
-    if (currentModel && position) {
-      currentModel.position.set(position[0], position[1], position[2]);
-      if (meshRef.current !== currentModel) {
-        meshRef.current = currentModel;
+    if (groupRef.current && model) {
+      groupRef.current.position.copy(localPosition);
+      
+      if (originalDimensions) {
+        const scaleX = originalDimensions.length === 0 ? 1 : dimensions.length / originalDimensions.length;
+        const scaleY = originalDimensions.height === 0 ? 1 : dimensions.height / originalDimensions.height;
+        const scaleZ = originalDimensions.width === 0 ? 1 : dimensions.width / originalDimensions.width;
+        
+        groupRef.current.scale.set(scaleX, scaleY, scaleZ);
+        groupRef.current.updateMatrix();
+        groupRef.current.updateWorldMatrix(true, true);
       }
     }
-  }, [position, model]);
+  }, [dimensions, originalDimensions, model, localPosition]);
 
-  // 缩放逻辑修正：改用 useLayoutEffect 确保在父组件测量前应用缩放
-  useLayoutEffect(() => {
-    if (meshRef.current && originalDimensions) {
-      const scaleX = originalDimensions.length === 0 ? 1 : dimensions.length / originalDimensions.length;
-      // Height -> Y
-      const scaleY = originalDimensions.height === 0 ? 1 : dimensions.height / originalDimensions.height;
-      // Width -> Z
-      const scaleZ = originalDimensions.width === 0 ? 1 : dimensions.width / originalDimensions.width;
-
-      meshRef.current.scale.set(scaleX, scaleY, scaleZ);
-      // 强制更新矩阵，确保后续测量准确
-      meshRef.current.updateMatrix();
-      meshRef.current.updateWorldMatrix(true, true);
-    }
-  }, [dimensions, originalDimensions]);
-
-  useFrame(() => {
-    if (!isMultiTextureBase || !meshRef.current || !multiTextureParts.surfaceA) return;
-
-    const { surfaceA, surfaceB_meshes, surfaceC_meshes } = multiTextureParts;
-    const scale = meshRef.current.scale;
-    const sx = scale.x; const sy = scale.y; const sz = scale.z;
-
-    const isBaseModel = modelPath === "/models/Bases/Base.glb";
-
-    if (isBaseModel) {
-      const applyScale = (mesh) => {
-        if (!mesh || !mesh.material.map) return;
-        const map = mesh.material.map;
-        const name = mesh.name;
-        if (name.includes('_front') || name.includes('_back')) { map.repeat.set(sx, sy); map.offset.set((1 - sx) / 2, (1 - sy) / 2); }
-        else if (name.includes('_left') || name.includes('_right')) { map.repeat.set(sz, sy); map.offset.set((1 - sz) / 2, (1 - sy) / 2); }
-      };
-      if (surfaceA && surfaceA.material.map) { surfaceA.material.map.repeat.set(sx, sz); surfaceA.material.map.offset.set((1 - sx) / 2, (1 - sz) / 2); }
-      surfaceB_meshes.forEach(applyScale);
-      surfaceC_meshes.forEach(applyScale);
+  // --- 交互样式 ---
+  useEffect(() => {
+    if (isSelected && isDraggable) {
+      gl.domElement.style.cursor = isHovered ? 'move' : 'auto';
     } else {
-      // Monument logic
-      if (surfaceA && surfaceA.material.map) { surfaceA.material.map.repeat.set(sx, sy); surfaceA.material.map.offset.set((1 - sx) / 2, (1 - sy) / 2); }
-      surfaceB_meshes.forEach(mesh => { if (mesh && mesh.material.map) { mesh.material.map.repeat.set(sz, sy); mesh.material.map.offset.set((1 - sz) / 2, (1 - sy) / 2); } });
-      surfaceC_meshes.forEach(mesh => { if (mesh && mesh.material.map) { mesh.material.map.repeat.set(sx, sz); mesh.material.map.offset.set((1 - sx) / 2, (1 - sz) / 2); } });
+      gl.domElement.style.cursor = 'auto';
     }
-  });
+    return () => { gl.domElement.style.cursor = 'auto'; };
+  }, [isSelected, isHovered, isDraggable, gl]);
+
+  // --- 选中框组件 ---
+  const SelectionBox = () => {
+    if (!isSelected || !selectionBox || !selectionBox.size) return null;
+    
+    return (
+      <group position={selectionBox.center}>
+        <lineSegments>
+          <edgesGeometry args={[new THREE.BoxGeometry(...selectionBox.size)]} />
+          <lineBasicMaterial 
+            color="#1890ff" 
+            linewidth={2} 
+            depthTest={false}
+            transparent 
+            opacity={0.8}
+          />
+        </lineSegments>
+      </group>
+    );
+  };
+
 
   if (error) {
     return (
-      <mesh ref={meshRef} position={position}>
+      <mesh ref={groupRef} position={position}>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial color="red" transparent opacity={0.5} />
         <Html distanceFactor={10}><div>Model Error</div></Html>
@@ -351,38 +490,30 @@ const Model = forwardRef(({
 
   if (!model) {
     return (
-      <mesh position={position} scale={[0.5, 0.5, 0.5]}>
+      <mesh ref={groupRef} position={localPosition.toArray()} scale={[0.5, 0.5, 0.5]}>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial color="gray" transparent opacity={0.3} />
       </mesh>
     );
   }
 
-  const ModelComponent = (
-    <primitive
-      ref={meshRef}
-      object={model}
-      onPointerDown={(e) => {
-        // 【关键修复】: 无论是否选中或处于填充模式，点击模型本体时都停止事件传播
-        // 防止射线穿透模型选中背后的物体
-        e.stopPropagation();
-
-        if (isFillModeActive) {
-          if (onFillClick) {
-            onFillClick();
-          }
-        } else if (onSelect) {
-          onSelect();
-        }
+  return (
+    <group
+      ref={groupRef}
+      userData={{ 
+        isModel: true, 
+        modelId: elementId, 
+        modelType: elementType,
+        isDraggable: isDraggable && isSelected
       }}
-    />
+      onPointerDown={handlePointerDown}
+      onPointerOver={() => setIsHovered(true)}
+      onPointerOut={() => setIsHovered(false)}
+    >
+      <primitive object={model} />
+      <SelectionBox />
+    </group>
   );
-
-  return isDraggable ? (
-    <TransformControls object={meshRef} mode="translate">
-      {ModelComponent}
-    </TransformControls>
-  ) : ModelComponent;
 });
 
 export default Model;

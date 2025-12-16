@@ -74,6 +74,9 @@ const DesignerPage = () => {
   // 新增 Print Modal 状态
   const [printModalVisible, setPrintModalVisible] = useState(false);
 
+  const [selectedModelId, setSelectedModelId] = useState(null);
+  const [selectedModelType, setSelectedModelType] = useState(null);
+
   const BACKGROUND_OPTIONS = useMemo(() => [
     { value: 'transparent', label: t('backgrounds.transparent'), url: null },
     { value: 'spring', label: t('backgrounds.spring'), url: './backgrounds/Spring.jpg' },
@@ -89,6 +92,7 @@ const DesignerPage = () => {
     updateDimensions,
     updatePolish,
     updateMaterial,
+    updateModelPosition,
     addProduct,
     addBase,
     removeBase,
@@ -116,7 +120,9 @@ const DesignerPage = () => {
     fontOptions,
     getFontPath,
     updateTextPosition,
-    updateTextRotation
+    updateTextRotation,
+    selectElement,
+    clearAllSelection,
   } = useDesignState();
 
   // --- 【修改】：点击 Order 弹出确认框，直接生成 ---
@@ -286,6 +292,9 @@ const DesignerPage = () => {
       // setIsTextEditing(false);
       // setCurrentTextId(null);
       // setSelectedVaseId(null); // 取消选中花瓶
+      setSelectedModelId(null);
+      setSelectedModelType(null);
+      if (clearAllSelection) clearAllSelection();
       setActiveTool(null);
       setTransformMode('translate');
 
@@ -299,13 +308,16 @@ const DesignerPage = () => {
       setIsFillModeActive(false);
     }
     setSelectedArtId(artId);
-  }, [setActiveTool, setTransformMode, setIsFillModeActive]);
+  }, [setActiveTool, setTransformMode, setIsFillModeActive, clearAllSelection]);
 
   const handleVaseElementSelect = useCallback((vaseId) => {
     if (vaseId !== null) {
       // setIsTextEditing(false);
       // setCurrentTextId(null);
       // handleArtElementSelect(null); // 取消选中艺术图案
+      setSelectedModelId(null);
+      setSelectedModelType(null);
+      clearAllSelection();
       setActiveTool(null);
       setVaseTransformMode('translate');
       // 更新设计状态中的选中状态
@@ -317,8 +329,9 @@ const DesignerPage = () => {
       });
     }
     setSelectedVaseId(vaseId);
-  }, [handleArtElementSelect, designState.vases, updateVaseElementState]);
+  }, [handleArtElementSelect, designState.vases, updateVaseElementState, clearAllSelection]);
 
+  
   // handleCloseVaseEditor (新增)
   const handleCloseVaseEditor = useCallback(() => {
     if (selectedVaseId) {
@@ -326,6 +339,32 @@ const DesignerPage = () => {
     }
     setSelectedVaseId(null);
   }, [selectedVaseId, updateVaseElementState]);
+
+
+
+  const handleSelectElement = useCallback((elementId, elementType) => {
+      setSelectedModelId(elementId);
+      setSelectedModelType(elementType);
+      
+      if (selectElement) {
+        selectElement(elementId, elementType);
+      }
+      
+      // 清除其他元素的选中
+      handleArtElementSelect(null);
+      handleCloseVaseEditor();
+      setCurrentTextId(null);
+      setIsTextEditing(false);
+    }, [selectElement, handleArtElementSelect, handleCloseVaseEditor]);
+
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedModelId(null);
+    setSelectedModelType(null);
+    if (clearAllSelection) {
+      clearAllSelection();
+    }
+  }, [clearAllSelection]);
 
   // handleToolSelect
   // 1. 修改 handleToolSelect 逻辑
@@ -568,6 +607,9 @@ const DesignerPage = () => {
 
   const handleTextSelect = useCallback((textId) => {
     // 1. 互斥逻辑：如果选中了文字，就取消选中艺术图案
+    setSelectedModelId(null);
+    setSelectedModelType(null);
+    clearAllSelection();
     handleArtElementSelect(null);
     handleCloseVaseEditor();
 
@@ -591,7 +633,7 @@ const DesignerPage = () => {
       // (使用回调函数形式以确保获取最新的 activeTool 状态)
       setActiveTool(prevTool => prevTool === 'text' ? null : prevTool);
     }
-  }, [handleArtElementSelect, handleCloseVaseEditor, setTextSelected]);
+  }, [handleArtElementSelect, handleCloseVaseEditor, setTextSelected, clearAllSelection]);
 
   // --- 【新增】: 关闭文字编辑器的处理函数 ---
   const handleCloseTextEditor = useCallback(() => {
@@ -1193,6 +1235,7 @@ const DesignerPage = () => {
       }
     };
 
+
     return (
       <div className="dimension-control">
         <label>{label}</label>
@@ -1338,7 +1381,9 @@ const DesignerPage = () => {
                 vaseTransformMode={vaseTransformMode}
                 onUpdateVaseElementState={updateVaseElementState}
 
-
+                onSelectElement={handleSelectElement}
+                onClearSelection={handleClearSelection}
+                onModelPositionChange={updateModelPosition}
                 // Drag and Drop Props
                 onSceneDrop={handleSceneDrop}
                 isGridEnabled={isGridEnabled}

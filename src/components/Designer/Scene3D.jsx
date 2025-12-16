@@ -32,6 +32,9 @@ const Scene3D = forwardRef(({
   onVaseSelect,
   selectedVaseId,
   vaseTransformMode,
+  onSelectElement,
+  onClearSelection,
+  onModelPositionChange,
   onUpdateVaseElementState,
   isGridEnabled,
   ...props
@@ -84,6 +87,9 @@ const Scene3D = forwardRef(({
             onVaseSelect={onVaseSelect}
             selectedVaseId={selectedVaseId}
             vaseTransformMode={vaseTransformMode}
+            onSelectElement={onSelectElement}
+            onClearSelection={onClearSelection}
+            onModelPositionChange={onModelPositionChange}
             onUpdateVaseElementState={onUpdateVaseElementState}
             isGridEnabled={isGridEnabled}
             {...props}
