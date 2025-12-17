@@ -1474,7 +1474,7 @@ const DesignerPage = () => {
                     key={monument.id}
                     element={monument}
                     elementType="monument"
-                    label={`${t('designer.tablet')}`}
+                    label={`${t('designer.tablet')}${index + 1}`}  
                   />
                 ))}
                 {/* 底座：添加索引 index，label 拼接序号 */}
@@ -1483,7 +1483,7 @@ const DesignerPage = () => {
                     key={base.id}
                     element={base}
                     elementType="base"
-                    label={`${t('designer.base')}`}
+                    label={`${t('designer.base')}${index + 1}`}  
                   />
                 ))}
                 {/* 子底座：添加索引 index，label 拼接序号 */}
@@ -1492,7 +1492,7 @@ const DesignerPage = () => {
                     key={subBase.id}
                     element={subBase}
                     elementType="subBase"
-                    label={`${t('designer.subBase')}`}
+                    label={`${t('designer.subBase')}${index + 1}`} 
                   />
                 ))}
               </div>
