@@ -189,7 +189,7 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
     };
 
     loadItems();
-  }, [currentPage, selectedFamily, selectedSubclass, type, productFamilies]); // 依赖中加入 selectedSubclass
+  }, [currentPage, selectedFamily, selectedSubclass, type]); // 依赖中加入 selectedSubclass
 
   const filteredItems = items.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

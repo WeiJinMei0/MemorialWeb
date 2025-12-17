@@ -563,31 +563,36 @@ export const useDesignState = () => {
 
   const updateMaterial = useCallback((color) => {
     updateDesignState(prev => {
-      // 【V_MODIFICATION】:
-      // 碑体、底座使用新逻辑 (isMultiTextureBase=true)
-      // 它们只需要 color 属性
+
+      // 只更新 isSelected 为 true 的元素，并输出日志
       const updateMultiTextureElements = (elements) =>
-        elements.map(element => ({
-          ...element,
-          color, // 只更新 color
-        }));
+        elements.map(element => {
+          if (element.isSelected) {
+            return { ...element, color };
+          }
+          return element;
+        });
 
       // 花瓶使用旧逻辑 (isMultiTextureBase=false)
       // 它们需要更新 texturePath
       const updateVaseMaterial = (elements) =>
-        elements.map(element => ({
-          ...element,
-          color,
-          // (这个逻辑来自您的原始文件，是正确的)
-          texturePath: element.texturePath.replace(/_[^_]+\.jpg$/, `_${color}.jpg`)
-        }));
+        elements.map(element => {
+          if (element.isSelected) {
+            return {
+              ...element,
+              color,
+              texturePath: element.texturePath.replace(/_[^_]+\.jpg$/, `_${color}.jpg`)
+            };
+          }
+          return element;
+        });
 
       return {
         ...prev,
         currentMaterial: color,
-        monuments: updateMultiTextureElements(prev.monuments),
-        bases: updateMultiTextureElements(prev.bases),
-        subBases: updateMultiTextureElements(prev.subBases),
+        monuments: updateMultiTextureElements(prev.monuments, 'monument'),
+        bases: updateMultiTextureElements(prev.bases, 'base'),
+        subBases: updateMultiTextureElements(prev.subBases, 'subBase'),
         vases: updateVaseMaterial(prev.vases), // 花瓶保留旧逻辑
       };
     });
