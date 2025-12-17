@@ -85,7 +85,10 @@
     "emailDownload": "Email/Download",
     "artOptions": "Art Options",
     "recentlySaved": "Recently Saved",
-    "Grid": "Grid"
+    "Grid": "Grid",
+    "lockView": "L",
+    "rotateView": "R",
+    "frontView": "S"
   },
   "savedDesigns": {
     "pageTitle": "Saved Designs",

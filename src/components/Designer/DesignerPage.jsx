@@ -7,7 +7,9 @@ import {
   SaveOutlined,
   FileTextOutlined,
   CloseOutlined,
-  TableOutlined
+  TableOutlined,
+  RotateLeftOutlined, 
+  EyeOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -77,6 +79,9 @@ const DesignerPage = () => {
   const [selectedModelId, setSelectedModelId] = useState(null);
   const [selectedModelType, setSelectedModelType] = useState(null);
 
+  // 新增：旋转控制状态
+  const [isViewRotatable, setIsViewRotatable] = useState(false);
+
   const BACKGROUND_OPTIONS = useMemo(() => [
     { value: 'transparent', label: t('backgrounds.transparent'), url: null },
     { value: 'spring', label: t('backgrounds.spring'), url: './backgrounds/Spring.jpg' },
@@ -124,6 +129,19 @@ const DesignerPage = () => {
     selectElement,
     clearAllSelection,
   } = useDesignState();
+
+  // 新增：切换视图旋转功能
+  const handleToggleRotatable = useCallback(() => {
+    setIsViewRotatable(!isViewRotatable);
+  }, [isViewRotatable]);
+
+   // 新增：重置到正面视图
+  const handleResetView = useCallback(() => {
+    if (sceneRef.current && sceneRef.current.resetCameraToFront) {
+      sceneRef.current.resetCameraToFront();
+      message.success('已重置到正面视图');
+    }
+  }, []);
 
   // --- 【修改】：点击 Order 弹出确认框，直接生成 ---
   const handleGenerateOrder = useCallback(() => {
@@ -340,8 +358,6 @@ const DesignerPage = () => {
     setSelectedVaseId(null);
   }, [selectedVaseId, updateVaseElementState]);
 
-
-
   const handleSelectElement = useCallback((elementId, elementType) => {
       setSelectedModelId(elementId);
       setSelectedModelType(elementType);
@@ -356,15 +372,6 @@ const DesignerPage = () => {
       setCurrentTextId(null);
       setIsTextEditing(false);
     }, [selectElement, handleArtElementSelect, handleCloseVaseEditor]);
-
-
-  const handleClearSelection = useCallback(() => {
-    setSelectedModelId(null);
-    setSelectedModelType(null);
-    if (clearAllSelection) {
-      clearAllSelection();
-    }
-  }, [clearAllSelection]);
 
   // handleToolSelect
   // 1. 修改 handleToolSelect 逻辑
@@ -1316,6 +1323,24 @@ const DesignerPage = () => {
                 <Button icon={<UndoOutlined />} size="small" disabled={!canUndo} onClick={undo}>{t('designer.undo')}</Button>
                 <Button icon={<RedoOutlined />} size="small" disabled={!canRedo} onClick={redo}>{t('designer.redo')}</Button>
 
+                {/* 新增：视图旋转控制按钮 */}
+                <Button
+                  type={isViewRotatable ? 'primary' : 'default'}
+                  icon={<RotateLeftOutlined />}
+                  size="small"
+                  onClick={handleToggleRotatable}
+                >
+                </Button>
+
+                {/* 新增：重置到正面视图按钮 */}
+                <Button
+                  type="default"
+                  icon={<EyeOutlined />}
+                  size="small"
+                  onClick={handleResetView}
+                >
+                </Button>
+
                 {/* --- 新增：网格开关按钮 --- */}
                 <Button
                   type={isGridEnabled ? 'primary' : 'default'} icon={<TableOutlined />} size="small" onClick={() => setIsGridEnabled(!isGridEnabled)}>{t('designer.Grid')}</Button>
@@ -1381,12 +1406,17 @@ const DesignerPage = () => {
                 vaseTransformMode={vaseTransformMode}
                 onUpdateVaseElementState={updateVaseElementState}
 
+                selectedModelId={selectedModelId}
+                selectedModelType={selectedModelType}
                 onSelectElement={handleSelectElement}
-                onClearSelection={handleClearSelection}
                 onModelPositionChange={updateModelPosition}
                 // Drag and Drop Props
                 onSceneDrop={handleSceneDrop}
                 isGridEnabled={isGridEnabled}
+
+                // 新增：传递旋转控制状态
+                isViewRotatable={isViewRotatable}
+                onResetView={handleResetView}
               />
 
               {/* 工具面板 */}

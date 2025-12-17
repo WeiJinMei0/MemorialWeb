@@ -409,6 +409,11 @@
   justify-content: center !important;
 }
 
+.scene-controls-top .ant-space-compact .ant-btn {
+  min-width: 60px;
+  font-size: 14px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .section-content {

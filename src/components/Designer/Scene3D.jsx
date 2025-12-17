@@ -32,11 +32,14 @@ const Scene3D = forwardRef(({
   onVaseSelect,
   selectedVaseId,
   vaseTransformMode,
-  onSelectElement,
-  onClearSelection,
-  onModelPositionChange,
   onUpdateVaseElementState,
   isGridEnabled,
+  selectedModelId,
+  selectedModelType,
+  onSelectElement,
+  onModelPositionChange,
+  isViewRotatable = false,
+  onResetView,
   ...props
 }, ref) => {
   return (
@@ -50,7 +53,7 @@ const Scene3D = forwardRef(({
     >
       <Canvas
         camera={{
-          position: [0, 2, -3],
+          position: [0, 0, 4],
           fov: 25,
           near: 0.1,
           far: 1000
@@ -87,11 +90,14 @@ const Scene3D = forwardRef(({
             onVaseSelect={onVaseSelect}
             selectedVaseId={selectedVaseId}
             vaseTransformMode={vaseTransformMode}
-            onSelectElement={onSelectElement}
-            onClearSelection={onClearSelection}
-            onModelPositionChange={onModelPositionChange}
             onUpdateVaseElementState={onUpdateVaseElementState}
             isGridEnabled={isGridEnabled}
+            selectedModelId={selectedModelId}
+            selectedModelType={selectedModelType}
+            onSelectElement={onSelectElement}
+            onModelPositionChange={onModelPositionChange}
+            isViewRotatable={isViewRotatable}
+            onResetView={onResetView}
             {...props}
           />
         </Suspense>

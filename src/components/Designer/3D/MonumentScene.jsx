@@ -63,20 +63,44 @@ const MonumentScene = forwardRef(({
   vaseTransformMode,
   onUpdateVaseElementState,
   onSaveToArtOptions,
+  selectedModelId,
+  selectedModelType,
   onSelectElement,
-  onClearSelection,
   onModelPositionChange,
-
+  isViewRotatable = false,
+  onResetView,
 }, ref) => {
   const { gl, scene, camera, raycaster, pointer } = useThree();
   const sceneRef = useRef();
   const modelRefs = useRef({});
   const artPlaneRefs = useRef({});
   const vaseRefs = useRef({});
+  const orbitControlsRef = useRef();
 
-  // 选中状态管理
-  const [selectedModelId, setSelectedModelId] = useState(null);
-  const [selectedModelType, setSelectedModelType] = useState(null);
+  // 新增：重置相机到正面视图的函数
+  const resetCameraToFront = useCallback(() => {
+    if (camera && orbitControlsRef.current) {
+      // 设置正面视图的相机位置
+      camera.position.set(0, 0, 4);
+      camera.lookAt(0, 0, 0);
+      
+      // 重置控制器目标
+      if (orbitControlsRef.current) {
+        orbitControlsRef.current.target.set(0, 0, 0);
+        orbitControlsRef.current.update();
+      }
+    }
+  }, [camera]);
+
+  // 新增：初始化时调用重置视图
+  useEffect(() => {
+    // 组件加载后重置到正面视图
+    const timer = setTimeout(() => {
+      resetCameraToFront();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [resetCameraToFront]);
 
   // 全局点击处理（点击空白处取消选中）
   useEffect(() => {
@@ -93,10 +117,7 @@ const MonumentScene = forwardRef(({
       
       if (!hit) {
         // 点击空白处，清除所有选中
-        setSelectedModelId(null);
-        setSelectedModelType(null);
-        if (onClearSelection) onClearSelection();
-        
+        if (onSelectElement) onSelectElement(null, null);
         // 同时清除其他元素的选中状态
         if (onArtElementSelect) onArtElementSelect(null);
         if (onTextSelect) onTextSelect(null);
@@ -110,7 +131,7 @@ const MonumentScene = forwardRef(({
     return () => {
       canvasDom.removeEventListener('click', handleGlobalClick);
     };
-  }, [gl.domElement, onClearSelection, onArtElementSelect, onTextSelect, onVaseSelect, camera, raycaster, scene, pointer]);
+  }, [gl.domElement,  onArtElementSelect, onTextSelect, onVaseSelect, camera, raycaster, scene, pointer]);
 
   // 添加双击处理
   useEffect(() => {
@@ -213,20 +234,10 @@ const MonumentScene = forwardRef(({
 
   // 处理元素选中
   const handleSelectElement = useCallback((elementId, elementType) => {
-    // 设置当前选中
-    setSelectedModelId(elementId);
-    setSelectedModelType(elementType);
-    
-    // 调用外部回调
     if (onSelectElement) {
       onSelectElement(elementId, elementType);
     }
-    
-    // 清除其他元素的选中
-    if (onArtElementSelect) onArtElementSelect(null);
-    if (onTextSelect) onTextSelect(null);
-    if (onVaseSelect) onVaseSelect(null);
-  }, [onSelectElement, onArtElementSelect, onTextSelect, onVaseSelect]);
+  }, [onSelectElement]);
 
   // 处理模型位置变化
   const handleModelPositionChange = useCallback((elementId, newPosition, elementType) => {
@@ -306,85 +317,89 @@ const MonumentScene = forwardRef(({
         }
       }
       return artData;
+    },
+    // 新增：重置相机到正面视图的方法
+    resetCameraToFront: () => {
+      resetCameraToFront();
     }
   }));
 
   // 计算所有模型位置（含碑体、底座、副底座）
   const positions = useMemo(() => {
-  const positions = {};
-  
-  // 配置项
-  const PAIR_SPACING = 1.0;
-  const NO_SPACING = 0;
-  const ALIGN_Z = -0.103;
-  const baseInitY = -0.5;
-  
-  // 只在默认加载时计算初始位置
-  // 如果已经有位置数据，使用用户拖拽后的位置
-  designState.bases.forEach((base, index) => {
-    // 如果底座已经有位置（用户拖拽过），使用用户设置的位置
-    if (base.position && base.position.length === 3 && 
-        !(base.position[0] === 0 && base.position[1] === 0 && base.position[2] === 0)) {
-      positions[base.id] = base.position;
-    } else {
-      // 否则计算默认位置（仅第一次加载时）
-      const baseLength = base.dimensions.length || 1;
-      const totalWidth = designState.bases.reduce((sum, b, i) => {
-        const len = b.dimensions.length || 1;
-        return sum + len + (i < designState.bases.length - 1 ? PAIR_SPACING : 0);
-      }, 0);
-      
-      const centerOffsetX = -totalWidth / 2;
-      const prevBasesTotal = designState.bases.slice(0, index).reduce((sum, b) => {
-        return sum + (b.dimensions.length || 1) + PAIR_SPACING;
-      }, 0);
-      
-      const finalX = centerOffsetX + prevBasesTotal + baseLength / 2;
-      positions[base.id] = [finalX, baseInitY, ALIGN_Z];
-    }
-  });
-  
-  designState.monuments.forEach((monument, index) => {
-    // 如果碑已经有位置（用户拖拽过），使用用户设置的位置
-    if (monument.position && monument.position.length === 3 && 
-        !(monument.position[0] === 0 && monument.position[1] === 0 && monument.position[2] === 0)) {
-      positions[monument.id] = monument.position;
-    } else {
-      // 否则根据底座位置计算默认位置
-      const base = designState.bases[index];
-      if (base && positions[base.id]) {
-        const basePos = positions[base.id];
-        const baseHeight = base.dimensions.height || 0;
-        const baseWidth = base.dimensions.width || 0;
-        const monumentLength = monument.dimensions.length || 0;
-        
-        // 根据规则计算X轴位置
-        const INCH_IN_METERS = 0.0254;
-        let monumentX = basePos[0];
-        
-        if (baseWidth < 14 * INCH_IN_METERS) {
-          // 底座宽度小于14"，碑在底座前后宽度居中
-          monumentX = basePos[0] + (base.dimensions.length - monumentLength) / 2;
-        } else {
-          // 底座宽度大于14"，碑背面离底座边缘3"
-          const threeInches = 3 * INCH_IN_METERS;
-          monumentX = basePos[0] + base.dimensions.length - monumentLength - threeInches;
-        }
-        
-        positions[monument.id] = [
-          monumentX,
-          basePos[1] + baseHeight + NO_SPACING,
-          basePos[2]
-        ];
+    const positions = {};
+    
+    // 配置项
+    const PAIR_SPACING = 1.0;
+    const NO_SPACING = 0;
+    const ALIGN_Z = -0.103;
+    const baseInitY = -0.5;
+    
+    // 只在默认加载时计算初始位置
+    // 如果已经有位置数据，使用用户拖拽后的位置
+    designState.bases.forEach((base, index) => {
+      // 如果底座已经有位置（用户拖拽过），使用用户设置的位置
+      if (base.position && base.position.length === 3 && 
+          !(base.position[0] === 0 && base.position[1] === 0 && base.position[2] === 0)) {
+        positions[base.id] = base.position;
       } else {
-        // 兜底位置
-        positions[monument.id] = [0, baseInitY + 0.1, ALIGN_Z];
+        // 否则计算默认位置（仅第一次加载时）
+        const baseLength = base.dimensions.length || 1;
+        const totalWidth = designState.bases.reduce((sum, b, i) => {
+          const len = b.dimensions.length || 1;
+          return sum + len + (i < designState.bases.length - 1 ? PAIR_SPACING : 0);
+        }, 0);
+        
+        const centerOffsetX = -totalWidth / 2;
+        const prevBasesTotal = designState.bases.slice(0, index).reduce((sum, b) => {
+          return sum + (b.dimensions.length || 1) + PAIR_SPACING;
+        }, 0);
+        
+        const finalX = centerOffsetX + prevBasesTotal + baseLength / 2;
+        positions[base.id] = [finalX, baseInitY, ALIGN_Z];
       }
-    }
-  });
+    });
   
-  return positions;
-}, [designState.subBases, designState.bases, designState.monuments]);
+    designState.monuments.forEach((monument, index) => {
+      // 如果碑已经有位置（用户拖拽过），使用用户设置的位置
+      if (monument.position && monument.position.length === 3 && 
+          !(monument.position[0] === 0 && monument.position[1] === 0 && monument.position[2] === 0)) {
+        positions[monument.id] = monument.position;
+      } else {
+        // 否则根据底座位置计算默认位置
+        const base = designState.bases[index];
+        if (base && positions[base.id]) {
+          const basePos = positions[base.id];
+          const baseHeight = base.dimensions.height || 0;
+          const baseWidth = base.dimensions.width || 0;
+          const monumentLength = monument.dimensions.length || 0;
+          
+          // 根据规则计算X轴位置
+          const INCH_IN_METERS = 0.0254;
+          let monumentX = basePos[0];
+          
+          if (baseWidth < 14 * INCH_IN_METERS) {
+            // 底座宽度小于14"，碑在底座前后宽度居中
+            monumentX = basePos[0] + (base.dimensions.length - monumentLength) / 2;
+          } else {
+            // 底座宽度大于14"，碑背面离底座边缘3"
+            const threeInches = 3 * INCH_IN_METERS;
+            monumentX = basePos[0] + base.dimensions.length - monumentLength - threeInches;
+          }
+          
+          positions[monument.id] = [
+            monumentX,
+            basePos[1] + baseHeight + NO_SPACING,
+            basePos[2]
+          ];
+        } else {
+          // 兜底位置
+          positions[monument.id] = [0, baseInitY + 0.1, ALIGN_Z];
+        }
+      }
+    });
+    
+    return positions;
+  }, [designState.subBases, designState.bases, designState.monuments]);
 
   const handleModelLoad = (elementId, elementType, dimensions) => {
     if (onDimensionsChange) {
@@ -461,13 +476,14 @@ const MonumentScene = forwardRef(({
     <group ref={sceneRef}>
 
       <OrbitControls
-        enabled={!selectedModelId && !selectedElementId && !currentTextId && !selectedVaseId && !isFillModeActive}
+        ref={orbitControlsRef}
+        enabled={isViewRotatable && !selectedModelId && !selectedElementId && !currentTextId && !selectedVaseId && !isFillModeActive}
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
         minDistance={1}
         maxDistance={50}
-        minPolarAngle={Math.PI / 2}
+        minPolarAngle={0}
         maxPolarAngle={Math.PI / 2}
       />
 
@@ -489,11 +505,7 @@ const MonumentScene = forwardRef(({
           elementId={subBase.id}
           elementType="subBase"
           onSelectElement={handleSelectElement}
-          onPositionChange={onModelPositionChange}
-          onClearSelection={() => {
-            setSelectedModelId(null);
-            setSelectedModelType(null);
-          }}
+          onPositionChange={handleModelPositionChange}
         />
       ))}
 
@@ -515,11 +527,7 @@ const MonumentScene = forwardRef(({
           elementId={base.id}
           elementType="base"
           onSelectElement={handleSelectElement}
-          onPositionChange={onModelPositionChange}
-          onClearSelection={() => {
-            setSelectedModelId(null);
-            setSelectedModelType(null);
-          }}
+          onPositionChange={handleModelPositionChange}
         />
       ))}
 
@@ -541,11 +549,7 @@ const MonumentScene = forwardRef(({
           elementId={monument.id}
           elementType="monument"
           onSelectElement={handleSelectElement}
-          onPositionChange={onModelPositionChange}
-          onClearSelection={() => {
-            setSelectedModelId(null);
-            setSelectedModelType(null);
-          }}
+          onPositionChange={handleModelPositionChange}
         />
       ))}
 

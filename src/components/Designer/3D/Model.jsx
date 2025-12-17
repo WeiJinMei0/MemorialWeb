@@ -39,7 +39,6 @@ const Model = forwardRef(({
   elementType,
   onSelectElement, // 新增：选中回调
   onPositionChange, // 新增：位置变化回调
-  onClearSelection, // 新增：清除选中回调
 }, ref) => {
   const groupRef = useRef();
   const { scene, gl, camera, controls } = useThree();
@@ -166,8 +165,6 @@ const Model = forwardRef(({
       window.addEventListener('pointerup', onPointerUp);
     }
     
-    // 阻止默认行为
-    e.preventDefault();
   }, [isFillModeActive, isSelected, isDraggable, elementId, elementType, onSelectElement, onFillClick, gl, controls, getIntersection]);
 
   const onPointerMove = useCallback((e) => {
