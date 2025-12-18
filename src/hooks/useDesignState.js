@@ -316,7 +316,7 @@ export const useDesignState = () => {
     const color = 'Black';
 
     // 计算默认位置：碑在底座上面，紧贴着
-    const basePosition = [0, -0.2, 0];
+    const basePosition = [0, -0.3, 0];
     const monumentPosition = [
       0, // X轴居中（底座宽度小于14英寸）
        -0.5+0.4, // Y轴在底座上面
@@ -435,6 +435,11 @@ export const useDesignState = () => {
     const firstMonument = designState.monuments[0];
     const yPosition = firstMonument ? firstMonument.position[1] : 0;
 
+    const monumentPosition = [
+      1, // X轴居中（底座宽度小于14英寸）
+      yPosition, // Y轴在底座上面
+      0 // Z轴与底座对齐
+    ];
     updateDesignState(prev => {
       const newMonumentIndex = prev.monuments.length + 1;
       
@@ -447,7 +452,7 @@ export const useDesignState = () => {
         color: prev.currentMaterial,
         modelPath: "/models/Shapes/Tablet/Serp Top.glb",
         texturePath: "",
-        position: [0, yPosition, 0], // y轴与第一个碑体一致
+        position: monumentPosition, // y轴与第一个碑体一致
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
         label: `Tablet${newMonumentIndex}`,
@@ -537,7 +542,7 @@ export const useDesignState = () => {
       
       const subBasePosition = [
         basePos[0], // X轴与底座对齐
-        basePos[1] - baseHeight/2, // Y轴在底座正下方
+        basePos[1] - baseHeight, // Y轴在底座正下方
         basePos[2]  // Z轴与底座对齐
       ];
 
