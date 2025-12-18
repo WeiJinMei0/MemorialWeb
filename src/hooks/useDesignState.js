@@ -531,6 +531,16 @@ export const useDesignState = () => {
         return prev;
       }
   
+      const basePos = targetBase.position || [0, -0.5, 0];
+      const baseHeight = targetBase.dimensions.height || 0.1;
+      const subBaseHeight = 0.1; // 副底座默认高度
+      
+      const subBasePosition = [
+        basePos[0], // X轴与底座对齐
+        basePos[1] - baseHeight/2, // Y轴在底座正下方
+        basePos[2]  // Z轴与底座对齐
+      ];
+
       // 4. 创建subbase（绑定base.id，而非位置，解决跟随问题）
       const subBase = {
         id: `subbase-${Date.now()}`,
@@ -540,10 +550,11 @@ export const useDesignState = () => {
         color: prev.currentMaterial,
         modelPath: "/models/Bases/Base.glb",
         texturePath: "",
-        position: [0, 0, 0], // 位置完全由3D场景动态计算
+        position: subBasePosition, // 位置完全由3D场景动态计算
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
-        label: `${targetBase.label}-SubBase`
+        label: `${targetBase.label}-SubBase`,
+        isSelected: false
       };
   
       return {
@@ -734,6 +745,9 @@ const updateDimensions = useCallback((elementId, newDimensions, elementType) => 
           });
         }
         break;
+        case 'subBase':
+          updatedState.subBases = updateElement(prev.subBases);
+          break;
       // ... 其他类型
     }
 
@@ -746,7 +760,7 @@ const updateDimensions = useCallback((elementId, newDimensions, elementType) => 
     updateDesignState(prev => {
       // 计算花瓶的默认位置：放在第一个底座的天面宽度居中
       
-      let vasePosition = [-0.5, -0.5, -0.5];
+      let vasePosition = [0.5, 0.5, 0.5];
       let vaseRotation = vaseData.rotation || [0, 0, 0];
       
       // 如果有底座，计算居中位置
@@ -760,7 +774,7 @@ const updateDimensions = useCallback((elementId, newDimensions, elementType) => 
         
         // 假设花瓶高度为0.5米，放在底座天面上方一点
         const vaseHeight = 0.5;
-        const vaseTopY = baseTopY-0.4;
+        const vaseTopY = baseTopY-0.08;
         
         // X轴居中
         const centerX = basePosition[0]-baseDimensions.length/2+0.05;

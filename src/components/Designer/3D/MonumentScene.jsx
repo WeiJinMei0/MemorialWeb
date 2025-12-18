@@ -397,7 +397,33 @@ const MonumentScene = forwardRef(({
         }
       }
     });
-    
+    // 【新增】计算副底座位置
+    designState.subBases.forEach(subBase => {
+      // 如果副底座已经有位置（用户拖拽过），使用用户设置的位置
+      if (subBase.position && subBase.position.length === 3 && 
+          !(subBase.position[0] === 0 && subBase.position[1] === 0 && subBase.position[2] === 0)) {
+        positions[subBase.id] = subBase.position;
+      } else {
+        // 否则根据绑定的底座计算默认位置
+        const targetBase = designState.bases.find(base => base.id === subBase.bindBaseId);
+        if (targetBase && positions[targetBase.id]) {
+          const basePos = positions[targetBase.id];
+          const baseHeight = targetBase.dimensions.height || 0.1;
+          const subBaseHeight = subBase.dimensions.height || 0.1;
+          
+          // 副底座放在绑定底座的下方，紧贴着
+          positions[subBase.id] = [
+            basePos[0], // X轴与底座对齐
+            basePos[1]-baseHeight/2+ NO_SPACING, // Y轴在底座下方
+            basePos[2] // Z轴与底座对齐
+          ];
+        } else {
+          // 兜底位置
+          positions[subBase.id] = [0, baseInitY - 0.5, ALIGN_Z];
+        }
+      }
+    });
+
     return positions;
   }, [designState.subBases, designState.bases, designState.monuments]);
 
