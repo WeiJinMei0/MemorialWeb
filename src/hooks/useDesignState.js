@@ -579,38 +579,68 @@ export const useDesignState = () => {
 
   const updateMaterial = useCallback((color) => {
     updateDesignState(prev => {
+      // 检查是否有选中的元素
+      const hasSelectedMonument = prev.monuments.some(m => m.isSelected);
+      const hasSelectedBase = prev.bases.some(b => b.isSelected);
+      const hasSelectedSubBase = prev.subBases.some(sb => sb.isSelected);
+      const hasSelectedVase = prev.vases.some(v => v.isSelected);
+      
+      const hasAnySelected = hasSelectedMonument || hasSelectedBase || hasSelectedSubBase || hasSelectedVase;
 
-      // 只更新 isSelected 为 true 的元素，并输出日志
-      const updateMultiTextureElements = (elements) =>
-        elements.map(element => {
-          if (element.isSelected) {
-            return { ...element, color };
-          }
-          return element;
-        });
+      if (!hasAnySelected) {
+        // 没有选中任何元素，更新所有模型
+        const updateAllElements = (elements) =>
+          elements.map(element => ({
+            ...element,
+            color,
+          }));
 
-      // 花瓶使用旧逻辑 (isMultiTextureBase=false)
-      // 它们需要更新 texturePath
-      const updateVaseMaterial = (elements) =>
-        elements.map(element => {
-          if (element.isSelected) {
-            return {
-              ...element,
-              color,
-              texturePath: element.texturePath.replace(/_[^_]+\.jpg$/, `_${color}.jpg`)
-            };
-          }
-          return element;
-        });
+        const updateAllVases = (elements) =>
+          elements.map(element => ({
+            ...element,
+            color,
+            texturePath: element.texturePath.replace(/_[^_]+\.jpg$/, `_${color}.jpg`)
+          }));
 
-      return {
-        ...prev,
-        currentMaterial: color,
-        monuments: updateMultiTextureElements(prev.monuments, 'monument'),
-        bases: updateMultiTextureElements(prev.bases, 'base'),
-        subBases: updateMultiTextureElements(prev.subBases, 'subBase'),
-        vases: updateVaseMaterial(prev.vases), // 花瓶保留旧逻辑
-      };
+        return {
+          ...prev,
+          currentMaterial: color,
+          monuments: updateAllElements(prev.monuments),
+          bases: updateAllElements(prev.bases),
+          subBases: updateAllElements(prev.subBases),
+          vases: updateAllVases(prev.vases),
+        };
+      } else {
+        // 有选中的元素，只更新选中的元素
+        const updateSelectedElements = (elements) =>
+          elements.map(element => {
+            if (element.isSelected) {
+              return { ...element, color };
+            }
+            return element;
+          });
+
+        const updateSelectedVases = (elements) =>
+          elements.map(element => {
+            if (element.isSelected) {
+              return {
+                ...element,
+                color,
+                texturePath: element.texturePath.replace(/_[^_]+\.jpg$/, `_${color}.jpg`)
+              };
+            }
+            return element;
+          });
+
+        return {
+          ...prev,
+          currentMaterial: color,
+          monuments: updateSelectedElements(prev.monuments),
+          bases: updateSelectedElements(prev.bases),
+          subBases: updateSelectedElements(prev.subBases),
+          vases: updateSelectedVases(prev.vases),
+        };
+      }
     });
   }, [updateDesignState]);
 
@@ -775,11 +805,11 @@ const updateDimensions = useCallback((elementId, newDimensions, elementType) => 
         const baseDimensions = base.dimensions || { length: 1, width: 1, height: 1 };
         
         // 底座天面中心位置
-        const baseTopY = basePosition[1] + (baseDimensions.height / 2);
+        const baseTopY = basePosition[1] + (baseDimensions.height);
         
         // 假设花瓶高度为0.5米，放在底座天面上方一点
         const vaseHeight = 0.5;
-        const vaseTopY = baseTopY-0.08;
+        const vaseTopY = baseTopY;
         
         // X轴居中
         const centerX = basePosition[0]-baseDimensions.length/2+0.05;
@@ -1010,7 +1040,7 @@ const updateDimensions = useCallback((elementId, newDimensions, elementType) => 
       // 2. 然后，覆盖那些 *必须* 被重置的属性
       id: `text-${Date.now()}`,              // 始终生成一个全新的 ID
       monumentId: textData.monumentId,      // 这个 ID 由 DesignerPage.jsx 传入（确保是当前碑体）
-      position: [0, 0, 0],              // 始终将位置重置为默认值
+      position: [0, 0, -1],              // 始终将位置重置为默认值
       rotation: [0, 0, 0],              // 始终将旋转重置为默认值
       isSelected: true,                 // 始终选中新添加的文字
       isDragging: false,
