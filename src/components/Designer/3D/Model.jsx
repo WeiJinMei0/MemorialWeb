@@ -343,7 +343,13 @@ const Model = forwardRef(({
         box.getCenter(center);
 
         const originalDims = { length: size.x, width: size.z, height: size.y };
-        
+        // CS新增日志输出模型信息
+        const modelName = clonedScene.name || elementId || 'Unnamed Model';
+        console.log(`模型位置: ${modelName}, 当前 Position:`, clonedScene.position.toArray());
+        console.log(`模型维度: ${modelName}, X=${originalDims.length}, Y=${originalDims.height}, Z=${originalDims.width}`);
+        const bottomCenter = new THREE.Vector3(center.x, center.y - size.y / 2, center.z);
+        console.log(`模型底部中心点 ${modelName},: ${bottomCenter.toArray()}`);
+        console.log(`=============================================`);
         if (isMounted) {
           setOriginalDimensions(originalDims);
           setSelectionBox({ 

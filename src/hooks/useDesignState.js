@@ -54,6 +54,29 @@ const initialDesignState = {
   currentMaterial: 'Black'
 };
 
+const tabletInitLength = 0.761999964; // 碑体默认长度
+const tabletInitWidth = 0.20320001150977138;   // 碑体默认宽度
+const tabletInitHeight = 0.6095151570481228;  // 碑体默认高度
+
+const baseInitLength = 0.9144; // 底座默认长度
+const baseInitWidth = 0.3555999644456996;   // 底座默认宽度
+const baseInitHeight = 0.20320000099831273;  // 底座默认高度
+
+
+const baseInitX = 0;
+const baseInitY =  0 - baseInitHeight;  // 底座默认的初始 Y 轴位置
+const baseInitZ = 0;   // 底座默认的初始 Z 轴位置
+
+const tabletInitX = 0;
+const tabletInitY = 0; // 碑体默认的初始 Y 轴位置
+const tabletInitZ = 0; // 碑体默认的初始 Z 轴位置
+
+
+const monumentInitX = 0
+const monumentInitY = 0
+const monumentInitZ = 0
+
+
 // --- 合并点：从同事的 useDesignState.js 添加了 FONT_OPTIONS ---
 const FONT_OPTIONS = [
   // --- 韩文字体 (Korean Fonts) ---
@@ -307,7 +330,7 @@ export const useDesignState = () => {
   // 它们代表旧的逻辑，新逻辑在 Scene3D.jsx 中处理
 
 
-  // --- 这是您文件中的 loadDefaultTablet (现在它被正确包含了) ---
+  // 画布初始化放置一个monument（family = 'Tablet'）和对应的底座
   const loadDefaultTablet = useCallback(() => {
     console.log("加载初始模型")
     const family = 'Tablet';
@@ -315,12 +338,12 @@ export const useDesignState = () => {
     const polish = 'P5';
     const color = 'Black';
 
-    // 计算默认位置：碑在底座上面，紧贴着
-    const basePosition = [0, -0.3, 0];
+    // 设置默认位置
+    const basePosition = [0, baseInitY, baseInitZ];
     const monumentPosition = [
-      0, // X轴居中（底座宽度小于14英寸）
-       -0.5+0.4, // Y轴在底座上面
-      0 // Z轴与底座对齐
+      0, 
+      tabletInitY, 
+      tabletInitZ 
     ];
 
     const monument = {
@@ -366,85 +389,199 @@ export const useDesignState = () => {
     }));
   }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
+  // 侧边栏Shapes选择添加新产品，替换逻辑，需清空现有状态，只保留新碑体
   const addProduct = useCallback((productData) => {
     const { family, class: productClass, polish = 'P5' } = productData;
     const color = designState.currentMaterial;
     const familyConfig = PRODUCT_FAMILIES[family];
 
-    if (!familyConfig) return;
+    if (!familyConfig) {
+      console.warn('【addProduct】未找到产品家族配置，终止执行', { family, productData });
+      return;
+    }
+
+    // CS新增日志
+    console.log('【addProduct】传入的 productData：', productData);
+    console.log('📋 当前设计状态（旧）：', {
+      monuments: designState.monuments,
+      bases: designState.bases,
+      subBases: designState.subBases,
+      currentMaterial: designState.currentMaterial
+    });
 
     updateDesignState(prev => {
-      // 1. 创建新的碑体
-      const monument = {
-        id: 'monument-1',
-        type: 'monument',
-        family,
-        class: productClass,
-        polish,
-        color,
-        modelPath: productData.modelPath,
-        texturePath: "",
-        position: [0, 0, 0],
-        dimensions: { length: 0, width: 0, height: 0 },
-        weight: 0,
-        label: `${family}1`,
-        isSelected: false
-      };
-
-      // 2. 清空现有状态，只保留新碑体
-      const newState = {
-        ...prev,
-        monuments: [monument],
-        bases: [],
-        subBases: []
-      };
-
-      // 3. 如果新产品需要底座，添加底座
-      if (familyConfig.needsBase) {
-        const base = {
-          id: 'base-1',
-          type: 'base',
-          polish: 'PT',
+      // 1. 提取旧状态核心信息
+      const oldMonuments = prev.monuments || [];
+      const oldBases = prev.bases || [];
+      const oldSubBases = prev.subBases || [];
+      const oldSelectedMonument = oldMonuments.find(m => m.isSelected === true); // 选中的第一个旧碑体
+      const oldMonumentsCount = oldMonuments.length;
+      let oldFamily = ''; // 初始化默认值
+      if (oldMonumentsCount === 0) {
+        oldFamily = '';
+      } else if (oldMonumentsCount === 1) {
+        oldFamily = oldMonuments[0].family || ''; // 加||''防止family为undefined
+      } else if (oldMonumentsCount === 2) {
+        oldFamily = 'Tablet'; // 业务规则：数量为2时默认是Tablet
+      } else {
+        oldFamily = oldMonuments[0].family || ''; // 兼容数量>2的边界情况（可选）
+        console.log(`oldMonuments数量>2!!!`);
+      }
+      
+      // 2. 创建新的碑体
+      let newMonumentPosition = [monumentInitX, monumentInitY, monumentInitZ]; 
+      
+      const newState = { ...prev };
+      let newMonument = [];
+      let newBases = [];
+      let newSubBases = [];
+      // 1. 新增产品是Tablet的场景
+      if (family === 'Tablet') {
+        let newPosition = [monumentInitX, monumentInitY, monumentInitZ]; // 默认原点
+        // 旧产品不是Tablet
+        if (oldFamily !== 'Tablet'){
+          // 清空所有，新Tablet放原点
+          newMonument = {
+            id: 'monument-1',
+            type: 'monument',
+            family,
+            class: productClass,
+            polish,
+            color,
+            modelPath: productData.modelPath,
+            texturePath: "",
+            position: newPosition,
+            dimensions: { length: 0, width: 0, height: 0 },
+            weight: 0,
+            label: `${family}1`,
+            isSelected: false
+          };
+          const base = {
+            id: 'base-1',
+            type: 'base',
+            polish: 'PT',
+            color,
+            modelPath: "/models/Bases/Base.glb",
+            texturePath: "",
+            position: [baseInitX, baseInitY, baseInitZ],
+            dimensions: { length: 0, width: 0, height: 0 },
+            weight: 0,
+            label: `Base1`,
+            isSelected: false
+          };
+          newBases = [base];
+          console.log('🗑️ 旧非Tablet、新是Tablet：清空所有，新增底座，新Tablet放原点', newPosition);
+        }
+        else {
+          // 旧产品是Tablet
+          const selectedOldTablet = oldMonuments.find(m => m.family === 'Tablet' && m.isSelected === true);
+          const oldTabletCount = oldMonuments.filter(m => m.family === 'Tablet').length;
+          if (selectedOldTablet) {
+            // 有选中的Tablet：替换该Tablet，保留底座/副底座
+            newPosition = selectedOldTablet.position || newPosition;
+            // 替换选中的Tablet（保留原ID，避免关联数据失效）
+            newMonument = oldMonuments.map(m => {
+              // 只修改选中的Tablet，其他Tablet完全保留（位置/属性都不变）
+              if (m.id === selectedOldTablet.id) {
+                return {
+                  ...m,
+                  family,
+                  class: productClass,
+                  polish,
+                  color,
+                  modelPath: productData.modelPath,
+                  position: newPosition // 继承选中项原位置
+                };
+              }
+              // 未选中的Tablet直接返回原对象，保留所有属性（包括位置）
+              return m;
+            });
+            newBases = [...oldBases]; // 保留旧底座
+            newSubBases = [...oldSubBases]; // 保留旧副底座
+            console.log(`📍 旧有${oldTabletCount}个Tablet且有选中项， 替换选中的Tablet，保留底座/副底座,继承选中位置：`, newPosition);
+          }
+          else{
+            // 无选中的Tablet：清空所有旧Tablet，新Tablet放原点
+            newMonument = {
+              id: 'monument-1',
+              type: 'monument',
+              family,
+              class: productClass,
+              polish,
+              color,
+              modelPath: productData.modelPath,
+              texturePath: "",
+              position: newPosition,
+              dimensions: { length: 0, width: 0, height: 0 },
+              weight: 0,
+              label: `${family}1`,
+              isSelected: false
+            };
+            newBases = [...oldBases]; // 保留旧底座
+            newSubBases = [...oldSubBases]; // 保留旧副底座
+            console.log(`📍 旧有${oldTabletCount}个Tablet但无选中项，清空所有旧Tablet，仅保留新Tablet,新Tablet放原点：`, newPosition);
+          }
+        }
+      }
+      // 2. 新增产品不是Tablet的场景
+      else {
+        let newPosition = [monumentInitX, monumentInitY, monumentInitZ] 
+        if( oldFamily !== 'Tablet' && oldFamily !== ''){
+          newPosition = oldMonuments[0].position || newPosition;
+        }
+        // 清空所有旧碑体
+        newMonument = {
+          id: 'monument-1',
+          type: 'monument',
+          family,
+          class: productClass,
+          polish,
           color,
-          modelPath: "/models/Bases/Base.glb",
+          modelPath: productData.modelPath,
           texturePath: "",
-          position: [0, 0, 0],
+          position: newPosition,
           dimensions: { length: 0, width: 0, height: 0 },
           weight: 0,
-          label: `Base1`,
+          label: `${family}1`,
           isSelected: false
         };
-        newState.bases = [base];
+        console.log('🗑️ 新非Tablet产品：清空旧底座/副底座，新增碑体位置',newPosition);
       }
+      // 3. 设置新状态
+      // 判断 newMonument 是否是数组, 如果是，直接用这个数组，如果不是则转换为数组
+      newState.monuments = Array.isArray(newMonument) ? newMonument : (newMonument ? [newMonument] : []);
+      newState.bases = newBases;
+      newState.subBases = newSubBases;
+
+      console.log('✅ 最终新状态：', {
+        monuments: newState.monuments,
+        bases: newState.bases,
+        subBases: newState.subBases
+      });
+      console.groupEnd();
 
       return newState;
     });
   }, [designState, updateDesignState]);
 
-  // 修改：添加第二个碑体，不需要底座，y轴与第一个碑体一致
+  // 添加碑体，至多两个
   const addTablet = useCallback(() => {
-    const MAX_MONUMENTS = 2;
-    
+    // 统计family为Tablet的碑体数量（非所有碑体）
+    const currentTabletCount = designState.monuments.filter(m => m.family === 'Tablet').length;
     // 检查是否已满
-    if (designState.monuments.length >= MAX_MONUMENTS) {
-      message.warning('最多只能添加2个碑体，无法继续添加');
+    if (currentTabletCount >= 2) {
+      message.warning('最多只能添加2个Tablet碑体，无法继续添加');
       return;
     }
 
-    // 获取第一个碑体的y轴位置
-    const firstMonument = designState.monuments[0];
-    const yPosition = firstMonument ? firstMonument.position[1] : 0;
+    const tabletPosition = [tabletInitX,tabletInitY,tabletInitZ];
 
-    const monumentPosition = [
-      1, // X轴居中（底座宽度小于14英寸）
-      yPosition, // Y轴在底座上面
-      0 // Z轴与底座对齐
-    ];
     updateDesignState(prev => {
       const newMonumentIndex = prev.monuments.length + 1;
-      
+      const newTabletIndex = currentTabletCount + 1;
+
       const monument = {
-        id: `monument-${Date.now()}`,
+        id: `monument-${newMonumentIndex}`,
         type: 'monument',
         family: 'Tablet',
         class: 'Serp Top',
@@ -452,10 +589,10 @@ export const useDesignState = () => {
         color: prev.currentMaterial,
         modelPath: "/models/Shapes/Tablet/Serp Top.glb",
         texturePath: "",
-        position: monumentPosition, // y轴与第一个碑体一致
+        position: tabletPosition, 
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
-        label: `Tablet${newMonumentIndex}`,
+        label: `Tablet${newTabletIndex}`,
         isSelected: false
       };
 
@@ -469,38 +606,31 @@ export const useDesignState = () => {
   }, [designState, updateDesignState]);
 
 
-  // 暂时屏蔽 addBase功能
-  // const addBase = useCallback(() => {
-  //   updateDesignState(prev => { 
-  //     // 计算新底座的编号
-  //     const newBaseIndex = prev.bases.length + 1;
-  //     const base = {
-  //       id: `base-${Date.now()}`,
-  //       type: 'base',
-  //       polish: 'PT',
-  //       color: prev.currentMaterial,
-  //       // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
-  //       modelPath: "/models/Bases/Base.glb",
-  //       texturePath: "", // 不再需要，由 Scene3D.jsx 处理
-  //       position: [prev.bases.length * 2, 0, 0],
-  //       dimensions: { length: 0, width: 0, height: 0 },
-  //       weight: 0,
-  //       label: `Base${newBaseIndex}` // 添加标识，如 Base1, Base2
-  //     };
-
-  //     return {
-  //       ...prev,
-  //       bases: [...prev.bases, base]
-  //     };
-  //   });
-  // }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
-
   const addBase = useCallback(() => {
-    // 仅弹出提示，不执行任何添加底座的逻辑
-    message.info('墓碑默认已包含底座，无需额外添加！');
-    // 直接返回，终止函数
-    return;
-  }, [message]); // 依赖项保留message（确保提示正常）
+    updateDesignState(prev => { 
+      // 计算新底座的编号
+      const newBaseIndex = prev.bases.length + 1;
+      const base = {
+        id: `base-${Date.now()}`,
+        type: 'base',
+        polish: 'PT',
+        color: prev.currentMaterial,
+        // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
+        modelPath: "/models/Bases/Base.glb",
+        texturePath: "", // 不再需要，由 Scene3D.jsx 处理
+        position: [prev.bases.length * 2, 0, 0],
+        dimensions: { length: 0, width: 0, height: 0 },
+        weight: 0,
+        label: `Base${newBaseIndex}` // 添加标识，如 Base1, Base2
+      };
+
+      return {
+        ...prev,
+        bases: [...prev.bases, base]
+      };
+    });
+  }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
+
   
   const removeBase = useCallback((baseId) => {
     updateDesignState(prev => ({
@@ -508,7 +638,6 @@ export const useDesignState = () => {
       bases: prev.bases.filter(base => base.id !== baseId)
     }));
   }, [updateDesignState]);
-
 
 
   const addSubBase = useCallback(() => {
