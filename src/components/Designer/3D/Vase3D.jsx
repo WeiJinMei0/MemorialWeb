@@ -1,10 +1,18 @@
 // src/components/Designer/3d/Vase3D.jsx
 import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, useLayoutEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
-import { Html, TransformControls } from '@react-three/drei';
+import { Html } from '@react-three/drei';
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import * as THREE from 'three';
 import { getColorValue } from './utils';
+
+// --- 操作图标 ---
+import {
+  DeleteOutlined,
+  CopyOutlined,
+  SwapOutlined,
+  VerticalAlignTopOutlined
+} from '@ant-design/icons';
 
 // --- 性能优化：全局复用数学对象 ---
 const _mouse = new THREE.Vector2();
@@ -22,6 +30,10 @@ const Vase3D = forwardRef(({
   onSelect,
   onUpdateVaseElementState,
   transformMode = 'translate',
+  onDelete,
+  onFlip,
+  onDuplicate,
+  onSave
 }, ref) => {
   const { gl, camera, controls } = useThree();
   const groupRef = useRef();
@@ -120,9 +132,68 @@ const Vase3D = forwardRef(({
     }
   }, [vase.position, vase.scale, vase.rotation]);
 
+  // --- 4. 按钮处理函数 ---
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    if (onDelete) onDelete(vase.id, 'vase');
+  };
 
+  const handleDuplicate = (e) => {
+    e.stopPropagation();
+    if (onDuplicate) onDuplicate(vase.id, 'vase');
+  };
 
-  // --- 5. 交互样式 ---
+  const handleFlipX = (e) => {
+    e.stopPropagation();
+    if (onFlip) onFlip(vase.id, 'x', 'vase');
+  };
+
+  const handleFlipY = (e) => {
+    e.stopPropagation();
+    if (onFlip) onFlip(vase.id, 'y', 'vase');
+  };
+
+  const handleSave = (e) => {
+    e.stopPropagation();
+    if (onSave) onSave(vase);
+  };
+
+  // --- 5. 按钮样式 ---
+  const btnStyle = {
+    background: 'white',
+    color: '#333',
+    borderRadius: '50%',
+    cursor: 'pointer',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '24px',
+    height: '24px',
+    fontSize: '12px',
+    pointerEvents: 'auto',
+    transition: 'all 0.1s',
+    border: '1px solid #e0e0e0'
+  };
+
+  // --- 6. 计算选中框的四个角位置 ---
+  const getCornerPositions = useMemo(() => {
+    if (!selectionBox) return null;
+    
+    const { size, center } = selectionBox;
+    const halfSize = new THREE.Vector3(size[0] / 2, size[1] / 2, size[2] / 2);
+    
+    // 计算四个角（在当前局部坐标系中）
+    // 注意：我们使用 X 和 Y 方向的角，Z 方向保持中心
+    return {
+      topRight: [center[0] + halfSize.x, center[1] + halfSize.y, center[2]],
+      topLeft: [center[0] - halfSize.x, center[1] + halfSize.y, center[2]],
+      bottomRight: [center[0] + halfSize.x, center[1] - halfSize.y, center[2]],
+      bottomLeft: [center[0] - halfSize.x, center[1] - halfSize.y, center[2]]
+    };
+  }, [selectionBox]);
+
+  // --- 7. 交互样式 ---
   useEffect(() => {
     if (isSelected && transformMode === 'translate' && isHovered) {
       document.body.style.cursor = 'move';
@@ -153,7 +224,7 @@ const Vase3D = forwardRef(({
     }
   };
 
-  // --- 6. 拖拽逻辑 (X/Y) ---
+  // --- 8. 拖拽逻辑 (X/Y) ---
   const getIntersects = (clientX, clientY, rect, cameraZ) => {
     const x = ((clientX - rect.left) / rect.width) * 2 - 1;
     const y = -((clientY - rect.top) / rect.height) * 2 + 1;
@@ -208,7 +279,7 @@ const Vase3D = forwardRef(({
     }
   };
 
-  // --- 7. 滚轮逻辑 (Z轴) ---
+  // --- 9. 滚轮逻辑 (Z轴) ---
   const handleWheel = (e) => {
     if (!isSelected || transformMode !== 'translate' || !groupRef.current) return;
 
@@ -246,16 +317,6 @@ const Vase3D = forwardRef(({
 
   return (
     <>
-      {isSelected && transformMode === 'rotate' && (
-        <TransformControls
-          ref={controlRef}
-          object={groupRef}
-          onMouseUp={commitTransform}
-          mode="rotate"
-          size={1.0}
-        />
-      )}
-
       <group
         ref={groupRef}
         userData={{ isVase: true, vaseId: vase.id }}
@@ -269,12 +330,47 @@ const Vase3D = forwardRef(({
         ) : (
           <>
             <primitive object={model} />
+            
+            {/* 选中框 */}
             {isSelected && selectionBox && selectionBoxGeometry && (
               <group position={selectionBox.center}>
                 <lineSegments>
                   <edgesGeometry args={[selectionBoxGeometry]} />
                   <lineBasicMaterial color="#1890ff" depthTest={false} transparent opacity={0.8} />
                 </lineSegments>
+                
+                {/* 操作按钮 - 放在四个角上 */}
+                {getCornerPositions && (
+                  <>
+                    {/* 右上角：删除按钮 */}
+                    <Html position={[selectionBox.size[0]/2, selectionBox.size[1]/2, 0]} zIndexRange={[100, 0]} center>
+                      <div style={btnStyle} onClick={handleDelete} title="删除">
+                        <DeleteOutlined />
+                      </div>
+                    </Html>
+                    
+                    {/* 左上角：左右翻转按钮 */}
+                    <Html position={[-selectionBox.size[0]/2, selectionBox.size[1]/2, 0]} zIndexRange={[100, 0]} center>
+                      <div style={btnStyle} onClick={handleFlipX} title="左右翻转">
+                        <SwapOutlined />
+                      </div>
+                    </Html>
+                    
+                    {/* 右下角：上下翻转按钮 */}
+                    <Html position={[selectionBox.size[0]/2, -selectionBox.size[1]/2, 0]} zIndexRange={[100, 0]} center>
+                      <div style={btnStyle} onClick={handleFlipY} title="上下翻转">
+                        <VerticalAlignTopOutlined />
+                      </div>
+                    </Html>
+                    
+                    {/* 左下角：复制按钮 */}
+                    <Html position={[-selectionBox.size[0]/2, -selectionBox.size[1]/2, 0]} zIndexRange={[100, 0]} center>
+                      <div style={btnStyle} onClick={handleDuplicate} title="复制">
+                        <CopyOutlined />
+                      </div>
+                    </Html>
+                  </>
+                )}
               </group>
             )}
           </>
@@ -285,4 +381,3 @@ const Vase3D = forwardRef(({
 });
 
 export default Vase3D;
-

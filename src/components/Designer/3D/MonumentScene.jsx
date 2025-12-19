@@ -627,6 +627,9 @@ const MonumentScene = forwardRef(({
           onSelect={handleSelectVase}
           onUpdateVaseElementState={onUpdateVaseElementState}
           transformMode={vaseTransformMode}
+          onDelete={onDeleteElement}
+          onFlip={onFlipElement}
+          onDuplicate={onDuplicateElement}
         />
       ))}
 

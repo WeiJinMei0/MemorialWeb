@@ -21,7 +21,7 @@ import TextEditor from './TextEditor';
 import MaterialPanel from './MaterialPanel';
 import { useDesignState } from '../../hooks/useDesignState';
 import ArtEditorPanel from './ArtEditorPanel'
-import VaseEditorPanel from './VaseEditorPanel' // 新增导入
+import VaseEditorPanel from './待删VaseEditorPanel.jsx' // 新增导入
 import './DesignerPage.css';
 import OrderInfoModal from './Export/OrderInfoModal.jsx';
 import PrintPreviewModal from "./Export/PrintPreviewModal.jsx";
@@ -1447,7 +1447,7 @@ const DesignerPage = () => {
                 />
               )}
               {/* 花瓶编辑面板*/}
-              {selectedVase && (
+              {/* {selectedVase && (
                 <VaseEditorPanel
                   vase={selectedVase}
                   onClose={handleCloseVaseEditor}
@@ -1455,7 +1455,7 @@ const DesignerPage = () => {
                   onDuplicate={handleVaseDuplicate}
                   onFlip={flipElement}
                 />
-              )}
+              )} */}
             </div>
           </div>
         </Content>
