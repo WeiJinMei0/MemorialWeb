@@ -1,3 +1,141 @@
+// ================== 字体 family 支持语言映射 ==================
+// family -> 支持的语言数组
+const FONT_FAMILY_LANGUAGES = {
+  // 韩文字体
+  '(한)고인돌B': ['ko', 'en'],
+  '(한)볼펜체C': ['ko', 'en'],
+  '(한)판화체B': ['ko', 'en'],
+  '(환)가을잎체(굵은)': ['ko', 'en'],
+  '(환)궁서체': ['ko', 'en'],
+  '(환)예서(중간)': ['ko', 'en'],
+  '(환)진체(가는)': ['ko', 'en'],
+  '국립박물관문화재단클래식B': ['ko', 'en'],
+  '대-물감오R': ['ko', 'en'],
+  'ChosunGs': ['ko', 'en'],
+  'MDSol': ['ko', 'en'],
+  // 英文字体
+  'AlgerianBasDEE': ['en', 'it', 'hr', 'es', 'pt', 'fr', 'de', 'nl', 'sv'],
+  'Arial': ['en', 'vi', 'it', 'hr', 'es', 'pt'],
+  'Arial Unicode MS': ['en', 'zh', 'vi', 'it', 'hr', 'es', 'pt'],
+  'Bookman Old Style': ['en', 'it', 'hr', 'es', 'pt'],
+  'Bookman Profi': ['en', 'ru'],
+  'Calibri': ['en', 'ru', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'Calisto MT': ['en', 'ru', 'it', 'es', 'pt', 'de', 'fr'],
+  'Cambria': ['en', 'ru', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'CheltenhamW01-BoldCondensed': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'CityDEEMed': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Colonna MT': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Comic Sans MS': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Copperplate Gothic Bold': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Copperplate Gothic Light': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'DRome': ['en', 'it', 'es', 'pt', 'de'],
+  'Dusha V5': ['en', 'ru', 'it', 'es', 'pt', 'de', 'fr'],
+  'EnglishScriptEF': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Gauranga': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'GeèzEdit Amharic P': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Grantham': ['en', 'de'],
+  'Helvetica Medium': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Lucida Calligraphy': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Lucida Handwriting': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Lynda Cursive': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Madina': ['en', 'it', 'pt', 'de', 'fr'],
+  'Magnolia Script': ['en', 'ru', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Common Gothic SKS': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Condensed Roman SKS .75in-1in': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Government SKS Extended': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Government SKS Regulation': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Modified Roman Raised CR': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Raised Modified Roman SKS': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Vermarco PC': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MythicaW01-Medium': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Nyala': ['en', 'am', 'it', 'es', 'pt', 'hr', 'de', 'fr'],
+  'OldEnglish': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'OldeWorld-Bold': ['en', 'it', 'es', 'pt', 'hr', 'de', 'fr'],
+  'Script MT Bold': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'SnellRoundhand Script': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Andale Sans UI': ['en', 'zh', 'ko', 'ru', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'Spring Beauty': ['en', 'it', 'es', 'pt', 'fr'],
+  'Square721 BT': ['en', 'it', 'es', 'pt', 'hr', 'de', 'fr'],
+  '標構體': ['en', 'zh', 'it', 'es', 'pt', 'de', 'fr'],
+  // 中文字体
+  '方正粗楷简体': ['en', 'zh', 'ru'],
+  '方正楷体简体': ['en', 'zh', 'ru'],
+  '方正隶二繁体': ['en', 'zh', 'ru'],
+  '华文隶书': ['en', 'zh', 'ru', 'it', 'es', 'pt', 'de'],
+  '华文中宋': ['en', 'zh', 'ru', 'it', 'es', 'pt', 'hr', 'uk', 'de', 'fr'],
+  '华文新魏': ['en', 'zh', 'ru', 'it', 'es', 'pt', 'de'],
+  '華康特粗楷體': ['en', 'zh'],
+  '经典繁毛楷': ['en', 'zh', 'ru', 'it', 'es', 'pt', 'hr', 'de'],
+  '黑体': ['en', 'zh', 'ru'],
+  '楷体': ['en', 'zh', 'ru'],
+  '隶书': ['en', 'zh', 'ru'],
+  '腾祥伯当行楷繁': ['en', 'zh', 'ru'],
+  '微软雅黑': ['en', 'zh', 'ko', 'ru', 'it', 'es', 'pt', 'vi', 'de', 'fr'],
+  '文鼎特毛楷简繁': ['en', 'zh', 'ru'],
+  '字酷堂石刻体': ['en', 'zh', 'ru'],
+  // 其它
+  'SWItalc': ['it', 'es', 'pt', 'de'],
+  'Times New Roman': ['en', 'ru', 'ar', 'fa', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'Times-Roman': ['en', 'it', 'es', 'pt', 'hr', 'de', 'fr'],
+  'TR Comic Sans MS': ['en', 'ru', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'Zapf Chancery BT': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'ZapfChan Dm BT': ['en', 'it', 'es', 'pt', 'hr', 'de', 'fr'],
+  'ZapfChancery-MediumItalic Ex': ['en', 'it', 'es', 'pt', 'hr', 'de', 'fr'],
+};
+
+// 语言代码 → 默认字体 family
+const DEFAULT_FONT_FAMILY = {
+  zh: '微软雅黑',
+  en: 'Arial',
+  ko: '(한)고인돌B',
+  ru: 'Arial Unicode MS',
+  it: 'Arial',
+  es: 'Arial',
+  pt: 'Arial',
+  fr: 'Arial',
+  de: 'Arial',
+  hr: 'Arial',
+  vi: 'Arial',
+  am: 'Nyala',
+  uk: '华文中宋',
+  ar: 'Times New Roman',
+  fa: 'Times New Roman',
+  nl: 'Arial',
+  sv: 'Arial',
+};
+
+function extractFontShortName(fontFileName) {
+  // 去掉下划线及后面的部分
+  return fontFileName.split('_')[0];
+}
+
+/**
+ * 获取指定 family 是否支持某语言
+ */
+function isFamilySupportLanguage(family, language) {
+  if (!family || !language) return false;
+  const shortName = extractFontShortName(family);
+  const langs = FONT_FAMILY_LANGUAGES[shortName];
+  if (!langs) return false;
+  return langs.includes(language);
+}
+
+/**
+ * 获取指定语言的默认字体 family
+ */
+function getFallbackFontFamily(language) {
+  return DEFAULT_FONT_FAMILY[language] || 'Arial';
+}
+
+/**
+ * 获取用于渲染的字体 family（优先选中字体，若不支持则 fallback）
+ */
+export function getFontFamilyForLanguage(selectedFamily, language) {
+  console.log('getFontFamilyForLanguage', { selectedFamily, language });
+  if (isFamilySupportLanguage(selectedFamily, language)) return selectedFamily;
+  return getFallbackFontFamily(language);;
+
+}
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { message } from 'antd';
 const PRODUCT_FAMILIES = {
