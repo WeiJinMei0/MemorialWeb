@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { message } from 'antd';
+import { message } from 'antd'; 
+import useApp from "antd/es/app/useApp";
+
 const PRODUCT_FAMILIES = {
   'Tablet': {
     needsBase: true,
@@ -54,6 +56,7 @@ const initialDesignState = {
   currentMaterial: 'Black'
 };
 
+
 const tabletInitLength = 0.761999964; // 碑体默认长度
 const tabletInitWidth = 0.20320001150977138;   // 碑体默认宽度
 const tabletInitHeight = 0.6095151570481228;  // 碑体默认高度
@@ -76,6 +79,40 @@ const monumentInitX = 0
 const monumentInitY = 0
 const monumentInitZ = 0
 
+// 工具函数：从标签中提取数字（如Tablet1→1，Base2→2）
+const extractNumFromLabel = (label) => {
+  const num = parseInt(label?.replace(/[^0-9]/g, ''), 10);
+  return num || 0;
+};
+
+// 工具函数：获取现有Monument的序号列表
+const getMonumentNums = (monumentList) => {
+  return MonumentList.map(monument => extractNumFromLabel(monument.label)).filter(num => num > 0);
+};
+
+// 工具函数：获取现有Tablet的序号列表
+const getTabletNums = (tabletList) => {
+  return tabletList.map(tablet => extractNumFromLabel(tablet.label)).filter(num => num > 0);
+};
+
+// 工具函数：获取现有Base的序号列表
+const getBaseNums = (baseList) => {
+  return baseList.map(base => extractNumFromLabel(base.label)).filter(num => num > 0);
+};
+
+// 工具函数：生成新Tablet的标签（取现有最大序号+1）
+const generateNewTabletLabel = (tabletList) => {
+  const tabletNums = getTabletNums(tabletList);
+  const maxNum = tabletNums.length > 0 ? Math.max(...tabletNums) : 0;
+  return maxNum + 1;
+};
+
+// 工具函数：生成新Monument的标签（取现有最大序号+1）
+const generateNewMonumentLabel = (monumentList) => {
+  const monumentNums = getMonumentNums(monumentList);
+  const maxNum = monumentNums.length > 0 ? Math.max(...monumentNums) : 0;
+  return maxNum + 1;
+};
 
 // --- 合并点：从同事的 useDesignState.js 添加了 FONT_OPTIONS ---
 const FONT_OPTIONS = [
@@ -287,6 +324,8 @@ const getFontPath = (nameOrPath) => {
 // --- 添加结束 ---
 
 export const useDesignState = () => {
+  // 获取上下文绑定的 message 实例
+  const { message } = useApp(); 
   const [designState, setDesignState] = useState(initialDesignState)
   const historyRef = useRef([JSON.parse(JSON.stringify(initialDesignState))])
   const historyIndexRef = useRef(0)
@@ -339,9 +378,9 @@ export const useDesignState = () => {
     const color = 'Black';
 
     // 设置默认位置
-    const basePosition = [0, baseInitY, baseInitZ];
+    const basePosition = [baseInitX, baseInitY, baseInitZ];
     const monumentPosition = [
-      0, 
+      tabletInitX, 
       tabletInitY, 
       tabletInitZ 
     ];
@@ -414,7 +453,6 @@ export const useDesignState = () => {
       const oldMonuments = prev.monuments || [];
       const oldBases = prev.bases || [];
       const oldSubBases = prev.subBases || [];
-      const oldSelectedMonument = oldMonuments.find(m => m.isSelected === true); // 选中的第一个旧碑体
       const oldMonumentsCount = oldMonuments.length;
       let oldFamily = ''; // 初始化默认值
       if (oldMonumentsCount === 0) {
@@ -429,8 +467,6 @@ export const useDesignState = () => {
       }
       
       // 2. 创建新的碑体
-      let newMonumentPosition = [monumentInitX, monumentInitY, monumentInitZ]; 
-      
       const newState = { ...prev };
       let newMonument = [];
       let newBases = [];
@@ -525,7 +561,7 @@ export const useDesignState = () => {
       }
       // 2. 新增产品不是Tablet的场景
       else {
-        let newPosition = [monumentInitX, monumentInitY, monumentInitZ] 
+        let newPosition = [monumentInitX, monumentInitY, monumentInitZ] ; // 默认原点
         if( oldFamily !== 'Tablet' && oldFamily !== ''){
           newPosition = oldMonuments[0].position || newPosition;
         }
@@ -567,18 +603,19 @@ export const useDesignState = () => {
   // 添加碑体，至多两个
   const addTablet = useCallback(() => {
     // 统计family为Tablet的碑体数量（非所有碑体）
-    const currentTabletCount = designState.monuments.filter(m => m.family === 'Tablet').length;
-    // 检查是否已满
-    if (currentTabletCount >= 2) {
+    const tabletList = designState.monuments.filter(m => m.family === 'Tablet');
+    // 限制最多2个Tablet
+    if (tabletList.length >= 2) {
       message.warning('最多只能添加2个Tablet碑体，无法继续添加');
       return;
     }
-
+    const monumentList = designState.monuments;
     const tabletPosition = [tabletInitX,tabletInitY,tabletInitZ];
 
     updateDesignState(prev => {
-      const newMonumentIndex = prev.monuments.length + 1;
-      const newTabletIndex = currentTabletCount + 1;
+      // 生成新Tablet标签（最大序号+1，删除后新增不会覆盖原有命名）
+      const newTabletIndex = generateNewTabletLabel(tabletList);
+      const newMonumentIndex = generateNewMonumentLabel(monumentList);
 
       const monument = {
         id: `monument-${newMonumentIndex}`,
@@ -608,17 +645,35 @@ export const useDesignState = () => {
 
   const addBase = useCallback(() => {
     updateDesignState(prev => { 
+      // 筛选出所有Tablet类型的碑体（仅匹配Tablet）
+      const tabletList = prev.monuments.filter(m => m.family === 'Tablet');
+      const tabletCount = tabletList.length;
+      // 当前已有的底座数量
+      const currentBaseCount = prev.bases.length;
+      // 校验规则：
+      // 底座数量 ≥ 碑体数量 → 无法添加（一个base对应一个tablet）
+      // 碑体数量 < 2 且 已有1个底座 → 无法添加第二个底座
+      if (currentBaseCount >= tabletCount || tabletCount === 0) {
+        message.warning(
+          tabletCount === 0 
+            ? "暂无Tablet碑体，无法添加底座" 
+            : `当前已有${currentBaseCount}个底座，与${tabletCount}个Tablet碑体数量匹配，无法新增底座`
+        );
+        return prev; // 不修改状态
+      }
+
       // 计算新底座的编号
-      const newBaseIndex = prev.bases.length + 1;
+      const newBaseIndex = currentBaseCount + 1;
+
       const base = {
-        id: `base-${Date.now()}`,
+        id: `base-${newBaseIndex}`,
         type: 'base',
         polish: 'PT',
         color: prev.currentMaterial,
         // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
         modelPath: "/models/Bases/Base.glb",
         texturePath: "", // 不再需要，由 Scene3D.jsx 处理
-        position: [prev.bases.length * 2, 0, 0],
+        position: [baseInitX, baseInitY, baseInitZ],
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
         label: `Base${newBaseIndex}` // 添加标识，如 Base1, Base2
