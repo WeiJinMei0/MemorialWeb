@@ -87,7 +87,7 @@ const extractNumFromLabel = (label) => {
 
 // 工具函数：获取现有Monument的序号列表
 const getMonumentNums = (monumentList) => {
-  return MonumentList.map(monument => extractNumFromLabel(monument.label)).filter(num => num > 0);
+  return monumentList.map(monument => extractNumFromLabel(monument.label)).filter(num => num > 0);
 };
 
 // 工具函数：获取现有Tablet的序号列表
@@ -111,6 +111,13 @@ const generateNewTabletLabel = (tabletList) => {
 const generateNewMonumentLabel = (monumentList) => {
   const monumentNums = getMonumentNums(monumentList);
   const maxNum = monumentNums.length > 0 ? Math.max(...monumentNums) : 0;
+  return maxNum + 1;
+};
+
+// 工具函数：生成新Base的标签（匹配无Base的最小序号Tablet）
+const generateNewBaseLabel = (baseList) => {
+  const baseNums = getBaseNums(baseList);
+  const maxNum = baseNums.length > 0 ? Math.max(...baseNums) : 0;
   return maxNum + 1;
 };
 
@@ -616,7 +623,7 @@ export const useDesignState = () => {
       // 生成新Tablet标签（最大序号+1，删除后新增不会覆盖原有命名）
       const newTabletIndex = generateNewTabletLabel(tabletList);
       const newMonumentIndex = generateNewMonumentLabel(monumentList);
-
+      
       const monument = {
         id: `monument-${newMonumentIndex}`,
         type: 'monument',
@@ -650,7 +657,6 @@ export const useDesignState = () => {
       const tabletCount = tabletList.length;
       // 当前已有的底座数量
       const currentBaseCount = prev.bases.length;
-      // 校验规则：
       // 底座数量 ≥ 碑体数量 → 无法添加（一个base对应一个tablet）
       // 碑体数量 < 2 且 已有1个底座 → 无法添加第二个底座
       if (currentBaseCount >= tabletCount || tabletCount === 0) {
@@ -662,9 +668,8 @@ export const useDesignState = () => {
         return prev; // 不修改状态
       }
 
-      // 计算新底座的编号
-      const newBaseIndex = currentBaseCount + 1;
-
+      // 生成新底座标签（最大序号+1，删除后新增不会覆盖原有命名）
+      const newBaseIndex = generateNewBaseLabel(prev.bases);
       const base = {
         id: `base-${newBaseIndex}`,
         type: 'base',
@@ -869,110 +874,111 @@ export const useDesignState = () => {
 
 
   // 在 updateDimensions 函数中，尺寸改变时重新计算位置
-const updateDimensions = useCallback((elementId, newDimensions, elementType) => {
-  updateDesignState(prev => {
-    const updateElement = (elements) =>
-      elements.map(element => {
-        if (element.id === elementId) {
-          const currentDims = element.dimensions;
-          const newDims = {
-            length: Number(newDimensions.length) || 1,
-            width: Number(newDimensions.width) || 1,
-            height: Number(newDimensions.height) || 1
-          };
-          
-          if (
-            currentDims.length === newDims.length &&
-            currentDims.width === newDims.width &&
-            currentDims.height === newDims.height
-          ) {
-            return element;
-          }
-          
-          // 尺寸改变后，如果需要重新计算位置
-          let newPosition = element.position;
-          
-          // 如果是底座或碑，根据规则重新计算位置
-          if (elementType === 'base' || elementType === 'monument') {
-            // 查找对应的碑或底座
-            const isBase = elementType === 'base';
-            const targetId = isBase ? element.id : element.bindBaseId;
-            const relatedElements = isBase ? 
-              prev.monuments.filter(m => m.bindBaseId === targetId) :
-              prev.bases.filter(b => b.id === targetId);
+  const updateDimensions = useCallback((elementId, newDimensions, elementType) => {
+    updateDesignState(prev => {
+      const updateElement = (elements) =>
+        elements.map(element => {
+          if (element.id === elementId) {
+            const currentDims = element.dimensions;
+            const newDims = {
+              length: Number(newDimensions.length) || 1,
+              width: Number(newDimensions.width) || 1,
+              height: Number(newDimensions.height) || 1
+            };
+            // 尺寸完全一样，不更新 state
+            if (
+              currentDims.length === newDims.length &&
+              currentDims.width === newDims.width &&
+              currentDims.height === newDims.height
+            ) {
+              return element;
+            }
             
-            if (relatedElements.length > 0) {
-              const related = relatedElements[0];
-              const INCH_IN_METERS = 0.0254;
+            // 尺寸改变后，如果需要重新计算位置
+            let newPosition = element.position;
+            
+            // 如果是底座或碑，根据规则重新计算位置
+            if (elementType === 'base' || elementType === 'monument') {
+              // 查找对应的碑或底座
+              const isBase = elementType === 'base';
+              const targetId = isBase ? element.id : element.bindBaseId;
+              const relatedElements = isBase ? 
+                prev.monuments.filter(m => m.bindBaseId === targetId) :
+                prev.bases.filter(b => b.id === targetId);
               
-              if (isBase) {
-                // 底座尺寸改变，重新计算碑的位置
-                const baseWidth = newDims.width;
-                const monumentLength = related.dimensions.length || 0;
+              if (relatedElements.length > 0) {
+                const related = relatedElements[0];
+                const INCH_IN_METERS = 0.0254;
                 
-                let monumentX = element.position[0];
-                if (baseWidth < 14 * INCH_IN_METERS) {
-                  // 底座宽度小于14"，碑在底座前后宽度居中
-                  monumentX = element.position[0] + (newDims.length - monumentLength) / 2;
+                if (isBase) {
+                  // 底座尺寸改变，重新计算碑的位置
+                  const baseWidth = newDims.width;
+                  const monumentLength = related.dimensions.length || 0;
+                  
+                  let monumentX = element.position[0];
+                  if (baseWidth < 14 * INCH_IN_METERS) {
+                    // 底座宽度小于14"，碑在底座前后宽度居中
+                    monumentX = element.position[0] + (newDims.length - monumentLength) / 2;
+                  } else {
+                    // 底座宽度大于14"，碑背面离底座边缘3"
+                    const threeInches = 3 * INCH_IN_METERS;
+                    monumentX = element.position[0] + newDims.length - monumentLength - threeInches;
+                  }
+                  
+                  newPosition = [
+                    monumentX,
+                    element.position[1] + newDims.height,
+                    element.position[2]
+                  ];
                 } else {
-                  // 底座宽度大于14"，碑背面离底座边缘3"
-                  const threeInches = 3 * INCH_IN_METERS;
-                  monumentX = element.position[0] + newDims.length - monumentLength - threeInches;
+                  // 碑尺寸改变，重新计算底座位置（如果需要）
+                  // 这里可以根据需要调整底座位置
                 }
-                
-                newPosition = [
-                  monumentX,
-                  element.position[1] + newDims.height,
-                  element.position[2]
-                ];
-              } else {
-                // 碑尺寸改变，重新计算底座位置（如果需要）
-                // 这里可以根据需要调整底座位置
               }
             }
+            // console.log(`更新${elementId}尺寸,新尺寸：`, newDims);
+            // console.log(`更新${elementId}尺寸，重新计算位置：`, newPosition);
+            return {
+              ...element,
+              dimensions: newDims,
+              position: newPosition,
+              weight: calculateWeight(newDims)
+            };
           }
-          
-          return {
-            ...element,
-            dimensions: newDims,
-            position: newPosition,
-            weight: calculateWeight(newDims)
-          };
-        }
-        return element;
-      });
+          return element;
+        });
 
-    let updatedState = { ...prev };
+      let updatedState = { ...prev };
 
-    switch (elementType) {
-      case 'monument':
-        updatedState.monuments = updateElement(prev.monuments);
-        break;
-      case 'base':
-        updatedState.bases = updateElement(prev.bases);
-        // 同时更新对应的碑位置
-        const updatedBase = updatedState.bases.find(b => b.id === elementId);
-        if (updatedBase) {
-          updatedState.monuments = updatedState.monuments.map(monument => {
-            if (monument.bindBaseId === elementId) {
-              return {
-                ...monument,
-                position: monument.position // 使用计算后的新位置
-              };
-            }
-            return monument;
-          });
-        }
-        break;
-        case 'subBase':
-          updatedState.subBases = updateElement(prev.subBases);
+      switch (elementType) {
+        case 'monument':
+          updatedState.monuments = updateElement(prev.monuments);
           break;
-      // ... 其他类型
-    }
+        case 'base':
+          updatedState.bases = updateElement(prev.bases);
+          // 同时更新对应的碑位置
+          const updatedBase = updatedState.bases.find(b => b.id === elementId);
+          if (updatedBase) {
+            updatedState.monuments = updatedState.monuments.map(monument => {
+              if (monument.bindBaseId === elementId) {
+                return {
+                  ...monument,
+                  position: monument.position // 使用计算后的新位置
+                };
+              }
+              return monument;
+            });
+          }
+          break;
+          case 'subBase':
+            updatedState.subBases = updateElement(prev.subBases);
+            break;
+        // ... 其他类型
+      }
 
-    return updatedState;
-  });
-}, [updateDesignState]);
+      return updatedState;
+    });
+  }, [updateDesignState]);
 
   // 修改 addVase 函数以调整花瓶默认位置
   const addVase = useCallback((vaseData) => {
@@ -1358,7 +1364,8 @@ const updateDimensions = useCallback((elementId, newDimensions, elementType) => 
         array.map(el => 
           el.id === elementId ? { ...el, position: newPosition } : el
         );
-
+      console.log(`更新${elementId}位置前位置：`, prev);
+      console.log(`更新${elementId}位置,新位置：`, newPosition);
       switch (elementType) {
         case 'monument':
           return { ...prev, monuments: updateElementInArray(prev.monuments) };
