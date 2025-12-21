@@ -88,8 +88,8 @@ const MonumentScene = forwardRef(({
   const resetCameraToFront = useCallback(() => {
     if (camera && orbitControlsRef.current) {
       // 设置正面视图的相机位置
-      camera.position.set(0, 0, 4);
-      camera.lookAt(0, 0, 0);
+      camera.position.set(0, 0, -4);
+      camera.lookAt(0, 0, -0);
       
       // 重置控制器目标
       if (orbitControlsRef.current) {

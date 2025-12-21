@@ -53,7 +53,7 @@ const Scene3D = forwardRef(({
     >
       <Canvas
         camera={{
-          position: [0, 0, 4],
+          position: [0, 0, -4],
           fov: 25,
           near: 0.1,
           far: 1000
