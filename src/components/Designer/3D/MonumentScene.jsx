@@ -458,28 +458,31 @@ const MonumentScene = forwardRef(({
           positions[monument.id] = [monumentInitX, monumentInitY, monumentInitZ];
         }
       } 
-      // 碑体对称布局 
+      // Tablet碑体
       else {
-        // 先判断位置是否合法
-        const hasValidPosition = monument.position && monument.position.length === 3;
-        let targetPosition = hasValidPosition ? monument.position :[monumentInitX, monumentInitY, monumentInitZ];
-
-        // 对称布局：仅修改X轴，Y/Z轴保持原值，按Tablet标签序号排序（而非索引），保证小序号在左
-        if (tabletCount === 2) {
-          const sortedTablets = [...tabletList].sort((a, b) => {
-            const aNum = extractNumFromLabel(a.label);
-            const bNum = extractNumFromLabel(b.label);
-            return aNum - bNum;
-          });
-          const tabletIndex = sortedTablets.findIndex(m => m.id === monument.id);
-          // 保留原有Y/Z轴，仅替换X轴为对称值（保证同一水平面）
-          targetPosition = [
-            tabletIndex === 0 ? -TABLET_SPACING_HALF : TABLET_SPACING_HALF,
-            targetPosition[1], // 保留原Y轴
-            targetPosition[2]  // 保留原Z轴
-          ];
+        // 如果已有有效位置，直接使用（用户可能已拖动）
+        if (monument.position && monument.position.length === 3) {
+          positions[monument.id] = monument.position;
+        } else {
+          // 没有有效位置时，使用默认位置或对称布局
+          let targetPosition = [monumentInitX, monumentInitY, monumentInitZ];
+          
+          // 对称布局：仅在初始化时（无位置）应用
+          if (tabletCount === 2) {
+            const sortedTablets = [...tabletList].sort((a, b) => {
+              const aNum = extractNumFromLabel(a.label);
+              const bNum = extractNumFromLabel(b.label);
+              return aNum - bNum;
+            });
+            const tabletIndex = sortedTablets.findIndex(m => m.id === monument.id);
+            targetPosition = [
+              tabletIndex === 0 ? -TABLET_SPACING_HALF : TABLET_SPACING_HALF,
+              monumentInitY,
+              monumentInitZ
+            ];
+          }
+          positions[monument.id] = targetPosition;
         }
-        positions[monument.id] = targetPosition;
       }
     });
 

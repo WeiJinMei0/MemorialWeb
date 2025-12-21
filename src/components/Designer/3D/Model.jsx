@@ -340,7 +340,9 @@ const Model = forwardRef(({
         if (!isMounted) return;
 
         const clonedScene = gltf.scene.clone();
-        clonedScene.position.copy(localPosition);
+        // 【修复】模型位置固定为原点，由 group 控制实际位置
+        // 避免 group.position + model.position 导致位置叠加
+        clonedScene.position.set(0, 0, 0);
 
         if (!isMounted) return;
 
@@ -460,7 +462,7 @@ const Model = forwardRef(({
         gl.scene.remove(currentSceneObject);
       }
     };
-  }, [modelPath, color, texturePath, isMultiTextureBase, localPosition, gl, onLoad, onDimensionsChange, dimensions, hasReportedDimensions]);
+  }, [modelPath, color, texturePath, isMultiTextureBase, gl, onLoad, onDimensionsChange, dimensions, hasReportedDimensions]);
 
   // --- 动态贴图应用 ---
   useEffect(() => {
@@ -564,6 +566,7 @@ const Model = forwardRef(({
   return (
     <group
       ref={groupRef}
+      position={localPosition.toArray()}
       userData={{ 
         isModel: true, 
         modelId: elementId, 

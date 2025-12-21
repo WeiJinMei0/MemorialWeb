@@ -755,12 +755,64 @@ export const useDesignState = () => {
       return;
     }
     const monumentList = designState.monuments;
-    const tabletPosition = [tabletInitX,tabletInitY,tabletInitZ];
+    
+    // 计算对称间距
+    const TABLET_SPACING_HALF = tabletInitWidth * 1.5;
 
     updateDesignState(prev => {
       // 生成新Tablet标签（最大序号+1，删除后新增不会覆盖原有命名）
       const newTabletIndex = generateNewTabletLabel(tabletList);
       const newMonumentIndex = generateNewMonumentLabel(monumentList);
+      
+      // 获取当前所有Tablet（添加新的之前）
+      const currentTablets = prev.monuments.filter(m => m.family === 'Tablet');
+      const newTabletCount = currentTablets.length + 1;
+      
+      // 计算新墓碑的位置
+      let newTabletPosition;
+      if (newTabletCount === 1) {
+        // 第一个墓碑：中心位置
+        newTabletPosition = [tabletInitX, tabletInitY, tabletInitZ];
+      } else if (newTabletCount === 2) {
+        // 第二个墓碑：右侧位置
+        newTabletPosition = [TABLET_SPACING_HALF, tabletInitY, tabletInitZ];
+        
+        // 同时更新第一个墓碑到左侧位置（如果它还在中心）
+        const firstTablet = currentTablets[0];
+        if (firstTablet && firstTablet.position) {
+          const isAtCenter = Math.abs(firstTablet.position[0]) < 0.01;
+          if (isAtCenter) {
+            // 需要更新现有墓碑的位置
+            const updatedMonuments = prev.monuments.map(m => {
+              if (m.id === firstTablet.id) {
+                return { ...m, position: [-TABLET_SPACING_HALF, m.position[1], m.position[2]] };
+              }
+              return m;
+            });
+            
+            const monument = {
+              id: `monument-${newMonumentIndex}`,
+              type: 'monument',
+              family: 'Tablet',
+              class: 'Serp Top',
+              polish: 'P5',
+              color: prev.currentMaterial,
+              modelPath: "/models/Shapes/Tablet/Serp Top.glb",
+              texturePath: "",
+              position: newTabletPosition, 
+              dimensions: { length: 0, width: 0, height: 0 },
+              weight: 0,
+              label: `Tablet${newTabletIndex}`,
+              isSelected: false
+            };
+            
+            return {
+              ...prev,
+              monuments: [...updatedMonuments, monument]
+            };
+          }
+        }
+      }
       
       const monument = {
         id: `monument-${newMonumentIndex}`,
@@ -771,7 +823,7 @@ export const useDesignState = () => {
         color: prev.currentMaterial,
         modelPath: "/models/Shapes/Tablet/Serp Top.glb",
         texturePath: "",
-        position: tabletPosition, 
+        position: newTabletPosition, 
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
         label: `Tablet${newTabletIndex}`,
