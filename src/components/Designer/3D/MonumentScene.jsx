@@ -1,8 +1,9 @@
 import React, { forwardRef, useRef, useMemo, useEffect, useCallback, useImperativeHandle, useState, useLayoutEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
+import { AxesHelper } from 'three';
 import * as THREE from 'three';
-
+// import { OrbitControls, AxesHelper } from '@react-three/drei'; // 新增：导入 AxesHelper
 import Model from './Model.jsx';
 import Vase3D from './Vase3D.jsx';
 import InteractiveArtPlane from './InteractiveArtPlane.jsx';
@@ -26,6 +27,12 @@ const MonumentGrid = ({ width, height, position }) => {
       />
     </group>
   );
+};
+
+// 工具函数（放在positions useMemo外，或内部）
+const extractNumFromLabel = (label) => {
+  const num = parseInt(label?.replace(/[^0-9]/g, ''), 10);
+  return num || 0;
 };
 
 /**
@@ -327,102 +334,163 @@ const MonumentScene = forwardRef(({
   // 计算所有模型位置（含碑体、底座、副底座）
   const positions = useMemo(() => {
     const positions = {};
-    
-    // 配置项
-    const PAIR_SPACING = 1.0;
-    const NO_SPACING = 0;
-    const ALIGN_Z = -0.103;
-    const baseInitY = -0.5;
-    
-    // 只在默认加载时计算初始位置
-    // 如果已经有位置数据，使用用户拖拽后的位置
-    designState.bases.forEach((base, index) => {
-      // 如果底座已经有位置（用户拖拽过），使用用户设置的位置
-      if (base.position && base.position.length === 3 && 
-          !(base.position[0] === 0 && base.position[1] === 0 && base.position[2] === 0)) {
+    const tabletInitLength = 0.761999964; // 碑体默认长度
+    const tabletInitWidth = 0.20320001150977138;   // 碑体默认宽度
+    const tabletInitHeight = 0.6095151570481228;  // 碑体默认高度
+
+    const baseInitLength = 0.9144; // 底座默认长度
+    const baseInitWidth = 0.3555999644456996;   // 底座默认宽度
+    const baseInitHeight = 0.20320000099831273;  // 底座默认高度
+
+
+    const baseInitX = 0;
+    const baseInitY =  0 - baseInitHeight;  // 底座默认的初始 Y 轴位置
+    const baseInitZ = 0;   // 底座默认的初始 Z 轴位置
+
+    const tabletInitX = 0;
+    const tabletInitY = 0; // 碑体默认的初始 Y 轴位置
+    const tabletInitZ = 0; // 碑体默认的初始 Z 轴位置
+
+    const monumentInitX = 0
+    const monumentInitY = 0
+    const monumentInitZ = 0
+
+    const tabletList = designState.monuments.filter(m => m.family === 'Tablet');
+    const baseList = designState.bases;
+    const tabletCount = tabletList.length;
+    const TABLET_SPACING_HALF = tabletInitWidth*1.5 ; // 对称间距（可调整）
+
+    designState.bases.forEach((base) => {
+      if (base.position && base.position.length === 3) {
         positions[base.id] = base.position;
       } else {
-        // 否则计算默认位置（仅第一次加载时）
-        const baseLength = base.dimensions.length || 1;
-        const totalWidth = designState.bases.reduce((sum, b, i) => {
-          const len = b.dimensions.length || 1;
-          return sum + len + (i < designState.bases.length - 1 ? PAIR_SPACING : 0);
-        }, 0);
-        
-        const centerOffsetX = -totalWidth / 2;
-        const prevBasesTotal = designState.bases.slice(0, index).reduce((sum, b) => {
-          return sum + (b.dimensions.length || 1) + PAIR_SPACING;
-        }, 0);
-        
-        const finalX = centerOffsetX + prevBasesTotal + baseLength / 2;
-        positions[base.id] = [finalX, baseInitY, ALIGN_Z];
+        positions[base.id] = [baseInitX, baseInitY, baseInitZ];
       }
     });
-  
-    designState.monuments.forEach((monument, index) => {
-      // 如果碑已经有位置（用户拖拽过），使用用户设置的位置
-      if (monument.position && monument.position.length === 3 && 
-          !(monument.position[0] === 0 && monument.position[1] === 0 && monument.position[2] === 0)) {
-        positions[monument.id] = monument.position;
-      } else {
-        // 否则根据底座位置计算默认位置
-        const base = designState.bases[index];
-        if (base && positions[base.id]) {
-          const basePos = positions[base.id];
-          const baseHeight = base.dimensions.height || 0;
-          const baseWidth = base.dimensions.width || 0;
-          const monumentLength = monument.dimensions.length || 0;
-          
-          // 根据规则计算X轴位置
-          const INCH_IN_METERS = 0.0254;
-          let monumentX = basePos[0];
-          
-          if (baseWidth < 14 * INCH_IN_METERS) {
-            // 底座宽度小于14"，碑在底座前后宽度居中
-            monumentX = basePos[0] + (base.dimensions.length - monumentLength) / 2;
-          } else {
-            // 底座宽度大于14"，碑背面离底座边缘3"
-            const threeInches = 3 * INCH_IN_METERS;
-            monumentX = basePos[0] + base.dimensions.length - monumentLength - threeInches;
-          }
-          
-          positions[monument.id] = [
-            monumentX,
-            basePos[1] + baseHeight + NO_SPACING,
-            basePos[2]
-          ];
+    // 1. 处理底座位置
+    // designState.bases.forEach((base) => {
+    //   // 对Tablet和Base按序号升序排序（小序号在前）
+    //   const sortedTablets = [...tabletList].sort((a, b) => {
+    //     const aNum = extractNumFromLabel(a.label);
+    //     const bNum = extractNumFromLabel(b.label);
+    //     return aNum - bNum;
+    //   });
+    //   const sortedBases = [...baseList].sort((a, b) => {
+    //     const aNum = extractNumFromLabel(a.label);
+    //     const bNum = extractNumFromLabel(b.label);
+    //     return aNum - bNum;
+    //   });
+    //   // 获取当前Base的序号 + 在排序后Base列表中的索引
+    //   const baseNum = extractNumFromLabel(base.label);
+    //   const baseIndex = sortedBases.findIndex(b => b.id === base.id);
+    //   console.log("sortedTablets:",sortedTablets)
+    //   console.log("sortedBases:",sortedBases)
+    //   console.log("baseIndex:",baseIndex)
+    //   // 分场景计算Base位置（核心逻辑）
+    //   let basePos;
+    //   // 有Tablet → 按序号匹配base在Tablet正下方
+    //   if (tabletCount > 0) {
+    //     // 小序号Base对应小序号Tablet（baseIndex匹配sortedTablets索引）
+    //     const targetTablet = sortedTablets[baseIndex];
+    //     if (targetTablet && targetTablet.position && targetTablet.position.length === 3) {
+    //       // Base位置 = 对应Tablet正下方（X/Z一致，Y=Tablet.Y - 底座高度）
+    //       // basePos = [
+    //       //   targetTablet.position[0],
+    //       //   targetTablet.position[1] - baseInitHeight,
+    //       //   targetTablet.position[2]
+    //       // ];
+    //       // basePos =  targetTablet.position; //指向了targetTablet.position的内存地址，引用赋值，会改变targetTablet.position的值
+    //       basePos = [...targetTablet.position]; 
+    //       console.log("basePos before:",basePos)
+    //       console.log("targetTablet.position before:",targetTablet.position)
+    //       basePos[1] = basePos[1] - baseInitHeight;
+    //       console.log("basePos after:",basePos)
+    //       console.log("targetTablet.position after:",targetTablet.position)
+    //       console.log("1111111111111")
+    //     } else {
+    //       // 兜底：Tablet位置异常 → 用Base自身位置或默认位置
+    //       basePos = (base.position && base.position.length === 3) 
+    //         ? base.position 
+    //         : [baseInitX, baseInitY, baseInitZ];
+    //       console.log("222222222222222")
+    //     }
+    //   }
+    //   // 无Tablet → 底座对称布局 
+    //   else {
+    //     if (baseCount === 1) {
+    //       // 1个Base：默认位置 [0, -底座高度, 0]
+    //       basePos = (base.position && base.position.length === 3) 
+    //         ? base.position 
+    //         : [baseInitX, baseInitY, baseInitZ];
+    //         console.log("333333333333333")
+    //     } else if (baseCount === 2) {
+    //       // 2个Base：关于原点对称（X轴±TABLET_SPACING_HALF）
+    //       basePos = (base.position && base.position.length === 3) 
+    //         ? base.position 
+    //         : [
+    //             baseIndex === 0 ? -TABLET_SPACING_HALF : TABLET_SPACING_HALF,
+    //             baseInitY,
+    //             baseInitZ
+    //           ];
+    //       console.log("444444444444444444")
+    //     } else {
+    //       // 超过2个Base → 兜底默认位置
+    //       basePos = (base.position && base.position.length === 3) 
+    //         ? base.position 
+    //         : [baseInitX, baseInitY, baseInitZ];
+    //         console.log("5555555555555")
+    //     }
+    //   }
+    //   console.log("basePos:",basePos)
+    //   console.log("base.id:",base.id)
+    //   // 最终：将计算后的位置存入positions
+    //   positions[base.id] = basePos;
+    // });
+
+
+    // 2. 处理碑位置
+    designState.monuments.forEach((monument) => {
+      // 非Tablet碑体：判断位置是否为合法三维数组
+      if (monument.family !== 'Tablet') {
+        if (monument.position && monument.position.length === 3) {
+          positions[monument.id] = monument.position;
         } else {
-          // 兜底位置
-          positions[monument.id] = [0, baseInitY + 0.1, ALIGN_Z];
+          positions[monument.id] = [monumentInitX, monumentInitY, monumentInitZ];
         }
-      }
-    });
-    // 【新增】计算副底座位置
-    designState.subBases.forEach(subBase => {
-      // 如果副底座已经有位置（用户拖拽过），使用用户设置的位置
-      if (subBase.position && subBase.position.length === 3 && 
-          !(subBase.position[0] === 0 && subBase.position[1] === 0 && subBase.position[2] === 0)) {
-        positions[subBase.id] = subBase.position;
-      } else {
-        // 否则根据绑定的底座计算默认位置
-        const targetBase = designState.bases.find(base => base.id === subBase.bindBaseId);
-        if (targetBase && positions[targetBase.id]) {
-          const basePos = positions[targetBase.id];
-          const baseHeight = targetBase.dimensions.height || 0.1;
-          const subBaseHeight = subBase.dimensions.height || 0.1;
-          
-          // 副底座放在绑定底座的下方，紧贴着
-          positions[subBase.id] = [
-            basePos[0], // X轴与底座对齐
-            basePos[1]-baseHeight/2+ NO_SPACING, // Y轴在底座下方
-            basePos[2] // Z轴与底座对齐
+      } 
+      // 碑体对称布局 
+      else {
+        // 先判断位置是否合法
+        const hasValidPosition = monument.position && monument.position.length === 3;
+        let targetPosition = hasValidPosition ? monument.position :[monumentInitX, monumentInitY, monumentInitZ];
+
+        // 对称布局：仅修改X轴，Y/Z轴保持原值，按Tablet标签序号排序（而非索引），保证小序号在左
+        if (tabletCount === 2) {
+          const sortedTablets = [...tabletList].sort((a, b) => {
+            const aNum = extractNumFromLabel(a.label);
+            const bNum = extractNumFromLabel(b.label);
+            return aNum - bNum;
+          });
+          const tabletIndex = sortedTablets.findIndex(m => m.id === monument.id);
+          // 保留原有Y/Z轴，仅替换X轴为对称值（保证同一水平面）
+          targetPosition = [
+            tabletIndex === 0 ? -TABLET_SPACING_HALF : TABLET_SPACING_HALF,
+            targetPosition[1], // 保留原Y轴
+            targetPosition[2]  // 保留原Z轴
           ];
-        } else {
-          // 兜底位置
-          positions[subBase.id] = [0, baseInitY - 0.5, ALIGN_Z];
         }
+        positions[monument.id] = targetPosition;
       }
     });
+
+    // 3. 处理副底座位置
+    // designState.subBases.forEach(subBase => {
+    //   if (subBase.position && subBase.position.length === 3) {
+    //     positions[subBase.id] = subBase.position;
+    //   } else {
+    //     positions[subBase.id] = [baseInitX, baseInitY, baseInitZ];
+    //   }
+    // });
 
     return positions;
   }, [designState.subBases, designState.bases, designState.monuments]);
@@ -500,6 +568,9 @@ const MonumentScene = forwardRef(({
 
   return (
     <group ref={sceneRef}>
+      {/* 新增：中心坐标轴（原点处），长度设为 1 米（可自定义） */}
+      {/* <axesHelper args={[1]} />  */}
+
 
       <OrbitControls
         ref={orbitControlsRef}

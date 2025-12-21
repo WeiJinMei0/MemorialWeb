@@ -211,13 +211,21 @@ const Model = forwardRef(({
         }
         
         // 计算新位置（保持 Z 轴不变）
+        // 实时 position = 拖拽开始时模型的位置 + 鼠标在世界坐标里的位移
         const newPosition = new THREE.Vector3(
           _originalPos.x + _offset.x,
           _originalPos.y + _offset.y,
           _originalPos.z
         );
+        // CS新增日志输出拖拽前后位置对比
+        console.log(`===== 产品【${elementId}】拖拽信息 =====`);
+        console.log('原始位置:', _originalPos.toArray());
+        console.log('拖拽后的位置:', newPosition.toArray());
+        console.log('groupRef.current.position:', groupRef.current.position);
+        console.log("=============================================");
         
         // 直接更新本地位置（不触发外部状态）
+
         groupRef.current.position.copy(newPosition);
         setLocalPosition(newPosition);
       }
@@ -344,12 +352,12 @@ const Model = forwardRef(({
 
         const originalDims = { length: size.x, width: size.z, height: size.y };
         // CS新增日志输出模型信息
-        const modelName = clonedScene.name || elementId || 'Unnamed Model';
-        console.log(`模型位置: ${modelName}, 当前 Position:`, clonedScene.position.toArray());
-        console.log(`模型维度: ${modelName}, X=${originalDims.length}, Y=${originalDims.height}, Z=${originalDims.width}`);
-        const bottomCenter = new THREE.Vector3(center.x, center.y - size.y / 2, center.z);
-        console.log(`模型底部中心点 ${modelName},: ${bottomCenter.toArray()}`);
-        console.log(`=============================================`);
+        // const modelName = clonedScene.name || elementId || 'Unnamed Model';
+        // console.log(`模型位置: ${modelName}, 当前 Position:`, clonedScene.position.toArray());
+        // console.log(`模型长高宽: ${modelName}, X=${originalDims.length}, Y=${originalDims.height}, Z=${originalDims.width}`);
+        // const bottomCenter = new THREE.Vector3(center.x, center.y - size.y / 2, center.z);
+        // console.log(`模型底部中心点 ${modelName},: ${bottomCenter.toArray()}`);
+        // console.log(`=============================================`);
         if (isMounted) {
           setOriginalDimensions(originalDims);
           setSelectionBox({ 
@@ -408,11 +416,36 @@ const Model = forwardRef(({
             }
           });
         }
-
+        
+        // =============================================
+        // 【核心：打印世界坐标 + 长宽高 - 唯一准确位置】
+        // 1. 强制更新矩阵（必须！确保位置/缩放/父级变换全部生效）
+        // clonedScene.updateMatrix();
+        // clonedScene.updateWorldMatrix(true, true);
+        
+        // // 2. 创建Vector3对象存储世界坐标
+        // const worldPosition = new THREE.Vector3();
+        // // 3. 获取模型在世界坐标系（画布原点0,0,0）的绝对位置
+        // clonedScene.getWorldPosition(worldPosition);
+        
+        // // 4. 打印世界坐标 + 长宽高（清晰标注产品ID，方便区分）
+        // console.log(`===== 产品【${elementId}】核心信息 =====`);
+        // console.log(`世界坐标（X,Y,Z）：`, worldPosition.toArray());
+        // console.log(`模型尺寸（长X,高Y,宽Z,）：`, {
+        //   length: originalDims.length, // 长（X轴）
+        //   height: originalDims.height,  // 高（Y轴）
+        //   width: originalDims.width   // 宽（Z轴）
+        // });
+        // // 可选：打印原始size向量，方便核对
+        // console.log(`原始尺寸向量（X,Y,Z）：`, size.toArray());
+        // console.log("=============================================");
+        // =============================================
+        
         if (isMounted) {
           setModel(clonedScene);
           if (onLoad) onLoad(clonedScene);
         }
+        
       } catch (err) {
         console.error(`Failed to load model: ${modelPath}`, err);
         if (isMounted) setError(true);
@@ -420,7 +453,7 @@ const Model = forwardRef(({
     };
 
     loadModel();
-
+    
     return () => {
       isMounted = false;
       if (currentSceneObject && gl.scene) {

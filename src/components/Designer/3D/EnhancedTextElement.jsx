@@ -1,5 +1,6 @@
 // src/components/Designer/3d/EnhancedTextElement.jsx
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { getFontFamilyForLanguage } from '../../../hooks/useDesignState';
 import { useThree } from '@react-three/fiber';
 import { Text3D, TransformControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -270,8 +271,26 @@ const EnhancedTextElement = ({
   }, [recalculateBounds]);
 
   // 材质逻辑 
-  const localGetFontPath = useCallback((nameOrPath) => {
-    return getFontPath ? getFontPath(nameOrPath) : (nameOrPath || '/fonts/helvetiker_regular.typeface.json');
+  // 自动根据字符和语言切换字体 family
+  // language 可根据实际项目国际化或内容自动推断，这里假设 text.language 或 'zh'/'en'/'ko'，如无则默认 'en'
+  // 简单字符语言检测：中文、韩文、英文
+  const detectCharLanguage = (char) => {
+    if (/^[\u4e00-\u9fff]$/.test(char)) return 'zh'; // 中文
+    if (/^[\uac00-\ud7af]$/.test(char)) return 'ko'; // 韩文
+    if (/^[A-Za-z0-9\u0020-\u007E]$/.test(char)) return 'en'; // 英文及常用符号
+    return 'en'; // 其它默认英文
+  };
+
+  // 获取渲染用字体 family（优先选中字体，若不支持则 fallback）
+  const getRenderFontFamily = (selectedFamily, char) => {
+    const lang = detectCharLanguage(char);
+    return getFontFamilyForLanguage(selectedFamily, lang);
+  };
+
+  // 获取渲染用字体路径
+  const localGetFontPath = useCallback((selectedFamily, char) => {
+    const family = getRenderFontFamily(selectedFamily, char);
+    return getFontPath ? getFontPath(family) : (family || '/fonts/helvetiker_regular.typeface.json');
   }, [getFontPath]);
 
   const textMaterial = useMemo(() => {
@@ -480,7 +499,7 @@ const EnhancedTextElement = ({
         <group key={index} position={[x, y, 0]} rotation={[0, 0, rotationZ]}>
           {text.engraveType === 'vcut' && char !== '|' && (
             <Text3D
-              font={localGetFontPath(text.font)}
+              font={localGetFontPath(text.font, char)}
               size={fontSize}
               height={text.thickness || 0.02}
               material={shadowMaterial}
@@ -493,7 +512,7 @@ const EnhancedTextElement = ({
             </Text3D>
           )}
           <Text3D
-            font={localGetFontPath(text.font)}
+            font={localGetFontPath(text.font, char)}
             size={fontSize}
             height={text.thickness || 0.02}
             material={textMaterial}
@@ -523,11 +542,25 @@ const EnhancedTextElement = ({
           const positionX = textDirection === 'horizontal' ? offsetX : offsetY;
           const positionY = textDirection === 'horizontal' ? -idx * lineGap : -idx * lineGap + offsetX;
 
+          // 检查整行是否包含非英文字符
+          const hasNonEnglish = /[^A-Za-z0-9\u0020-\u007E]/.test(ln);
+          let lineFontFamily = text.font;
+          if (hasNonEnglish) {
+            // 检查当前字体是否支持该字符类型（如中文/韩文）
+            // 取第一个非英文字符，检测其语言
+            const firstNonEnChar = ln.match(/[^A-Za-z0-9\u0020-\u007E]/)?.[0];
+            if (firstNonEnChar) {
+              const lang = detectCharLanguage(firstNonEnChar);
+              const fallbackFamily = getFontFamilyForLanguage(text.font, lang);
+              lineFontFamily = fallbackFamily;
+            }
+          }
+
           return (
             <group key={idx} position={[positionX, positionY, 0]}>
               {text.engraveType === 'vcut' && (
                 <Text3D
-                  font={localGetFontPath(text.font)}
+                  font={localGetFontPath(lineFontFamily, ln)}
                   size={fontSize}
                   height={text.thickness || 0.02}
                   letterSpacing={(text.kerning || 0) * 0.001}
@@ -537,12 +570,12 @@ const EnhancedTextElement = ({
                   bevelSize={0.002}
                   bevelThickness={0.002}
                 >
-                  {ln.replace('|', '') || ' '}
+                  {ln.replace(/\|/g, ' ')}
                 </Text3D>
               )}
               <Text3D
                 ref={(el) => (lineRefs.current[idx] = el)}
-                font={localGetFontPath(text.font)}
+                font={localGetFontPath(lineFontFamily, ln)}
                 size={fontSize}
                 height={text.thickness || 0.02}
                 letterSpacing={(text.kerning || 0) * 0.001}
@@ -551,7 +584,7 @@ const EnhancedTextElement = ({
                 bevelSize={0.002}
                 bevelThickness={0.002}
               >
-                {ln || ' '}
+                {ln}
               </Text3D>
             </group>
           );

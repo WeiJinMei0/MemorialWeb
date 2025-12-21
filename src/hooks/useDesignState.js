@@ -1,3 +1,141 @@
+// ================== 字体 family 支持语言映射 ==================
+// family -> 支持的语言数组
+const FONT_FAMILY_LANGUAGES = {
+  // 韩文字体
+  '(한)고인돌B': ['ko', 'en'],
+  '(한)볼펜체C': ['ko', 'en'],
+  '(한)판화체B': ['ko', 'en'],
+  '(환)가을잎체(굵은)': ['ko', 'en'],
+  '(환)궁서체': ['ko', 'en'],
+  '(환)예서(중간)': ['ko', 'en'],
+  '(환)진체(가는)': ['ko', 'en'],
+  '국립박물관문화재단클래식B': ['ko', 'en'],
+  '대-물감오R': ['ko', 'en'],
+  'ChosunGs': ['ko', 'en'],
+  'MDSol': ['ko', 'en'],
+  // 英文字体
+  'AlgerianBasDEE': ['en', 'it', 'hr', 'es', 'pt', 'fr', 'de', 'nl', 'sv'],
+  'Arial': ['en', 'vi', 'it', 'hr', 'es', 'pt'],
+  'Arial Unicode MS': ['en', 'zh', 'vi', 'it', 'hr', 'es', 'pt'],
+  'Bookman Old Style': ['en', 'it', 'hr', 'es', 'pt'],
+  'Bookman Profi': ['en', 'ru'],
+  'Calibri': ['en', 'ru', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'Calisto MT': ['en', 'ru', 'it', 'es', 'pt', 'de', 'fr'],
+  'Cambria': ['en', 'ru', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'CheltenhamW01-BoldCondensed': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'CityDEEMed': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Colonna MT': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Comic Sans MS': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Copperplate Gothic Bold': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Copperplate Gothic Light': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'DRome': ['en', 'it', 'es', 'pt', 'de'],
+  'Dusha V5': ['en', 'ru', 'it', 'es', 'pt', 'de', 'fr'],
+  'EnglishScriptEF': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Gauranga': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'GeèzEdit Amharic P': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Grantham': ['en', 'de'],
+  'Helvetica Medium': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Lucida Calligraphy': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Lucida Handwriting': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Lynda Cursive': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Madina': ['en', 'it', 'pt', 'de', 'fr'],
+  'Magnolia Script': ['en', 'ru', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Common Gothic SKS': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Condensed Roman SKS .75in-1in': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Government SKS Extended': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Government SKS Regulation': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Modified Roman Raised CR': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Raised Modified Roman SKS': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MLC Vermarco PC': ['en', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'MythicaW01-Medium': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Nyala': ['en', 'am', 'it', 'es', 'pt', 'hr', 'de', 'fr'],
+  'OldEnglish': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'OldeWorld-Bold': ['en', 'it', 'es', 'pt', 'hr', 'de', 'fr'],
+  'Script MT Bold': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'SnellRoundhand Script': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'Andale Sans UI': ['en', 'zh', 'ko', 'ru', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'Spring Beauty': ['en', 'it', 'es', 'pt', 'fr'],
+  'Square721 BT': ['en', 'it', 'es', 'pt', 'hr', 'de', 'fr'],
+  '標構體': ['en', 'zh', 'it', 'es', 'pt', 'de', 'fr'],
+  // 中文字体
+  '方正粗楷简体': ['en', 'zh', 'ru'],
+  '方正楷体简体': ['en', 'zh', 'ru'],
+  '方正隶二繁体': ['en', 'zh', 'ru'],
+  '华文隶书': ['en', 'zh', 'ru', 'it', 'es', 'pt', 'de'],
+  '华文中宋': ['en', 'zh', 'ru', 'it', 'es', 'pt', 'hr', 'uk', 'de', 'fr'],
+  '华文新魏': ['en', 'zh', 'ru', 'it', 'es', 'pt', 'de'],
+  '華康特粗楷體': ['en', 'zh'],
+  '经典繁毛楷': ['en', 'zh', 'ru', 'it', 'es', 'pt', 'hr', 'de'],
+  '黑体': ['en', 'zh', 'ru'],
+  '楷体': ['en', 'zh', 'ru'],
+  '隶书': ['en', 'zh', 'ru'],
+  '腾祥伯当行楷繁': ['en', 'zh', 'ru'],
+  '微软雅黑': ['en', 'zh', 'ko', 'ru', 'it', 'es', 'pt', 'vi', 'de', 'fr'],
+  '文鼎特毛楷简繁': ['en', 'zh', 'ru'],
+  '字酷堂石刻体': ['en', 'zh', 'ru'],
+  // 其它
+  'SWItalc': ['it', 'es', 'pt', 'de'],
+  'Times New Roman': ['en', 'ru', 'ar', 'fa', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'Times-Roman': ['en', 'it', 'es', 'pt', 'hr', 'de', 'fr'],
+  'TR Comic Sans MS': ['en', 'ru', 'it', 'es', 'pt', 'hr', 'vi', 'de', 'fr'],
+  'Zapf Chancery BT': ['en', 'it', 'es', 'pt', 'de', 'fr'],
+  'ZapfChan Dm BT': ['en', 'it', 'es', 'pt', 'hr', 'de', 'fr'],
+  'ZapfChancery-MediumItalic Ex': ['en', 'it', 'es', 'pt', 'hr', 'de', 'fr'],
+};
+
+// 语言代码 → 默认字体 family
+const DEFAULT_FONT_FAMILY = {
+  zh: '微软雅黑',
+  en: 'Arial',
+  ko: '(한)고인돌B',
+  ru: 'Arial Unicode MS',
+  it: 'Arial',
+  es: 'Arial',
+  pt: 'Arial',
+  fr: 'Arial',
+  de: 'Arial',
+  hr: 'Arial',
+  vi: 'Arial',
+  am: 'Nyala',
+  uk: '华文中宋',
+  ar: 'Times New Roman',
+  fa: 'Times New Roman',
+  nl: 'Arial',
+  sv: 'Arial',
+};
+
+function extractFontShortName(fontFileName) {
+  // 去掉下划线及后面的部分
+  return fontFileName.split('_')[0];
+}
+
+/**
+ * 获取指定 family 是否支持某语言
+ */
+function isFamilySupportLanguage(family, language) {
+  if (!family || !language) return false;
+  const shortName = extractFontShortName(family);
+  const langs = FONT_FAMILY_LANGUAGES[shortName];
+  if (!langs) return false;
+  return langs.includes(language);
+}
+
+/**
+ * 获取指定语言的默认字体 family
+ */
+function getFallbackFontFamily(language) {
+  return DEFAULT_FONT_FAMILY[language] || 'Arial';
+}
+
+/**
+ * 获取用于渲染的字体 family（优先选中字体，若不支持则 fallback）
+ */
+export function getFontFamilyForLanguage(selectedFamily, language) {
+  console.log('getFontFamilyForLanguage', { selectedFamily, language });
+  if (isFamilySupportLanguage(selectedFamily, language)) return selectedFamily;
+  return getFallbackFontFamily(language);;
+
+}
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { message } from 'antd'; 
 import useApp from "antd/es/app/useApp";
@@ -87,7 +225,7 @@ const extractNumFromLabel = (label) => {
 
 // 工具函数：获取现有Monument的序号列表
 const getMonumentNums = (monumentList) => {
-  return MonumentList.map(monument => extractNumFromLabel(monument.label)).filter(num => num > 0);
+  return monumentList.map(monument => extractNumFromLabel(monument.label)).filter(num => num > 0);
 };
 
 // 工具函数：获取现有Tablet的序号列表
@@ -111,6 +249,13 @@ const generateNewTabletLabel = (tabletList) => {
 const generateNewMonumentLabel = (monumentList) => {
   const monumentNums = getMonumentNums(monumentList);
   const maxNum = monumentNums.length > 0 ? Math.max(...monumentNums) : 0;
+  return maxNum + 1;
+};
+
+// 工具函数：生成新Base的标签（匹配无Base的最小序号Tablet）
+const generateNewBaseLabel = (baseList) => {
+  const baseNums = getBaseNums(baseList);
+  const maxNum = baseNums.length > 0 ? Math.max(...baseNums) : 0;
   return maxNum + 1;
 };
 
@@ -616,7 +761,7 @@ export const useDesignState = () => {
       // 生成新Tablet标签（最大序号+1，删除后新增不会覆盖原有命名）
       const newTabletIndex = generateNewTabletLabel(tabletList);
       const newMonumentIndex = generateNewMonumentLabel(monumentList);
-
+      
       const monument = {
         id: `monument-${newMonumentIndex}`,
         type: 'monument',
@@ -650,7 +795,6 @@ export const useDesignState = () => {
       const tabletCount = tabletList.length;
       // 当前已有的底座数量
       const currentBaseCount = prev.bases.length;
-      // 校验规则：
       // 底座数量 ≥ 碑体数量 → 无法添加（一个base对应一个tablet）
       // 碑体数量 < 2 且 已有1个底座 → 无法添加第二个底座
       if (currentBaseCount >= tabletCount || tabletCount === 0) {
@@ -662,9 +806,8 @@ export const useDesignState = () => {
         return prev; // 不修改状态
       }
 
-      // 计算新底座的编号
-      const newBaseIndex = currentBaseCount + 1;
-
+      // 生成新底座标签（最大序号+1，删除后新增不会覆盖原有命名）
+      const newBaseIndex = generateNewBaseLabel(prev.bases);
       const base = {
         id: `base-${newBaseIndex}`,
         type: 'base',
@@ -869,110 +1012,111 @@ export const useDesignState = () => {
 
 
   // 在 updateDimensions 函数中，尺寸改变时重新计算位置
-const updateDimensions = useCallback((elementId, newDimensions, elementType) => {
-  updateDesignState(prev => {
-    const updateElement = (elements) =>
-      elements.map(element => {
-        if (element.id === elementId) {
-          const currentDims = element.dimensions;
-          const newDims = {
-            length: Number(newDimensions.length) || 1,
-            width: Number(newDimensions.width) || 1,
-            height: Number(newDimensions.height) || 1
-          };
-          
-          if (
-            currentDims.length === newDims.length &&
-            currentDims.width === newDims.width &&
-            currentDims.height === newDims.height
-          ) {
-            return element;
-          }
-          
-          // 尺寸改变后，如果需要重新计算位置
-          let newPosition = element.position;
-          
-          // 如果是底座或碑，根据规则重新计算位置
-          if (elementType === 'base' || elementType === 'monument') {
-            // 查找对应的碑或底座
-            const isBase = elementType === 'base';
-            const targetId = isBase ? element.id : element.bindBaseId;
-            const relatedElements = isBase ? 
-              prev.monuments.filter(m => m.bindBaseId === targetId) :
-              prev.bases.filter(b => b.id === targetId);
+  const updateDimensions = useCallback((elementId, newDimensions, elementType) => {
+    updateDesignState(prev => {
+      const updateElement = (elements) =>
+        elements.map(element => {
+          if (element.id === elementId) {
+            const currentDims = element.dimensions;
+            const newDims = {
+              length: Number(newDimensions.length) || 1,
+              width: Number(newDimensions.width) || 1,
+              height: Number(newDimensions.height) || 1
+            };
+            // 尺寸完全一样，不更新 state
+            if (
+              currentDims.length === newDims.length &&
+              currentDims.width === newDims.width &&
+              currentDims.height === newDims.height
+            ) {
+              return element;
+            }
             
-            if (relatedElements.length > 0) {
-              const related = relatedElements[0];
-              const INCH_IN_METERS = 0.0254;
+            // 尺寸改变后，如果需要重新计算位置
+            let newPosition = element.position;
+            
+            // 如果是底座或碑，根据规则重新计算位置
+            if (elementType === 'base' || elementType === 'monument') {
+              // 查找对应的碑或底座
+              const isBase = elementType === 'base';
+              const targetId = isBase ? element.id : element.bindBaseId;
+              const relatedElements = isBase ? 
+                prev.monuments.filter(m => m.bindBaseId === targetId) :
+                prev.bases.filter(b => b.id === targetId);
               
-              if (isBase) {
-                // 底座尺寸改变，重新计算碑的位置
-                const baseWidth = newDims.width;
-                const monumentLength = related.dimensions.length || 0;
+              if (relatedElements.length > 0) {
+                const related = relatedElements[0];
+                const INCH_IN_METERS = 0.0254;
                 
-                let monumentX = element.position[0];
-                if (baseWidth < 14 * INCH_IN_METERS) {
-                  // 底座宽度小于14"，碑在底座前后宽度居中
-                  monumentX = element.position[0] + (newDims.length - monumentLength) / 2;
+                if (isBase) {
+                  // 底座尺寸改变，重新计算碑的位置
+                  const baseWidth = newDims.width;
+                  const monumentLength = related.dimensions.length || 0;
+                  
+                  let monumentX = element.position[0];
+                  if (baseWidth < 14 * INCH_IN_METERS) {
+                    // 底座宽度小于14"，碑在底座前后宽度居中
+                    monumentX = element.position[0] + (newDims.length - monumentLength) / 2;
+                  } else {
+                    // 底座宽度大于14"，碑背面离底座边缘3"
+                    const threeInches = 3 * INCH_IN_METERS;
+                    monumentX = element.position[0] + newDims.length - monumentLength - threeInches;
+                  }
+                  
+                  newPosition = [
+                    monumentX,
+                    element.position[1] + newDims.height,
+                    element.position[2]
+                  ];
                 } else {
-                  // 底座宽度大于14"，碑背面离底座边缘3"
-                  const threeInches = 3 * INCH_IN_METERS;
-                  monumentX = element.position[0] + newDims.length - monumentLength - threeInches;
+                  // 碑尺寸改变，重新计算底座位置（如果需要）
+                  // 这里可以根据需要调整底座位置
                 }
-                
-                newPosition = [
-                  monumentX,
-                  element.position[1] + newDims.height,
-                  element.position[2]
-                ];
-              } else {
-                // 碑尺寸改变，重新计算底座位置（如果需要）
-                // 这里可以根据需要调整底座位置
               }
             }
+            // console.log(`更新${elementId}尺寸,新尺寸：`, newDims);
+            // console.log(`更新${elementId}尺寸，重新计算位置：`, newPosition);
+            return {
+              ...element,
+              dimensions: newDims,
+              position: newPosition,
+              weight: calculateWeight(newDims)
+            };
           }
-          
-          return {
-            ...element,
-            dimensions: newDims,
-            position: newPosition,
-            weight: calculateWeight(newDims)
-          };
-        }
-        return element;
-      });
+          return element;
+        });
 
-    let updatedState = { ...prev };
+      let updatedState = { ...prev };
 
-    switch (elementType) {
-      case 'monument':
-        updatedState.monuments = updateElement(prev.monuments);
-        break;
-      case 'base':
-        updatedState.bases = updateElement(prev.bases);
-        // 同时更新对应的碑位置
-        const updatedBase = updatedState.bases.find(b => b.id === elementId);
-        if (updatedBase) {
-          updatedState.monuments = updatedState.monuments.map(monument => {
-            if (monument.bindBaseId === elementId) {
-              return {
-                ...monument,
-                position: monument.position // 使用计算后的新位置
-              };
-            }
-            return monument;
-          });
-        }
-        break;
-        case 'subBase':
-          updatedState.subBases = updateElement(prev.subBases);
+      switch (elementType) {
+        case 'monument':
+          updatedState.monuments = updateElement(prev.monuments);
           break;
-      // ... 其他类型
-    }
+        case 'base':
+          updatedState.bases = updateElement(prev.bases);
+          // 同时更新对应的碑位置
+          const updatedBase = updatedState.bases.find(b => b.id === elementId);
+          if (updatedBase) {
+            updatedState.monuments = updatedState.monuments.map(monument => {
+              if (monument.bindBaseId === elementId) {
+                return {
+                  ...monument,
+                  position: monument.position // 使用计算后的新位置
+                };
+              }
+              return monument;
+            });
+          }
+          break;
+          case 'subBase':
+            updatedState.subBases = updateElement(prev.subBases);
+            break;
+        // ... 其他类型
+      }
 
-    return updatedState;
-  });
-}, [updateDesignState]);
+      return updatedState;
+    });
+  }, [updateDesignState]);
 
   // 修改 addVase 函数以调整花瓶默认位置
   const addVase = useCallback((vaseData) => {
@@ -1358,7 +1502,8 @@ const updateDimensions = useCallback((elementId, newDimensions, elementType) => 
         array.map(el => 
           el.id === elementId ? { ...el, position: newPosition } : el
         );
-
+      console.log(`更新${elementId}位置前位置：`, prev);
+      console.log(`更新${elementId}位置,新位置：`, newPosition);
       switch (elementType) {
         case 'monument':
           return { ...prev, monuments: updateElementInArray(prev.monuments) };

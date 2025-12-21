@@ -1191,6 +1191,8 @@ const DesignerPage = () => {
     };
 
     // 处理尺寸输入变化
+    // dim：改的是哪一个维度如 'length' | 'width' | 'height'
+    // value：用户在输入框里输的 字符串
     const handleDimensionChange = (dim, value) => {
       // --- 【修改】：英尺模式使用新的解析逻辑 ---
       if (selectedUnit === 'feet') {
@@ -1474,7 +1476,8 @@ const DesignerPage = () => {
                     key={monument.id}
                     element={monument}
                     elementType="monument"
-                    label={`${t('designer.tablet')}`}  
+                    // label={`${t('designer.tablet')}`}  
+                    label={`${t('designer.tablet')}${index + 1}`}  
                   />
                 ))}
                 {/* 底座：添加索引 index，label 拼接序号 */}
@@ -1483,7 +1486,8 @@ const DesignerPage = () => {
                     key={base.id}
                     element={base}
                     elementType="base"
-                    label={`${t('designer.base')}`}  
+                    // label={`${t('designer.base')}`}  
+                    label={`${t('designer.base')}${index + 1}`}  
                   />
                 ))}
                 {/* 子底座：添加索引 index，label 拼接序号 */}
@@ -1492,7 +1496,8 @@ const DesignerPage = () => {
                     key={subBase.id}
                     element={subBase}
                     elementType="subBase"
-                    label={`${t('designer.subBase')}`} 
+                    // label={`${t('designer.subBase')}`} 
+                    label={`${t('designer.subBase')}${index + 1}`}  
                   />
                 ))}
               </div>
