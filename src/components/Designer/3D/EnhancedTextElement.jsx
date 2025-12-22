@@ -925,6 +925,7 @@ const EnhancedTextElement = ({
       <group
         ref={groupRef}
         onClick={handleGroupClick}
+        onPointerDown={(e) => e.stopPropagation()}
         userData={{ isTextElement: true, textId: text.id }}
       >
         {renderTextContent()}

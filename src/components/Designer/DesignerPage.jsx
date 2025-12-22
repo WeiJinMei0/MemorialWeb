@@ -304,52 +304,6 @@ const DesignerPage = () => {
     { key: 'shapes', label: t('designer.shapes'), icon: '🔷' },
   ];
 
-  // handleArtElementSelect
-  const handleArtElementSelect = useCallback((artId) => {
-    if (artId !== null) {
-      // setIsTextEditing(false);
-      // setCurrentTextId(null);
-      // setSelectedVaseId(null); // 取消选中花瓶
-      setSelectedModelId(null);
-      setSelectedModelType(null);
-      if (clearAllSelection) clearAllSelection();
-      setActiveTool(null);
-      setTransformMode('translate');
-
-      // 【关键修复】：选中新图案时，重置填充状态
-      // 防止上一次操作残留的颜色（如透明或特定颜色）导致新选中的图案被自动填充
-      setIsFillModeActive(false);
-      setIsPartialFill(false);
-      setFillColor('#4285F4'); // 重置为默认蓝色，避免残留 transparent 导致自动洗白
-
-    } else {
-      setIsFillModeActive(false);
-    }
-    setSelectedArtId(artId);
-  }, [setActiveTool, setTransformMode, setIsFillModeActive, clearAllSelection]);
-
-  const handleVaseElementSelect = useCallback((vaseId) => {
-    if (vaseId !== null) {
-      // setIsTextEditing(false);
-      // setCurrentTextId(null);
-      // handleArtElementSelect(null); // 取消选中艺术图案
-      setSelectedModelId(null);
-      setSelectedModelType(null);
-      clearAllSelection();
-      setActiveTool(null);
-      setVaseTransformMode('translate');
-      // 更新设计状态中的选中状态
-      updateVaseElementState(vaseId, { isSelected: true });
-    } else {
-      // 取消选中时，将所有花瓶的选中状态设为 false
-      designState.vases.forEach(vase => {
-        updateVaseElementState(vase.id, { isSelected: false });
-      });
-    }
-    setSelectedVaseId(vaseId);
-  }, [handleArtElementSelect, designState.vases, updateVaseElementState, clearAllSelection]);
-
-  
   // handleCloseVaseEditor (新增)
   const handleCloseVaseEditor = useCallback(() => {
     if (selectedVaseId) {
@@ -358,20 +312,78 @@ const DesignerPage = () => {
     setSelectedVaseId(null);
   }, [selectedVaseId, updateVaseElementState]);
 
-  const handleSelectElement = useCallback((elementId, elementType) => {
-      setSelectedModelId(elementId);
-      setSelectedModelType(elementType);
-      
+  // handleArtElementSelect
+  const handleArtElementSelect = useCallback((artId) => {
+    if (artId !== null) {
+      // 选中艺术图案时，取消其他元素的选中
       if (selectElement) {
-        selectElement(elementId, elementType);
+        selectElement(artId, 'art');
       }
       
-      // 清除其他元素的选中
-      handleArtElementSelect(null);
-      handleCloseVaseEditor();
+      // 清除其他元素的本地选中状态
+      setSelectedModelId(null);
+      setSelectedModelType(null);
       setCurrentTextId(null);
       setIsTextEditing(false);
-    }, [selectElement, handleArtElementSelect, handleCloseVaseEditor]);
+      handleCloseVaseEditor();
+      
+      setActiveTool(null);
+      setTransformMode('translate');
+      setIsFillModeActive(false);
+      setIsPartialFill(false);
+      setFillColor('#4285F4');
+    } else {
+      setIsFillModeActive(false);
+    }
+    setSelectedArtId(artId);
+  }, [selectElement, handleCloseVaseEditor]);
+
+  const handleVaseElementSelect = useCallback((vaseId) => {
+    if (vaseId !== null) {
+      // 选中花瓶时，取消其他元素的选中
+      if (selectElement) {
+        selectElement(vaseId, 'vase');
+      }
+      
+      // 清除其他元素的本地选中状态
+      setSelectedModelId(null);
+      setSelectedModelType(null);
+      setSelectedArtId(null);
+      setCurrentTextId(null);
+      setIsTextEditing(false);
+      
+      setActiveTool(null);
+      setVaseTransformMode('translate');
+    } else {
+      // 取消选中时，将所有花瓶的选中状态设为 false
+      designState.vases.forEach(vase => {
+        updateVaseElementState(vase.id, { isSelected: false });
+      });
+    }
+    setSelectedVaseId(vaseId);
+  }, [designState.vases, updateVaseElementState, selectElement]);
+
+  const handleSelectElement = useCallback((elementId, elementType) => {
+    if (selectElement) {
+      selectElement(elementId, elementType);
+    }
+    
+    // 清除其他元素的本地选中状态
+    if (elementType !== 'art') handleArtElementSelect(null);
+    if (elementType !== 'vase') handleCloseVaseEditor();
+    if (elementType !== 'text') {
+      setCurrentTextId(null);
+      setIsTextEditing(false);
+      setActiveTool(prevTool => prevTool === 'text' ? null : prevTool);
+       // 清除文本的选中状态
+      designState.textElements.forEach(text => {
+        setTextSelected(text.id, false);
+      });
+    }
+    
+    setSelectedModelId(elementId);
+    setSelectedModelType(elementType);
+  }, [selectElement, handleArtElementSelect, handleCloseVaseEditor]);
 
   // handleToolSelect
   // 1. 修改 handleToolSelect 逻辑
@@ -599,11 +611,15 @@ const DesignerPage = () => {
     setCurrentTextId(newTextId);
     setIsTextEditing(true);
     setActiveTool('text');
+
+    if (selectElement) {
+      selectElement(newTextId, 'text');
+    }
     // 6. 关闭其他可能打开的面板（如 Vase 或 Art）
     handleArtElementSelect(null);
     handleCloseVaseEditor();
     message.success('文本添加成功');
-  }, [designState.monuments, addText]);
+  }, [designState.monuments, addText, selectElement, handleArtElementSelect, handleCloseVaseEditor]);
 
   const handleDeleteText = useCallback((textId) => {
     deleteText(textId);
@@ -613,10 +629,12 @@ const DesignerPage = () => {
   }, [deleteText]);
 
   const handleTextSelect = useCallback((textId) => {
-    // 1. 互斥逻辑：如果选中了文字，就取消选中艺术图案
+    // 1. 互斥逻辑：如果选中了文字，就取消选中其他元素
     setSelectedModelId(null);
     setSelectedModelType(null);
-    clearAllSelection();
+    if (selectElement) {
+      selectElement(textId, 'text');
+    }
     handleArtElementSelect(null);
     handleCloseVaseEditor();
 
@@ -625,22 +643,14 @@ const DesignerPage = () => {
 
     setActiveTool('text');
     if (textId) {
-      // ---【关键修改】---
-      // 如果选中了文字：
-      // A. 标记为正在编辑状态
       setIsTextEditing(true);
-      // B. 更新设计状态中的选中标记（用于显示3D坐标轴）
       setTextSelected(textId, true);
-      // C. 【新增】自动打开左侧的 "Text" 工具栏，从而显示 TextEditor 面板
       setActiveTool('text');
     } else {
-      // 如果取消选中（点击空白处）：
       setIsTextEditing(false);
-      // 如果当前正打开着文字面板，则关闭它，让界面更清爽
-      // (使用回调函数形式以确保获取最新的 activeTool 状态)
       setActiveTool(prevTool => prevTool === 'text' ? null : prevTool);
     }
-  }, [handleArtElementSelect, handleCloseVaseEditor, setTextSelected, clearAllSelection]);
+  }, [handleArtElementSelect, handleCloseVaseEditor, setTextSelected, selectElement]);
 
   // --- 【新增】: 关闭文字编辑器的处理函数 ---
   const handleCloseTextEditor = useCallback(() => {
@@ -1477,7 +1487,7 @@ const DesignerPage = () => {
                     element={monument}
                     elementType="monument"
                     // label={`${t('designer.tablet')}`}  
-                    label={`${t('designer.tablet')}${index + 1}`}  
+                    label={`${t('designer.tablet')}`}  
                   />
                 ))}
                 {/* 底座：添加索引 index，label 拼接序号 */}
@@ -1487,7 +1497,7 @@ const DesignerPage = () => {
                     element={base}
                     elementType="base"
                     // label={`${t('designer.base')}`}  
-                    label={`${t('designer.base')}${index + 1}`}  
+                    label={`${t('designer.base')}`}  
                   />
                 ))}
                 {/* 子底座：添加索引 index，label 拼接序号 */}
@@ -1497,7 +1507,7 @@ const DesignerPage = () => {
                     element={subBase}
                     elementType="subBase"
                     // label={`${t('designer.subBase')}`} 
-                    label={`${t('designer.subBase')}${index + 1}`}  
+                    label={`${t('designer.subBase')}`}  
                   />
                 ))}
               </div>

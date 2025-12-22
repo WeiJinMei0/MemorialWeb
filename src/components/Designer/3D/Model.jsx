@@ -149,13 +149,12 @@ const Model = forwardRef(({
     }
     
     // 选中元素
-    if (!isSelected && onSelectElement) {
+    if (onSelectElement) {
       onSelectElement(elementId, elementType);
-      return;
     }
     
     // 开始拖拽
-    if (isSelected && groupRef.current && isDraggable) {
+    if (groupRef.current && isDraggable) {
       // 设置拖拽状态
       dragRef.current.isDragging = true;
       dragRef.current.rect = gl.domElement.getBoundingClientRect();
@@ -182,7 +181,7 @@ const Model = forwardRef(({
         window.addEventListener('pointerup', handlePointerUp);
       }
     }
-  }, [isFillModeActive, isSelected, isDraggable, elementId, elementType, 
+  }, [isFillModeActive, isDraggable, elementId, elementType, 
       onSelectElement, onFillClick, gl, controls, getIntersection]);
 
   // --- 拖拽移动（优化版） ---

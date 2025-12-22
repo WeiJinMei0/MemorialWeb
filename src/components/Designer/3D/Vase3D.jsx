@@ -236,7 +236,9 @@ const Vase3D = forwardRef(({
 
   const handlePointerDown = (e) => {
     e.stopPropagation();
-    if (!isSelected) onSelect(vase.id);
+    if (onSelect) {
+      onSelect(vase.id);
+    }
     if (transformMode !== 'translate' || !groupRef.current) return;
 
     if (controls) controls.enabled = false;
