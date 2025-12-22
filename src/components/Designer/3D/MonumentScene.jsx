@@ -90,7 +90,7 @@ const MonumentScene = forwardRef(({
       // 设置正面视图的相机位置
       camera.position.set(0, 0, -4);
       camera.lookAt(0, 0, -0);
-      
+
       // 重置控制器目标
       if (orbitControlsRef.current) {
         orbitControlsRef.current.target.set(0, 0, 0);
@@ -105,7 +105,7 @@ const MonumentScene = forwardRef(({
     const timer = setTimeout(() => {
       resetCameraToFront();
     }, 100);
-    
+
     return () => clearTimeout(timer);
   }, [resetCameraToFront]);
 
@@ -114,14 +114,14 @@ const MonumentScene = forwardRef(({
     const handleGlobalClick = (event) => {
       // 只处理canvas上的点击
       if (event.target !== gl.domElement) return;
-      
+
       // 检查是否点击到了模型
       raycaster.setFromCamera(pointer, camera);
       const intersects = raycaster.intersectObjects(scene.children, true);
-      
+
       // 查找第一个击中的可见 Mesh
       const hit = intersects.find(i => i.object.isMesh && i.object.visible);
-      
+
       if (!hit) {
         // 点击空白处，清除所有选中
         if (onSelectElement) onSelectElement(null, null);
@@ -138,7 +138,7 @@ const MonumentScene = forwardRef(({
     return () => {
       canvasDom.removeEventListener('click', handleGlobalClick);
     };
-  }, [gl.domElement,  onArtElementSelect, onTextSelect, onVaseSelect, camera, raycaster, scene, pointer]);
+  }, [gl.domElement, onArtElementSelect, onTextSelect, onVaseSelect, camera, raycaster, scene, pointer]);
 
   // 添加双击处理
   useEffect(() => {
@@ -237,7 +237,7 @@ const MonumentScene = forwardRef(({
     return () => {
       canvasDom.removeEventListener('dblclick', handleDoubleClick);
     };
-  },[gl.domElement, isFillModeActive, camera, raycaster, scene, pointer, onAddTextElement, modelRefs]);
+  }, [gl.domElement, isFillModeActive, camera, raycaster, scene, pointer, onAddTextElement, modelRefs]);
 
   // 处理元素选中
   const handleSelectElement = useCallback((elementId, elementType) => {
@@ -252,7 +252,7 @@ const MonumentScene = forwardRef(({
       onModelPositionChange(elementId, newPosition, elementType);
     }
   }, [onModelPositionChange]);
-  
+
   // 支持从外部拖入保存的艺术元素 JSON
   const handleSceneDrop = useCallback((e) => {
     e.preventDefault();
@@ -344,7 +344,7 @@ const MonumentScene = forwardRef(({
 
 
     const baseInitX = 0;
-    const baseInitY =  0 - baseInitHeight;  // 底座默认的初始 Y 轴位置
+    const baseInitY = 0 - baseInitHeight;  // 底座默认的初始 Y 轴位置
     const baseInitZ = 0;   // 底座默认的初始 Z 轴位置
 
     const tabletInitX = 0;
@@ -358,7 +358,7 @@ const MonumentScene = forwardRef(({
     const tabletList = designState.monuments.filter(m => m.family === 'Tablet');
     const baseList = designState.bases;
     const tabletCount = tabletList.length;
-    const TABLET_SPACING_HALF = tabletInitWidth*1.5 ; // 对称间距（可调整）
+    const TABLET_SPACING_HALF = tabletInitWidth * 1.5; // 对称间距（可调整）
 
     designState.bases.forEach((base) => {
       if (base.position && base.position.length === 3) {
@@ -457,7 +457,7 @@ const MonumentScene = forwardRef(({
         } else {
           positions[monument.id] = [monumentInitX, monumentInitY, monumentInitZ];
         }
-      } 
+      }
       // Tablet碑体
       else {
         // 如果已有有效位置，直接使用（用户可能已拖动）
@@ -466,7 +466,7 @@ const MonumentScene = forwardRef(({
         } else {
           // 没有有效位置时，使用默认位置或对称布局
           let targetPosition = [monumentInitX, monumentInitY, monumentInitZ];
-          
+
           // 对称布局：仅在初始化时（无位置）应用
           if (tabletCount === 2) {
             const sortedTablets = [...tabletList].sort((a, b) => {
@@ -726,7 +726,26 @@ const MonumentScene = forwardRef(({
           monumentThickness={monumentThickness}
           onDelete={onDeleteElement}
           onFlip={onFlipElement}
-          onMirrorCopy={onDuplicateElement}
+          onMirrorCopy={(id, type) => {
+            // 拦截复制操作，注入最新的 canvas 数据
+            if (type === 'art') {
+              const artRef = artPlaneRefs.current[id];
+              let overrides = {};
+              if (artRef && artRef.getCanvasDataURL) {
+                try {
+                  const currentImageData = artRef.getCanvasDataURL();
+                  if (currentImageData && currentImageData !== 'data:,') {
+                    overrides.modifiedImageData = currentImageData;
+                  }
+                } catch (e) {
+                  console.warn('Failed to get canvas data for duplication:', e);
+                }
+              }
+              onDuplicateElement(id, type, overrides);
+            } else {
+              onDuplicateElement(id, type);
+            }
+          }}
           onSave={onSaveToArtOptions} // 【新增】：传递保存回调
         />
       ))}

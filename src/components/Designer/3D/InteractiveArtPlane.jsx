@@ -187,18 +187,44 @@ const InteractiveArtPlane = forwardRef(({
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         ctx.drawImage(img, 0, 0);
 
-        const loader = new THREE.TextureLoader();
-        loader.load(art.imagePath, (tex) => {
-          const oCanvas = document.createElement('canvas');
-          oCanvas.width = tex.image.naturalWidth;
-          oCanvas.height = tex.image.naturalHeight;
-          const oCtx = oCanvas.getContext('2d', { willReadFrequently: true });
-          oCtx.drawImage(tex.image, 0, 0);
-          artCanvasRef.current = { canvas, context: ctx, originalData: oCtx.getImageData(0, 0, oCanvas.width, oCanvas.height) };
-          const texture = new THREE.CanvasTexture(canvas);
-          texture.colorSpace = THREE.SRGBColorSpace;
-          setCanvasTexture(texture);
-        });
+        // 1. 立即设置纹理，确保复制后的图案可见
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        setCanvasTexture(texture);
+
+        // 2. 初始化 artCanvasRef (作为降级方案)
+        artCanvasRef.current = {
+          canvas,
+          context: ctx,
+          originalData: ctx.getImageData(0, 0, canvas.width, canvas.height)
+        };
+
+        // 3. 尝试加载原始图片以获取正确的 originalData (用于后续填充算法)
+        if (art.imagePath) {
+          const loader = new THREE.TextureLoader();
+          loader.load(
+            art.imagePath,
+            (tex) => {
+              const oCanvas = document.createElement('canvas');
+              oCanvas.width = tex.image.naturalWidth;
+              oCanvas.height = tex.image.naturalHeight;
+              const oCtx = oCanvas.getContext('2d', { willReadFrequently: true });
+              oCtx.drawImage(tex.image, 0, 0);
+
+              // 更新为正确的原始数据
+              artCanvasRef.current = {
+                canvas,
+                context: ctx,
+                originalData: oCtx.getImageData(0, 0, oCanvas.width, oCanvas.height)
+              };
+            },
+            undefined,
+            (err) => {
+              console.warn("Failed to load original image for copy:", err);
+              // 加载失败时保持降级方案 (使用当前图像作为 originalData)
+            }
+          );
+        }
       };
       return;
     }
