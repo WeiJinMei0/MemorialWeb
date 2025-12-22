@@ -10,7 +10,9 @@ import {
   ReloadOutlined,
   DragOutlined,
   CopyOutlined,
-  SaveOutlined
+  SaveOutlined,
+  ColumnHeightOutlined,
+  ColumnWidthOutlined
 } from '@ant-design/icons';
 
 // --- 辅助函数 ---
@@ -196,7 +198,8 @@ const InteractiveArtPlane = forwardRef(({
         artCanvasRef.current = {
           canvas,
           context: ctx,
-          originalData: ctx.getImageData(0, 0, canvas.width, canvas.height)
+          originalData: ctx.getImageData(0, 0, canvas.width, canvas.height),
+          isModified: true // 【新增】标记为已修改数据，避免被线稿着色逻辑误处理
         };
 
         // 3. 尝试加载原始图片以获取正确的 originalData (用于后续填充算法)
@@ -215,7 +218,8 @@ const InteractiveArtPlane = forwardRef(({
               artCanvasRef.current = {
                 canvas,
                 context: ctx,
-                originalData: oCtx.getImageData(0, 0, oCanvas.width, oCanvas.height)
+                originalData: oCtx.getImageData(0, 0, oCanvas.width, oCanvas.height),
+                isModified: false // 【新增】加载到原始数据后，标记为未修改
               };
             },
             undefined,
@@ -238,7 +242,12 @@ const InteractiveArtPlane = forwardRef(({
       canvas.height = img.naturalHeight;
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(img, 0, 0);
-      artCanvasRef.current = { canvas, context: ctx, originalData: ctx.getImageData(0, 0, canvas.width, canvas.height) };
+      artCanvasRef.current = {
+        canvas,
+        context: ctx,
+        originalData: ctx.getImageData(0, 0, canvas.width, canvas.height),
+        isModified: false
+      };
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
       setCanvasTexture(texture);
@@ -276,8 +285,11 @@ const InteractiveArtPlane = forwardRef(({
     const lineColor = art.properties?.lineColor || '#FFFFFF';
     const lineAlpha = art.properties?.lineAlpha;
 
-    const { context, originalData, canvas } = artCanvasRef.current;
+    const { context, originalData, canvas, isModified } = artCanvasRef.current;
     if (!context || !originalData || !canvasTexture) return;
+
+    // 如果是已修改的数据（如复制的填充图），跳过线稿着色逻辑
+    if (isModified) return;
 
     const w = canvas.width, h = canvas.height;
     const newData = new ImageData(w, h);
@@ -437,6 +449,56 @@ const InteractiveArtPlane = forwardRef(({
         height: Math.abs(mesh.scale.y) * toInches
       });
     }
+    else if (mode === 'scaleX') {
+      const center = startPosition;
+      const rz = startRotation.z;
+      const dirX = new THREE.Vector3(Math.cos(rz), Math.sin(rz), 0);
+
+      const startVec = startMouse.clone().sub(center);
+      const currVec = currentMouse.clone().sub(center);
+
+      const startProj = startVec.dot(dirX);
+      const currProj = currVec.dot(dirX);
+
+      if (Math.abs(startProj) > 0.0001) {
+        const factor = currProj / startProj;
+        mesh.scale.set(
+          startScale.x * factor,
+          startScale.y,
+          startScale.z
+        );
+      }
+      const toInches = 39.37;
+      setDimensionsLabel({
+        width: Math.abs(mesh.scale.x) * toInches,
+        height: Math.abs(mesh.scale.y) * toInches
+      });
+    }
+    else if (mode === 'scaleY') {
+      const center = startPosition;
+      const rz = startRotation.z;
+      const dirY = new THREE.Vector3(-Math.sin(rz), Math.cos(rz), 0);
+
+      const startVec = startMouse.clone().sub(center);
+      const currVec = currentMouse.clone().sub(center);
+
+      const startProj = startVec.dot(dirY);
+      const currProj = currVec.dot(dirY);
+
+      if (Math.abs(startProj) > 0.0001) {
+        const factor = currProj / startProj;
+        mesh.scale.set(
+          startScale.x,
+          startScale.y * factor,
+          startScale.z
+        );
+      }
+      const toInches = 39.37;
+      setDimensionsLabel({
+        width: Math.abs(mesh.scale.x) * toInches,
+        height: Math.abs(mesh.scale.y) * toInches
+      });
+    }
     else if (mode === 'rotate') {
       const center = startPosition;
       const startAngle = Math.atan2(startMouse.y - center.y, startMouse.x - center.x);
@@ -474,6 +536,11 @@ const InteractiveArtPlane = forwardRef(({
   const handleMirror = (e) => {
     e.stopPropagation();
     if (onFlip) onFlip(art.id, 'x', 'art');
+  };
+
+  const handleVerticalFlip = (e) => {
+    e.stopPropagation();
+    if (onFlip) onFlip(art.id, 'y', 'art');
   };
 
   const handleMirrorCopy = (e) => {
@@ -523,7 +590,8 @@ const InteractiveArtPlane = forwardRef(({
             return;
           }
 
-          if (isFillModeActive) {
+          // 【修改】：只有当当前图案被选中时，才响应填充模式
+          if (isFillModeActive && isSelected) {
             e.stopPropagation();
             const { canvas, context, originalData } = artCanvasRef.current;
             if (canvas && context && originalData && canvasTexture) {
@@ -601,6 +669,12 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
+            <Html position={[-0.25 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
+              <div style={btnStyle} onClick={handleVerticalFlip} title="上下翻转">
+                <SwapOutlined rotate={90} />
+              </div>
+            </Html>
+
             <Html position={[-0.5 * sx, 0, 0]} zIndexRange={[100, 0]} center>
               <div style={btnStyle} onClick={handleMirrorCopy} title="镜像复制">
                 <CopyOutlined />
@@ -610,6 +684,12 @@ const InteractiveArtPlane = forwardRef(({
             <Html position={[0.5 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
               <div style={btnStyle} onClick={handleDelete} title="删除">
                 <DeleteOutlined />
+              </div>
+            </Html>
+
+            <Html position={[0.25 * sx, 0.5 * sy, 0]} zIndexRange={[100, 0]} center>
+              <div style={btnStyle} onClick={handleSave} title="保存到库">
+                <SaveOutlined />
               </div>
             </Html>
 
@@ -651,9 +731,23 @@ const InteractiveArtPlane = forwardRef(({
               </div>
             </Html>
 
+            <Html position={[0, -0.5 * sy, 0]} zIndexRange={[100, 0]} center>
+              <div
+                style={{ ...btnStyle, cursor: 'ns-resize' }}
+                onPointerDown={(e) => startInteraction(e.nativeEvent, 'scaleY')}
+                title="纵向拉伸"
+              >
+                <ColumnHeightOutlined />
+              </div>
+            </Html>
+
             <Html position={[0.5 * sx, 0, 0]} zIndexRange={[100, 0]} center>
-              <div style={btnStyle} onClick={handleSave} title="保存到库">
-                <SaveOutlined />
+              <div
+                style={{ ...btnStyle, cursor: 'ew-resize' }}
+                onPointerDown={(e) => startInteraction(e.nativeEvent, 'scaleX')}
+                title="横向拉伸"
+              >
+                <ColumnWidthOutlined />
               </div>
             </Html>
 

@@ -8,7 +8,7 @@ import {
   FileTextOutlined,
   CloseOutlined,
   TableOutlined,
-  RotateLeftOutlined, 
+  RotateLeftOutlined,
   EyeOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -135,7 +135,7 @@ const DesignerPage = () => {
     setIsViewRotatable(!isViewRotatable);
   }, [isViewRotatable]);
 
-   // 新增：重置到正面视图
+  // 新增：重置到正面视图
   const handleResetView = useCallback(() => {
     if (sceneRef.current && sceneRef.current.resetCameraToFront) {
       sceneRef.current.resetCameraToFront();
@@ -316,17 +316,24 @@ const DesignerPage = () => {
       setActiveTool(null);
       setTransformMode('translate');
 
-      // 【关键修复】：选中新图案时，重置填充状态
-      // 防止上一次操作残留的颜色（如透明或特定颜色）导致新选中的图案被自动填充
-      setIsFillModeActive(false);
-      setIsPartialFill(false);
-      setFillColor('#4285F4'); // 重置为默认蓝色，避免残留 transparent 导致自动洗白
+      // 【关键修复】：选中新图案时，恢复保存的填充状态
+      const art = designState.artElements.find(a => a.id === artId);
+      if (art && art.properties) {
+        setIsFillModeActive(art.properties.isFillModeActive ?? false);
+        setIsPartialFill(art.properties.isPartialFill ?? false);
+        setFillColor(art.properties.fillColor || '#4285F4');
+      } else {
+        // 如果没有保存的状态，则重置为默认
+        setIsFillModeActive(false);
+        setIsPartialFill(false);
+        setFillColor('#4285F4');
+      }
 
     } else {
       setIsFillModeActive(false);
     }
     setSelectedArtId(artId);
-  }, [setActiveTool, setTransformMode, setIsFillModeActive, clearAllSelection]);
+  }, [setActiveTool, setTransformMode, setIsFillModeActive, clearAllSelection, designState.artElements]);
 
   const handleVaseElementSelect = useCallback((vaseId) => {
     if (vaseId !== null) {
@@ -351,7 +358,7 @@ const DesignerPage = () => {
     setSelectedVaseId(vaseId);
   }, [handleArtElementSelect, designState.vases, updateVaseElementState, clearAllSelection, selectElement]);
 
-  
+
   // handleCloseVaseEditor (新增)
   const handleCloseVaseEditor = useCallback(() => {
     if (selectedVaseId) {
@@ -361,19 +368,19 @@ const DesignerPage = () => {
   }, [selectedVaseId, updateVaseElementState]);
 
   const handleSelectElement = useCallback((elementId, elementType) => {
-      setSelectedModelId(elementId);
-      setSelectedModelType(elementType);
-      
-      if (selectElement) {
-        selectElement(elementId, elementType);
-      }
-      
-      // 清除其他元素的选中
-      handleArtElementSelect(null);
-      handleCloseVaseEditor();
-      setCurrentTextId(null);
-      setIsTextEditing(false);
-    }, [selectElement, handleArtElementSelect, handleCloseVaseEditor]);
+    setSelectedModelId(elementId);
+    setSelectedModelType(elementType);
+
+    if (selectElement) {
+      selectElement(elementId, elementType);
+    }
+
+    // 清除其他元素的选中
+    handleArtElementSelect(null);
+    handleCloseVaseEditor();
+    setCurrentTextId(null);
+    setIsTextEditing(false);
+  }, [selectElement, handleArtElementSelect, handleCloseVaseEditor]);
 
   // handleToolSelect
   // 1. 修改 handleToolSelect 逻辑
@@ -474,6 +481,34 @@ const DesignerPage = () => {
       properties: { ...(prevArt.properties || {}), lineAlpha: newAlpha }
     }));
   }, [updateArtElementState]);
+
+  // 【新增】填充状态同步保存
+  const handleSetFillColor = useCallback((color) => {
+    setFillColor(color);
+    if (selectedArtId) {
+      updateArtElementState(selectedArtId, (prev) => ({
+        properties: { ...(prev.properties || {}), fillColor: color }
+      }));
+    }
+  }, [selectedArtId, updateArtElementState]);
+
+  const handleSetIsFillModeActive = useCallback((isActive) => {
+    setIsFillModeActive(isActive);
+    if (selectedArtId) {
+      updateArtElementState(selectedArtId, (prev) => ({
+        properties: { ...(prev.properties || {}), isFillModeActive: isActive }
+      }));
+    }
+  }, [selectedArtId, updateArtElementState]);
+
+  const handleSetIsPartialFill = useCallback((isPartial) => {
+    setIsPartialFill(isPartial);
+    if (selectedArtId) {
+      updateArtElementState(selectedArtId, (prev) => ({
+        properties: { ...(prev.properties || {}), isPartialFill: isPartial }
+      }));
+    }
+  }, [selectedArtId, updateArtElementState]);
 
   // Vase 操作处理器 (新增)
   const handleVaseDuplicate = useCallback((vaseId) => {
@@ -1433,6 +1468,7 @@ const DesignerPage = () => {
               {/* 艺术图案编辑面板 */}
               {selectedArt && (
                 <ArtEditorPanel
+                  key={selectedArt.id}
                   art={selectedArt}
                   onClose={handleCloseArtEditor}
                   onDelete={handleDeleteElement}
@@ -1440,14 +1476,14 @@ const DesignerPage = () => {
                   setTransformMode={setTransformMode}
                   transformMode={transformMode}
                   fillColor={fillColor}
-                  setFillColor={setFillColor}
+                  setFillColor={handleSetFillColor}
                   onLineColorChange={handleLineColorChange}
                   onLineAlphaChange={handleLineAlphaChange}
                   isFillModeActive={isFillModeActive}
-                  setIsFillModeActive={setIsFillModeActive}
+                  setIsFillModeActive={handleSetIsFillModeActive}
                   onSaveToArtOptions={handleSaveArtToOptions}
                   isPartialFill={isPartialFill}
-                  setIsPartialFill={setIsPartialFill}
+                  setIsPartialFill={handleSetIsPartialFill}
                 />
               )}
               {/* 花瓶编辑面板*/}
@@ -1479,7 +1515,7 @@ const DesignerPage = () => {
                     element={monument}
                     elementType="monument"
                     // label={`${t('designer.tablet')}`}  
-                    label={`${t('designer.tablet')}${index + 1}`}  
+                    label={`${t('designer.tablet')}${index + 1}`}
                   />
                 ))}
                 {/* 底座：添加索引 index，label 拼接序号 */}
@@ -1489,7 +1525,7 @@ const DesignerPage = () => {
                     element={base}
                     elementType="base"
                     // label={`${t('designer.base')}`}  
-                    label={`${t('designer.base')}${index + 1}`}  
+                    label={`${t('designer.base')}${index + 1}`}
                   />
                 ))}
                 {/* 子底座：添加索引 index，label 拼接序号 */}
@@ -1499,7 +1535,7 @@ const DesignerPage = () => {
                     element={subBase}
                     elementType="subBase"
                     // label={`${t('designer.subBase')}`} 
-                    label={`${t('designer.subBase')}${index + 1}`}  
+                    label={`${t('designer.subBase')}${index + 1}`}
                   />
                 ))}
               </div>
