@@ -128,6 +128,9 @@ const InteractiveArtPlane = forwardRef(({
   const [dimensionsLabel, setDimensionsLabel] = useState({ width: 0, height: 0 });
   const [isHovered, setIsHovered] = useState(false);
 
+  // 【新增】追踪原始线稿是否加载完成
+  const [originalImageLoaded, setOriginalImageLoaded] = useState(false);
+
   // 【新增】保存加载的扫砂纹理数据
   const [frostImageData, setFrostImageData] = useState(null);
 
@@ -221,6 +224,8 @@ const InteractiveArtPlane = forwardRef(({
                 originalData: oCtx.getImageData(0, 0, oCanvas.width, oCanvas.height),
                 isModified: false // 【新增】加载到原始数据后，标记为未修改
               };
+              // 【新增】标记原始图片已加载，触发线条着色逻辑重绘
+              setOriginalImageLoaded(true);
             },
             undefined,
             (err) => {
@@ -311,7 +316,7 @@ const InteractiveArtPlane = forwardRef(({
     }
     context.putImageData(newData, 0, 0);
     canvasTexture.needsUpdate = true;
-  }, [art.properties?.lineColor, art.properties?.lineAlpha, canvasTexture]);
+  }, [art.properties?.lineColor, art.properties?.lineAlpha, canvasTexture, originalImageLoaded]);
 
   // 自动填充逻辑 (Auto Fill)
   useEffect(() => {
@@ -593,6 +598,13 @@ const InteractiveArtPlane = forwardRef(({
           // 【修改】：只有当当前图案被选中时，才响应填充模式
           if (isFillModeActive && isSelected) {
             e.stopPropagation();
+
+            // 【新增】如果原始线稿还没加载完（处于 isModified 状态），阻止填色以避免算法错误
+            if (artCanvasRef.current.isModified) {
+              console.warn("Original line art not loaded yet, skipping fill to prevent errors.");
+              return;
+            }
+
             const { canvas, context, originalData } = artCanvasRef.current;
             if (canvas && context && originalData && canvasTexture) {
               const rgbaColor = parseColorToRGBA(fillColor || '#4285F4');

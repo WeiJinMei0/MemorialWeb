@@ -210,17 +210,17 @@ const ArtEditorPanel = ({
 
   const handleFillColor = (color) => {
     if (color === 'transparent') {
-      setFillColor('transparent');
-      setIsFillModeActive(true);
+      setFillColor('transparent', art.id);
+      setIsFillModeActive(true, art.id);
     } else if (color === 'frost') {
       // 【新增】处理 Frost 模式
-      setFillColor('frost');
-      setIsFillModeActive(true);
+      setFillColor('frost', art.id);
+      setIsFillModeActive(true, art.id);
     } else {
       const val = typeof color === 'string' ? color : color.toRgbString();
-      setFillColor(val);
+      setFillColor(val, art.id);
       if (!isFillModeActive) {
-        setIsFillModeActive(true);
+        setIsFillModeActive(true, art.id);
       }
     }
   };
@@ -230,30 +230,30 @@ const ArtEditorPanel = ({
     const config = modeConfigs[mode];
 
     if (mode === 'keepColor') {
-      setIsFillModeActive(false);
-      setFillColor('transparent');
+      setIsFillModeActive(false, art.id);
+      setFillColor('transparent', art.id);
       onLineColorChange(art.id, config.lineColor);
       onLineAlphaChange(art.id, config.lineAlpha);
-      setIsPartialFill(false);
+      setIsPartialFill(false, art.id);
     } else if (mode === 'insert') {
-      setIsFillModeActive(true);
+      setIsFillModeActive(true, art.id);
       onLineAlphaChange(art.id, 0);
       if (config.isFrost) {
-        setFillColor('frost');
+        setFillColor('frost', art.id);
       } else {
-        setFillColor(config.fillColor === 'transparent' ? '#FFFFFF' : config.fillColor);
+        setFillColor(config.fillColor === 'transparent' ? '#FFFFFF' : config.fillColor, art.id);
       }
-      setIsPartialFill(config.isPartialFill);
+      setIsPartialFill(config.isPartialFill, art.id);
     } else if (mode === 'specialFilling') {
-      setIsFillModeActive(true);
+      setIsFillModeActive(true, art.id);
       onLineColorChange(art.id, config.lineColor);
       onLineAlphaChange(art.id, config.lineAlpha);
       if (config.isFrost) {
-        setFillColor('frost');
+        setFillColor('frost', art.id);
       } else {
-        setFillColor(config.fillColor === 'transparent' ? '#FFFFFF' : config.fillColor);
+        setFillColor(config.fillColor === 'transparent' ? '#FFFFFF' : config.fillColor, art.id);
       }
-      setIsPartialFill(config.isPartialFill);
+      setIsPartialFill(config.isPartialFill, art.id);
     }
   };
 
@@ -270,9 +270,9 @@ const ArtEditorPanel = ({
       if (activeMode !== forMode) {
         // If we allow clicking to switch mode:
         handleSetMode(forMode);
-        setTimeout(() => setIsPartialFill(true), 0);
+        setTimeout(() => setIsPartialFill(true, art.id), 0);
       } else {
-        setIsPartialFill(!isPartialFill);
+        setIsPartialFill(!isPartialFill, art.id);
       }
     };
 

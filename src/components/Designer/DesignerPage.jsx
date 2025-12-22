@@ -490,28 +490,31 @@ const DesignerPage = () => {
   }, [updateArtElementState]);
 
   // 【新增】填充状态同步保存
-  const handleSetFillColor = useCallback((color) => {
+  const handleSetFillColor = useCallback((color, artIdOverride = null) => {
     setFillColor(color);
-    if (selectedArtId) {
-      updateArtElementState(selectedArtId, (prev) => ({
+    const targetArtId = artIdOverride ?? selectedArtId;
+    if (targetArtId !== null && targetArtId !== undefined) {
+      updateArtElementState(targetArtId, (prev) => ({
         properties: { ...(prev.properties || {}), fillColor: color }
       }));
     }
   }, [selectedArtId, updateArtElementState]);
 
-  const handleSetIsFillModeActive = useCallback((isActive) => {
+  const handleSetIsFillModeActive = useCallback((isActive, artIdOverride = null) => {
     setIsFillModeActive(isActive);
-    if (selectedArtId) {
-      updateArtElementState(selectedArtId, (prev) => ({
+    const targetArtId = artIdOverride ?? selectedArtId;
+    if (targetArtId !== null && targetArtId !== undefined) {
+      updateArtElementState(targetArtId, (prev) => ({
         properties: { ...(prev.properties || {}), isFillModeActive: isActive }
       }));
     }
   }, [selectedArtId, updateArtElementState]);
 
-  const handleSetIsPartialFill = useCallback((isPartial) => {
+  const handleSetIsPartialFill = useCallback((isPartial, artIdOverride = null) => {
     setIsPartialFill(isPartial);
-    if (selectedArtId) {
-      updateArtElementState(selectedArtId, (prev) => ({
+    const targetArtId = artIdOverride ?? selectedArtId;
+    if (targetArtId !== null && targetArtId !== undefined) {
+      updateArtElementState(targetArtId, (prev) => ({
         properties: { ...(prev.properties || {}), isPartialFill: isPartial }
       }));
     }
