@@ -1524,8 +1524,34 @@ export const useDesignState = () => {
           isSelected: el.id === elementId
         }));
       
+      // 获取选中元素的颜色，用于同步 MaterialPanel 显示
+      let selectedColor = prev.currentMaterial;
+      if (elementId) {
+        let selectedElement = null;
+        switch (elementType) {
+          case 'monument':
+            selectedElement = prev.monuments.find(el => el.id === elementId);
+            break;
+          case 'base':
+            selectedElement = prev.bases.find(el => el.id === elementId);
+            break;
+          case 'subBase':
+            selectedElement = prev.subBases.find(el => el.id === elementId);
+            break;
+          case 'vase':
+            selectedElement = prev.vases.find(el => el.id === elementId);
+            break;
+          default:
+            break;
+        }
+        if (selectedElement && selectedElement.color) {
+          selectedColor = selectedElement.color;
+        }
+      }
+      
       return {
         ...prev,
+        currentMaterial: selectedColor, // 同步更新当前材质为选中元素的颜色
         monuments: elementType === 'monument' ? setSelected(prev.monuments) : clearSelected(prev.monuments),
         bases: elementType === 'base' ? setSelected(prev.bases) : clearSelected(prev.bases),
         subBases: elementType === 'subBase' ? setSelected(prev.subBases) : clearSelected(prev.subBases),

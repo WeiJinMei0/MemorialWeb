@@ -338,8 +338,10 @@ const DesignerPage = () => {
       clearAllSelection();
       setActiveTool(null);
       setVaseTransformMode('translate');
-      // 更新设计状态中的选中状态
-      updateVaseElementState(vaseId, { isSelected: true });
+      // 使用 selectElement 来同步选中状态和 currentMaterial
+      if (selectElement) {
+        selectElement(vaseId, 'vase');
+      }
     } else {
       // 取消选中时，将所有花瓶的选中状态设为 false
       designState.vases.forEach(vase => {
@@ -347,7 +349,7 @@ const DesignerPage = () => {
       });
     }
     setSelectedVaseId(vaseId);
-  }, [handleArtElementSelect, designState.vases, updateVaseElementState, clearAllSelection]);
+  }, [handleArtElementSelect, designState.vases, updateVaseElementState, clearAllSelection, selectElement]);
 
   
   // handleCloseVaseEditor (新增)
