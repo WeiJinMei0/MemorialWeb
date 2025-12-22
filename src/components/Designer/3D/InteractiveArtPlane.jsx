@@ -1,4 +1,4 @@
-import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, useLayoutEffect, useMemo } from 'react';
+import React, { forwardRef, useRef, useState, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useCallback } from 'react';
 import { Html } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -38,6 +38,7 @@ const parseColorToRGBA = (colorStr) => {
 };
 
 // 【修改】globalFill 支持 patternData
+// 【性能优化】使用双指针队列和内联计算
 const globalFill = (context, canvas, originalData, rgbaColor, patternData = null) => {
   const width = canvas.width;
   const height = canvas.height;
@@ -51,47 +52,94 @@ const globalFill = (context, canvas, originalData, rgbaColor, patternData = null
   const pHeight = patternData ? patternData.height : 0;
 
   const visited = new Uint8Array(width * height);
-  const queue = [];
-  const getIdx = (x, y) => y * width + x;
-  const isLine = (x, y) => {
-    const i = (y * width + x) * 4;
-    return oData[i] < 100 && oData[i + 1] < 100 && oData[i + 2] < 100 && oData[i + 3] > 10;
-  };
-  const checkAndAdd = (x, y) => {
-    if (x < 0 || x >= width || y < 0 || y >= height) return;
-    const idx = getIdx(x, y);
-    if (visited[idx] === 1) return;
-    visited[idx] = 1;
-    if (!isLine(x, y)) queue.push({ x, y });
-  };
-  for (let x = 0; x < width; x++) { checkAndAdd(x, 0); checkAndAdd(x, height - 1); }
-  for (let y = 0; y < height; y++) { checkAndAdd(0, y); checkAndAdd(width - 1, y); }
+  // 【性能优化】使用 Uint32Array 队列和双指针
+  const maxSize = width * height * 2;
+  const queue = new Uint32Array(maxSize);
   let head = 0;
-  while (head < queue.length) {
-    const { x, y } = queue[head++];
-    checkAndAdd(x + 1, y); checkAndAdd(x - 1, y); checkAndAdd(x, y + 1); checkAndAdd(x, y - 1);
+  let tail = 0;
+
+  // 从边缘开始填充
+  for (let x = 0; x < width; x++) {
+    const topIdx = x;
+    const bottomIdx = (height - 1) * width + x;
+    const topI = topIdx * 4;
+    const bottomI = bottomIdx * 4;
+
+    // 内联线条判断
+    if (!(oData[topI] < 100 && oData[topI + 1] < 100 && oData[topI + 2] < 100 && oData[topI + 3] > 10)) {
+      if (!visited[topIdx]) { visited[topIdx] = 1; queue[tail++] = x; queue[tail++] = 0; }
+    }
+    if (!(oData[bottomI] < 100 && oData[bottomI + 1] < 100 && oData[bottomI + 2] < 100 && oData[bottomI + 3] > 10)) {
+      if (!visited[bottomIdx]) { visited[bottomIdx] = 1; queue[tail++] = x; queue[tail++] = height - 1; }
+    }
+  }
+  for (let y = 0; y < height; y++) {
+    const leftIdx = y * width;
+    const rightIdx = y * width + width - 1;
+    const leftI = leftIdx * 4;
+    const rightI = rightIdx * 4;
+
+    if (!(oData[leftI] < 100 && oData[leftI + 1] < 100 && oData[leftI + 2] < 100 && oData[leftI + 3] > 10)) {
+      if (!visited[leftIdx]) { visited[leftIdx] = 1; queue[tail++] = 0; queue[tail++] = y; }
+    }
+    if (!(oData[rightI] < 100 && oData[rightI + 1] < 100 && oData[rightI + 2] < 100 && oData[rightI + 3] > 10)) {
+      if (!visited[rightIdx]) { visited[rightIdx] = 1; queue[tail++] = width - 1; queue[tail++] = y; }
+    }
+  }
+
+  // 【性能优化】双指针队列遍历
+  while (head < tail) {
+    const x = queue[head++];
+    const y = queue[head++];
+
+    if (x + 1 < width) {
+      const idx = y * width + x + 1;
+      const i = idx * 4;
+      if (!visited[idx] && !(oData[i] < 100 && oData[i + 1] < 100 && oData[i + 2] < 100 && oData[i + 3] > 10)) {
+        visited[idx] = 1; queue[tail++] = x + 1; queue[tail++] = y;
+      }
+    }
+    if (x > 0) {
+      const idx = y * width + x - 1;
+      const i = idx * 4;
+      if (!visited[idx] && !(oData[i] < 100 && oData[i + 1] < 100 && oData[i + 2] < 100 && oData[i + 3] > 10)) {
+        visited[idx] = 1; queue[tail++] = x - 1; queue[tail++] = y;
+      }
+    }
+    if (y + 1 < height) {
+      const idx = (y + 1) * width + x;
+      const i = idx * 4;
+      if (!visited[idx] && !(oData[i] < 100 && oData[i + 1] < 100 && oData[i + 2] < 100 && oData[i + 3] > 10)) {
+        visited[idx] = 1; queue[tail++] = x; queue[tail++] = y + 1;
+      }
+    }
+    if (y > 0) {
+      const idx = (y - 1) * width + x;
+      const i = idx * 4;
+      if (!visited[idx] && !(oData[i] < 100 && oData[i + 1] < 100 && oData[i + 2] < 100 && oData[i + 3] > 10)) {
+        visited[idx] = 1; queue[tail++] = x; queue[tail++] = y - 1;
+      }
+    }
   }
 
   const [r, g, b, a] = rgbaColor;
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const idx = getIdx(x, y);
-      if (visited[idx] === 0 && !isLine(x, y)) {
-        const i = idx * 4;
-
+      const idx = y * width + x;
+      const i = idx * 4;
+      // 内联线条判断
+      if (visited[idx] === 0 && !(oData[i] < 100 && oData[i + 1] < 100 && oData[i + 2] < 100 && oData[i + 3] > 10)) {
         if (patternData) {
           // --- 图案填充逻辑 ---
-          let px = x % pWidth;
-          let py = y % pHeight;
-          if (px < 0) px += pWidth;
-          if (py < 0) py += pHeight;
+          const px = x % pWidth;
+          const py = y % pHeight;
           const pIdx = (py * pWidth + px) * 4;
 
           data[i] = pData[pIdx];
           data[i + 1] = pData[pIdx + 1];
           data[i + 2] = pData[pIdx + 2];
-          data[i + 3] = pData[pIdx + 3]; // Usually 255
+          data[i + 3] = pData[pIdx + 3];
         } else {
           // --- 纯色填充逻辑 ---
           data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = a;
@@ -149,7 +197,8 @@ const InteractiveArtPlane = forwardRef(({
   const frontSurfaceOffset = 0.004; // baseZ 通常比前表面前移约 0.005，这里回拉到约 1mm
 
   // --- 辅助方法 ---
-  const getMouseOnPlane = (clientX, clientY, z) => {
+  // 【性能优化】使用 useCallback 缓存函数
+  const getMouseOnPlane = useCallback((clientX, clientY, z) => {
     const rect = gl.domElement.getBoundingClientRect();
     const x = ((clientX - rect.left) / rect.width) * 2 - 1;
     const y = -((clientY - rect.top) / rect.height) * 2 + 1;
@@ -159,7 +208,7 @@ const InteractiveArtPlane = forwardRef(({
     const target = new THREE.Vector3();
     raycaster.ray.intersectPlane(plane, target);
     return target;
-  };
+  }, [gl.domElement, camera, raycaster]);
 
   useImperativeHandle(ref, () => ({
     getCanvasDataURL: () => artCanvasRef.current?.canvas?.toDataURL('image/png')
@@ -395,34 +444,9 @@ const InteractiveArtPlane = forwardRef(({
   }, [art.id, art.position, art.scale, art.rotation, aspectRatio, surfaceZ, monumentThickness, art.side]);
 
   // --- 交互逻辑 ---
+  // 【性能优化】使用 useCallback 和 useRef 避免闭包问题
 
-  const startInteraction = (e, mode) => {
-    if (!isSelected || !meshRef.current) return;
-    if (isFillModeActive && isPartialFill) return;
-
-    if (e.button !== 0) return;
-
-    e.stopPropagation();
-
-    const mesh = meshRef.current;
-    const worldZ = mesh.position.z;
-    const mouseWorld = getMouseOnPlane(e.clientX, e.clientY, worldZ);
-    if (!mouseWorld) return;
-
-    interactionRef.current = {
-      mode,
-      startMouse: mouseWorld,
-      startPosition: mesh.position.clone(),
-      startScale: mesh.scale.clone(),
-      startRotation: mesh.rotation.clone(),
-      planeZ: worldZ
-    };
-
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-  };
-
-  const handlePointerMove = (e) => {
+  const handlePointerMove = useCallback((e) => {
     const { mode, startMouse, startPosition, startScale, startRotation, planeZ } = interactionRef.current;
     if (!mode || !meshRef.current) return;
 
@@ -430,6 +454,7 @@ const InteractiveArtPlane = forwardRef(({
     if (!currentMouse) return;
 
     const mesh = meshRef.current;
+    const toInches = 39.37;
 
     if (mode === 'move') {
       const delta = currentMouse.clone().sub(startMouse);
@@ -448,7 +473,6 @@ const InteractiveArtPlane = forwardRef(({
           startScale.z
         );
       }
-      const toInches = 39.37;
       setDimensionsLabel({
         width: Math.abs(mesh.scale.x) * toInches,
         height: Math.abs(mesh.scale.y) * toInches
@@ -473,7 +497,6 @@ const InteractiveArtPlane = forwardRef(({
           startScale.z
         );
       }
-      const toInches = 39.37;
       setDimensionsLabel({
         width: Math.abs(mesh.scale.x) * toInches,
         height: Math.abs(mesh.scale.y) * toInches
@@ -498,7 +521,6 @@ const InteractiveArtPlane = forwardRef(({
           startScale.z
         );
       }
-      const toInches = 39.37;
       setDimensionsLabel({
         width: Math.abs(mesh.scale.x) * toInches,
         height: Math.abs(mesh.scale.y) * toInches
@@ -516,9 +538,9 @@ const InteractiveArtPlane = forwardRef(({
         startRotation.z + deltaAngle
       );
     }
-  };
+  }, [getMouseOnPlane]);
 
-  const handlePointerUp = () => {
+  const handlePointerUp = useCallback(() => {
     window.removeEventListener('pointermove', handlePointerMove);
     window.removeEventListener('pointerup', handlePointerUp);
 
@@ -530,36 +552,63 @@ const InteractiveArtPlane = forwardRef(({
       });
     }
     interactionRef.current.mode = null;
-  };
+  }, [art.id, onTransformEnd, handlePointerMove]);
+
+  const startInteraction = useCallback((e, mode) => {
+    if (!isSelected || !meshRef.current) return;
+    if (isFillModeActive && isPartialFill) return;
+
+    if (e.button !== 0) return;
+
+    e.stopPropagation();
+
+    const mesh = meshRef.current;
+    const worldZ = mesh.position.z;
+    const mouseWorld = getMouseOnPlane(e.clientX, e.clientY, worldZ);
+    if (!mouseWorld) return;
+
+    interactionRef.current = {
+      mode,
+      startMouse: mouseWorld,
+      startPosition: mesh.position.clone(),
+      startScale: mesh.scale.clone(),
+      startRotation: mesh.rotation.clone(),
+      planeZ: worldZ
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  }, [isSelected, isFillModeActive, isPartialFill, getMouseOnPlane, handlePointerMove, handlePointerUp]);
 
   // --- 按钮处理 ---
-  const handleDelete = (e) => {
+  // 【性能优化】使用 useCallback 包装事件处理函数
+  const handleDelete = useCallback((e) => {
     e.stopPropagation();
     if (onDelete) onDelete(art.id, 'art');
-  };
+  }, [art.id, onDelete]);
 
-  const handleMirror = (e) => {
+  const handleMirror = useCallback((e) => {
     e.stopPropagation();
     if (onFlip) onFlip(art.id, 'x', 'art');
-  };
+  }, [art.id, onFlip]);
 
-  const handleVerticalFlip = (e) => {
+  const handleVerticalFlip = useCallback((e) => {
     e.stopPropagation();
     if (onFlip) onFlip(art.id, 'y', 'art');
-  };
+  }, [art.id, onFlip]);
 
-  const handleMirrorCopy = (e) => {
+  const handleMirrorCopy = useCallback((e) => {
     e.stopPropagation();
     if (onMirrorCopy) onMirrorCopy(art.id, 'art');
-  };
+  }, [art.id, onMirrorCopy]);
 
-  const handleSave = (e) => {
+  const handleSave = useCallback((e) => {
     e.stopPropagation();
     if (onSave) onSave(art);
-  };
+  }, [art, onSave]);
 
-  // 样式
-  const btnStyle = {
+  // 【性能优化】使用 useMemo 缓存样式对象
+  const btnStyle = useMemo(() => ({
     background: 'white',
     color: '#333',
     borderRadius: '50%',
@@ -574,11 +623,15 @@ const InteractiveArtPlane = forwardRef(({
     pointerEvents: 'auto',
     transition: 'all 0.1s',
     border: '1px solid #e0e0e0'
-  };
+  }), []);
 
   const sx = Math.sign(art.scale?.[0] || 1);
   const sy = Math.sign(art.scale?.[1] || 1);
   const showControls = isSelected && (!isFillModeActive || !isPartialFill);
+
+  // 【性能优化】使用 useCallback 包装 mesh 事件处理
+  const handlePointerOver = useCallback((e) => { e.stopPropagation(); setIsHovered(true); }, []);
+  const handlePointerOut = useCallback((e) => { e.stopPropagation(); setIsHovered(false); }, []);
 
   return (
     <group ref={ref}>
@@ -586,8 +639,8 @@ const InteractiveArtPlane = forwardRef(({
         ref={meshRef}
         renderOrder={1}
         userData={{ isArtPlane: true, id: art.id }}
-        onPointerOver={(e) => { e.stopPropagation(); setIsHovered(true); }}
-        onPointerOut={(e) => { e.stopPropagation(); setIsHovered(false); }}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
         onPointerDown={(e) => {
           const isBackView = camera.position.z > 0;
           const isArtBack = art.side === 'back';

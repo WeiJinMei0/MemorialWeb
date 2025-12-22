@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Button, Space, Tooltip, ColorPicker, Typography } from 'antd';
 import {
   CloseOutlined,
@@ -22,8 +22,8 @@ const presetColors = [
 
 const simplePresetColors = presetColors[0].colors;
 
-// 辅助组件：颜色色块，支持透明色显示
-const ColorSwatches = ({ colors, onColorSelect, selectedColor, disabled = false, t }) => (
+// 【性能优化】将 ColorSwatches 抽取为 React.memo 组件，避免不必要的重渲染
+const ColorSwatches = React.memo(({ colors, onColorSelect, selectedColor, disabled = false, t }) => (
   <Space wrap className="swatches-space">
     {colors.map(color => {
       let isSelected = false;
@@ -61,7 +61,9 @@ const ColorSwatches = ({ colors, onColorSelect, selectedColor, disabled = false,
       );
     })}
   </Space>
-);
+));
+
+ColorSwatches.displayName = 'ColorSwatches';
 
 const ArtEditorPanel = ({
   art,
@@ -76,23 +78,23 @@ const ArtEditorPanel = ({
   isPartialFill = false,
   setIsPartialFill = () => { },
 }) => {
-  // Mock translation function - In production, replace with: const { t } = useTranslation();
-  const t = (key, defaultText) => {
-    // This map simulates your JSON files structure
-    const textMap = {
-      'artEditor.title': 'Edit Pattern',
-      'backgrounds.transparent': 'Transparent',
-      'artEditor.keepColor': 'Keep Color',
-      'artEditor.insert': 'Insert',
-      'artEditor.specialFilling': 'Special Filling',
-      'artEditor.surfaceColor': 'Surface Color',
-      'artEditor.outlineColor': 'Outline Color',
-      'artEditor.frost': 'Frost',
-      'textEditor.color': 'Color', // Reusing existing key from textEditor
-    };
-    // In a real app, this returns the string from en.json/es.json/fr.json
+  // 【性能优化】使用 useMemo 缓存翻译映射，避免每次渲染都创建新对象
+  const textMap = useMemo(() => ({
+    'artEditor.title': 'Edit Pattern',
+    'backgrounds.transparent': 'Transparent',
+    'artEditor.keepColor': 'Keep Color',
+    'artEditor.insert': 'Insert',
+    'artEditor.specialFilling': 'Special Filling',
+    'artEditor.surfaceColor': 'Surface Color',
+    'artEditor.outlineColor': 'Outline Color',
+    'artEditor.frost': 'Frost',
+    'textEditor.color': 'Color',
+  }), []);
+
+  // 【性能优化】使用 useCallback 包装翻译函数
+  const t = useCallback((key, defaultText) => {
     return textMap[key] || defaultText || key;
-  };
+  }, [textMap]);
 
   const nodeRef = useRef(null);
 
@@ -192,7 +194,8 @@ const ArtEditorPanel = ({
     }
   }, [art.id, currentLineAlpha, isFillModeActive, isTransparent, isPartialFill, isFrost]);
 
-  const handleLineColor = (color) => {
+  // 【性能优化】使用 useCallback 包装颜色处理函数
+  const handleLineColor = useCallback((color) => {
     const hex = typeof color === 'string' ? color : color.toHexString();
     if (color === 'transparent') {
       onLineAlphaChange(art.id, 0);
@@ -202,13 +205,13 @@ const ArtEditorPanel = ({
         onLineAlphaChange(art.id, 1.0);
       }
     }
-  };
+  }, [art.id, currentLineAlpha, onLineColorChange, onLineAlphaChange]);
 
-  const handleLineAlpha = (value) => {
+  const handleLineAlpha = useCallback((value) => {
     onLineAlphaChange(art.id, value);
-  };
+  }, [art.id, onLineAlphaChange]);
 
-  const handleFillColor = (color) => {
+  const handleFillColor = useCallback((color) => {
     if (color === 'transparent') {
       setFillColor('transparent', art.id);
       setIsFillModeActive(true, art.id);
@@ -223,9 +226,9 @@ const ArtEditorPanel = ({
         setIsFillModeActive(true, art.id);
       }
     }
-  };
+  }, [art.id, isFillModeActive, setFillColor, setIsFillModeActive]);
 
-  const handleSetMode = (mode) => {
+  const handleSetMode = useCallback((mode) => {
     setActiveMode(mode);
     const config = modeConfigs[mode];
 
@@ -255,7 +258,7 @@ const ArtEditorPanel = ({
       }
       setIsPartialFill(config.isPartialFill, art.id);
     }
-  };
+  });
 
   const handleKeepColorSelection = (color) => {
     handleLineColor(color);
