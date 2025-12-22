@@ -342,7 +342,7 @@ const DesignerPage = () => {
       // handleArtElementSelect(null); // 取消选中艺术图案
       setSelectedModelId(null);
       setSelectedModelType(null);
-      clearAllSelection();
+      if (clearAllSelection) clearAllSelection();
       setActiveTool(null);
       setVaseTransformMode('translate');
       // 使用 selectElement 来同步选中状态和 currentMaterial
@@ -356,7 +356,7 @@ const DesignerPage = () => {
       });
     }
     setSelectedVaseId(vaseId);
-  }, [handleArtElementSelect, designState.vases, updateVaseElementState, clearAllSelection, selectElement]);
+  }, [designState.vases, updateVaseElementState, clearAllSelection, selectElement]);
 
 
   // handleCloseVaseEditor (新增)
@@ -368,19 +368,26 @@ const DesignerPage = () => {
   }, [selectedVaseId, updateVaseElementState]);
 
   const handleSelectElement = useCallback((elementId, elementType) => {
-    setSelectedModelId(elementId);
-    setSelectedModelType(elementType);
-
     if (selectElement) {
       selectElement(elementId, elementType);
     }
 
-    // 清除其他元素的选中
-    handleArtElementSelect(null);
-    handleCloseVaseEditor();
-    setCurrentTextId(null);
-    setIsTextEditing(false);
-  }, [selectElement, handleArtElementSelect, handleCloseVaseEditor]);
+    // 清除其他元素的本地选中状态
+    if (elementType !== 'art') handleArtElementSelect(null);
+    if (elementType !== 'vase') handleCloseVaseEditor();
+    if (elementType !== 'text') {
+      setCurrentTextId(null);
+      setIsTextEditing(false);
+      setActiveTool(prevTool => prevTool === 'text' ? null : prevTool);
+      // 清除文本的选中状态
+      designState.textElements.forEach(text => {
+        setTextSelected(text.id, false);
+      });
+    }
+
+    setSelectedModelId(elementId);
+    setSelectedModelType(elementType);
+  }, [selectElement, handleArtElementSelect, handleCloseVaseEditor, designState.textElements, setTextSelected]);
 
   // handleToolSelect
   // 1. 修改 handleToolSelect 逻辑
@@ -636,11 +643,15 @@ const DesignerPage = () => {
     setCurrentTextId(newTextId);
     setIsTextEditing(true);
     setActiveTool('text');
+
+    if (selectElement) {
+      selectElement(newTextId, 'text');
+    }
     // 6. 关闭其他可能打开的面板（如 Vase 或 Art）
     handleArtElementSelect(null);
     handleCloseVaseEditor();
     message.success('文本添加成功');
-  }, [designState.monuments, addText]);
+  }, [designState.monuments, addText, selectElement, handleArtElementSelect, handleCloseVaseEditor]);
 
   const handleDeleteText = useCallback((textId) => {
     deleteText(textId);
@@ -650,10 +661,12 @@ const DesignerPage = () => {
   }, [deleteText]);
 
   const handleTextSelect = useCallback((textId) => {
-    // 1. 互斥逻辑：如果选中了文字，就取消选中艺术图案
+    // 1. 互斥逻辑：如果选中了文字，就取消选中其他元素
     setSelectedModelId(null);
     setSelectedModelType(null);
-    clearAllSelection();
+    if (selectElement) {
+      selectElement(textId, 'text');
+    }
     handleArtElementSelect(null);
     handleCloseVaseEditor();
 
@@ -662,22 +675,14 @@ const DesignerPage = () => {
 
     setActiveTool('text');
     if (textId) {
-      // ---【关键修改】---
-      // 如果选中了文字：
-      // A. 标记为正在编辑状态
       setIsTextEditing(true);
-      // B. 更新设计状态中的选中标记（用于显示3D坐标轴）
       setTextSelected(textId, true);
-      // C. 【新增】自动打开左侧的 "Text" 工具栏，从而显示 TextEditor 面板
       setActiveTool('text');
     } else {
-      // 如果取消选中（点击空白处）：
       setIsTextEditing(false);
-      // 如果当前正打开着文字面板，则关闭它，让界面更清爽
-      // (使用回调函数形式以确保获取最新的 activeTool 状态)
       setActiveTool(prevTool => prevTool === 'text' ? null : prevTool);
     }
-  }, [handleArtElementSelect, handleCloseVaseEditor, setTextSelected, clearAllSelection]);
+  }, [handleArtElementSelect, handleCloseVaseEditor, setTextSelected, selectElement]);
 
   // --- 【新增】: 关闭文字编辑器的处理函数 ---
   const handleCloseTextEditor = useCallback(() => {
@@ -1538,24 +1543,24 @@ const DesignerPage = () => {
                     label={`${t('designer.subBase')}${index + 1}`}
                   />
                 ))}
-              </div>
-              <div className="base-buttons-container">
-                <Space>
-                  <Button size="small" onClick={addTablet}>
-                    {t('designer.addTablet')}
-                  </Button>
-                  <Button size="small" onClick={addBase}>{t('designer.addBase')}</Button>
-                  <Button size="small" onClick={addSubBase}>{t('designer.addSubBase')}</Button>
-                  <p> {t('designer.format')}</p>
-                  <select
-                    value={selectedUnit || 'inches'}
-                    onChange={(e) => setSelectedUnit(e.target.value)}
-                    id="size-selection"
-                  >
-                    <option value="inches">{t('designer.Inches')}</option>
-                    <option value="feet">{t('designer.Feet')}</option>
-                  </select>
-                </Space>
+                <div className="base-buttons-container">
+                  <Space>
+                    <Button size="small" onClick={addTablet}>
+                      {t('designer.addTablet')}
+                    </Button>
+                    <Button size="small" onClick={addBase}>{t('designer.addBase')}</Button>
+                    <Button size="small" onClick={addSubBase}>{t('designer.addSubBase')}</Button>
+                    <p> {t('designer.format')}</p>
+                    <select
+                      value={selectedUnit || 'inches'}
+                      onChange={(e) => setSelectedUnit(e.target.value)}
+                      id="size-selection"
+                    >
+                      <option value="inches">{t('designer.Inches')}</option>
+                      <option value="feet">{t('designer.Feet')}</option>
+                    </select>
+                  </Space>
+                </div>
               </div>
             </div>
 

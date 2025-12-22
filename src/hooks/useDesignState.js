@@ -1304,8 +1304,8 @@ export const useDesignState = () => {
         ...overrides,
         id: `${elementType}-${Date.now()}`,
         position: [
-          elementToDuplicate.position[0] + 0.5,
-          elementToDuplicate.position[1] + 0.1, // 您的版本有 0.1Y 偏移
+          elementToDuplicate.position[0] + 0.85,
+          elementToDuplicate.position[1], // 您的版本有 0.1Y 偏移
           elementToDuplicate.position[2]
         ]
       };
@@ -1525,6 +1525,12 @@ export const useDesignState = () => {
           isSelected: el.id === elementId
         }));
 
+      // 特别处理：如果是文本，确保所有碑都取消选中
+      const updatedMonuments = elementType === 'text' ? 
+        clearSelected(prev.monuments) : // 文本选中时，碑全部取消选中
+        (elementType === 'monument' ? setSelected(prev.monuments) : clearSelected(prev.monuments));
+        
+
       // 获取选中元素的颜色，用于同步 MaterialPanel 显示
       let selectedColor = prev.currentMaterial;
       if (elementId) {
@@ -1558,6 +1564,7 @@ export const useDesignState = () => {
         subBases: elementType === 'subBase' ? setSelected(prev.subBases) : clearSelected(prev.subBases),
         vases: elementType === 'vase' ? setSelected(prev.vases) : clearSelected(prev.vases),
         artElements: elementType === 'art' ? setSelected(prev.artElements) : clearSelected(prev.artElements),
+        textElements: elementType === 'text' ? setSelected(prev.textElements) : clearSelected(prev.textElements),
       };
     });
   }, [updateDesignState]);

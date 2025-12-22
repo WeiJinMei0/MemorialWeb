@@ -129,6 +129,62 @@ const MonumentScene = forwardRef(({
         if (onArtElementSelect) onArtElementSelect(null);
         if (onTextSelect) onTextSelect(null);
         if (onVaseSelect) onVaseSelect(null);
+      } else {
+        // 检查点击的是什么类型的元素
+        let elementType = null;
+        let elementId = null;
+        
+        // 向上遍历查找元素的类型和ID
+        let obj = hit.object;
+        while (obj) {
+          // 检查 userData
+          if (obj.userData) {
+            if (obj.userData.isModel) {
+              elementType = obj.userData.modelType;
+              elementId = obj.userData.modelId;
+              break;
+            }
+            if (obj.userData.isArtPlane) {
+              elementType = 'art';
+              elementId = obj.userData.id;
+              break;
+            }
+            if (obj.userData.isTextElement) {
+              elementType = 'text';
+              elementId = obj.userData.textId;
+              break;
+            }
+            if (obj.userData.isVase) {
+              elementType = 'vase';
+              elementId = obj.userData.vaseId;
+              break;
+            }
+          }
+          if (obj.parent === null || obj.parent === scene) break;
+          obj = obj.parent;
+        }
+        
+        // 如果找到了元素类型，调用相应的选中函数
+        if (elementType && elementId) {
+          switch (elementType) {
+            case 'monument':
+            case 'base':
+            case 'subBase':
+              if (onSelectElement) onSelectElement(elementId, elementType);
+              break;
+            case 'art':
+              if (onArtElementSelect) onArtElementSelect(elementId);
+              break;
+            case 'text':
+              if (onTextSelect) onTextSelect(elementId);
+              break;
+            case 'vase':
+              if (onVaseSelect) onVaseSelect(elementId);
+              break;
+            default:
+              break;
+          }
+        }
       }
     };
 
@@ -138,7 +194,7 @@ const MonumentScene = forwardRef(({
     return () => {
       canvasDom.removeEventListener('click', handleGlobalClick);
     };
-  }, [gl.domElement, onArtElementSelect, onTextSelect, onVaseSelect, camera, raycaster, scene, pointer]);
+  }, [gl.domElement, onSelectElement, onArtElementSelect, onTextSelect, onVaseSelect, camera, raycaster, scene, pointer]);
 
   // 添加双击处理
   useEffect(() => {
