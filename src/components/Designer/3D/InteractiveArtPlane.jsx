@@ -140,8 +140,8 @@ const InteractiveArtPlane = forwardRef(({
   });
 
   const artCanvasRef = useRef({ canvas: null, context: null, originalData: null });
-  const uniqueOffset = useMemo(() => Math.random() * 0.0009 + 0.0001, []);
-  const manualOffset = 0.005;
+  const uniqueOffset = useMemo(() => Math.random() * 0.0004 + 0.0001, []);
+  const frontSurfaceOffset = 0.004; // baseZ 通常比前表面前移约 0.005，这里回拉到约 1mm
 
   // --- 辅助方法 ---
   const getMouseOnPlane = (clientX, clientY, z) => {
@@ -310,9 +310,9 @@ const InteractiveArtPlane = forwardRef(({
       const isBack = art.side === 'back';
       let targetZ;
       if (isBack) {
-        targetZ = baseZ + 0.005 + monumentThickness + manualOffset + uniqueOffset;
+        targetZ = baseZ + 0.005 + monumentThickness + uniqueOffset;
       } else {
-        targetZ = baseZ - uniqueOffset;
+        targetZ = baseZ + frontSurfaceOffset - uniqueOffset;
       }
       meshRef.current.position.set(pos[0], pos[1], targetZ);
       meshRef.current.rotation.set(rot[0], rot[1], rot[2]);
@@ -326,10 +326,10 @@ const InteractiveArtPlane = forwardRef(({
           const isBackView = camera.position.z > 0;
           finalSide = isBackView ? 'back' : 'front';
           if (finalSide === 'back') {
-            targetZ = baseZ + 0.005 + monumentThickness + manualOffset + uniqueOffset;
+            targetZ = baseZ + 0.005 + monumentThickness + uniqueOffset;
             meshRef.current.position.set(pos[0], pos[1], targetZ);
           } else {
-            targetZ = baseZ - uniqueOffset;
+            targetZ = baseZ + frontSurfaceOffset - uniqueOffset;
             meshRef.current.position.set(pos[0], pos[1], targetZ);
           }
         }
@@ -486,6 +486,7 @@ const InteractiveArtPlane = forwardRef(({
     <group ref={ref}>
       <mesh
         ref={meshRef}
+        renderOrder={1}
         userData={{ isArtPlane: true, id: art.id }}
         onPointerOver={(e) => { e.stopPropagation(); setIsHovered(true); }}
         onPointerOut={(e) => { e.stopPropagation(); setIsHovered(false); }}
