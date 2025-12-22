@@ -137,7 +137,7 @@ export function getFontFamilyForLanguage(selectedFamily, language) {
 
 }
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { message } from 'antd'; 
+import { message } from 'antd';
 import useApp from "antd/es/app/useApp";
 
 const PRODUCT_FAMILIES = {
@@ -205,7 +205,7 @@ const baseInitHeight = 0.20320000099831273;  // 底座默认高度
 
 
 const baseInitX = 0;
-const baseInitY =  0 - baseInitHeight;  // 底座默认的初始 Y 轴位置
+const baseInitY = 0 - baseInitHeight;  // 底座默认的初始 Y 轴位置
 const baseInitZ = 0;   // 底座默认的初始 Z 轴位置
 
 const tabletInitX = 0;
@@ -470,7 +470,7 @@ const getFontPath = (nameOrPath) => {
 
 export const useDesignState = () => {
   // 获取上下文绑定的 message 实例
-  const { message } = useApp(); 
+  const { message } = useApp();
   const [designState, setDesignState] = useState(initialDesignState)
   const historyRef = useRef([JSON.parse(JSON.stringify(initialDesignState))])
   const historyIndexRef = useRef(0)
@@ -525,9 +525,9 @@ export const useDesignState = () => {
     // 设置默认位置
     const basePosition = [baseInitX, baseInitY, baseInitZ];
     const monumentPosition = [
-      tabletInitX, 
-      tabletInitY, 
-      tabletInitZ 
+      tabletInitX,
+      tabletInitY,
+      tabletInitZ
     ];
 
     const monument = {
@@ -610,7 +610,7 @@ export const useDesignState = () => {
         oldFamily = oldMonuments[0].family || ''; // 兼容数量>2的边界情况（可选）
         console.log(`oldMonuments数量>2!!!`);
       }
-      
+
       // 2. 创建新的碑体
       const newState = { ...prev };
       let newMonument = [];
@@ -620,7 +620,7 @@ export const useDesignState = () => {
       if (family === 'Tablet') {
         let newPosition = [monumentInitX, monumentInitY, monumentInitZ]; // 默认原点
         // 旧产品不是Tablet
-        if (oldFamily !== 'Tablet'){
+        if (oldFamily !== 'Tablet') {
           // 清空所有，新Tablet放原点
           newMonument = {
             id: 'monument-1',
@@ -681,7 +681,7 @@ export const useDesignState = () => {
             newSubBases = [...oldSubBases]; // 保留旧副底座
             console.log(`📍 旧有${oldTabletCount}个Tablet且有选中项， 替换选中的Tablet，保留底座/副底座,继承选中位置：`, newPosition);
           }
-          else{
+          else {
             // 无选中的Tablet：清空所有旧Tablet，新Tablet放原点
             newMonument = {
               id: 'monument-1',
@@ -706,8 +706,8 @@ export const useDesignState = () => {
       }
       // 2. 新增产品不是Tablet的场景
       else {
-        let newPosition = [monumentInitX, monumentInitY, monumentInitZ] ; // 默认原点
-        if( oldFamily !== 'Tablet' && oldFamily !== ''){
+        let newPosition = [monumentInitX, monumentInitY, monumentInitZ]; // 默认原点
+        if (oldFamily !== 'Tablet' && oldFamily !== '') {
           newPosition = oldMonuments[0].position || newPosition;
         }
         // 清空所有旧碑体
@@ -726,7 +726,7 @@ export const useDesignState = () => {
           label: `${family}1`,
           isSelected: false
         };
-        console.log('🗑️ 新非Tablet产品：清空旧底座/副底座，新增碑体位置',newPosition);
+        console.log('🗑️ 新非Tablet产品：清空旧底座/副底座，新增碑体位置', newPosition);
       }
       // 3. 设置新状态
       // 判断 newMonument 是否是数组, 如果是，直接用这个数组，如果不是则转换为数组
@@ -755,7 +755,7 @@ export const useDesignState = () => {
       return;
     }
     const monumentList = designState.monuments;
-    
+
     // 计算对称间距
     const TABLET_SPACING_HALF = tabletInitWidth * 1.5;
 
@@ -763,11 +763,11 @@ export const useDesignState = () => {
       // 生成新Tablet标签（最大序号+1，删除后新增不会覆盖原有命名）
       const newTabletIndex = generateNewTabletLabel(tabletList);
       const newMonumentIndex = generateNewMonumentLabel(monumentList);
-      
+
       // 获取当前所有Tablet（添加新的之前）
       const currentTablets = prev.monuments.filter(m => m.family === 'Tablet');
       const newTabletCount = currentTablets.length + 1;
-      
+
       // 计算新墓碑的位置
       let newTabletPosition;
       if (newTabletCount === 1) {
@@ -776,7 +776,7 @@ export const useDesignState = () => {
       } else if (newTabletCount === 2) {
         // 第二个墓碑：右侧位置
         newTabletPosition = [TABLET_SPACING_HALF, tabletInitY, tabletInitZ];
-        
+
         // 同时更新第一个墓碑到左侧位置（如果它还在中心）
         const firstTablet = currentTablets[0];
         if (firstTablet && firstTablet.position) {
@@ -789,7 +789,7 @@ export const useDesignState = () => {
               }
               return m;
             });
-            
+
             const monument = {
               id: `monument-${newMonumentIndex}`,
               type: 'monument',
@@ -799,13 +799,13 @@ export const useDesignState = () => {
               color: prev.currentMaterial,
               modelPath: "/models/Shapes/Tablet/Serp Top.glb",
               texturePath: "",
-              position: newTabletPosition, 
+              position: newTabletPosition,
               dimensions: { length: 0, width: 0, height: 0 },
               weight: 0,
               label: `Tablet${newTabletIndex}`,
               isSelected: false
             };
-            
+
             return {
               ...prev,
               monuments: [...updatedMonuments, monument]
@@ -813,7 +813,7 @@ export const useDesignState = () => {
           }
         }
       }
-      
+
       const monument = {
         id: `monument-${newMonumentIndex}`,
         type: 'monument',
@@ -823,7 +823,7 @@ export const useDesignState = () => {
         color: prev.currentMaterial,
         modelPath: "/models/Shapes/Tablet/Serp Top.glb",
         texturePath: "",
-        position: newTabletPosition, 
+        position: newTabletPosition,
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
         label: `Tablet${newTabletIndex}`,
@@ -841,7 +841,7 @@ export const useDesignState = () => {
 
 
   const addBase = useCallback(() => {
-    updateDesignState(prev => { 
+    updateDesignState(prev => {
       // 筛选出所有Tablet类型的碑体（仅匹配Tablet）
       const tabletList = prev.monuments.filter(m => m.family === 'Tablet');
       const tabletCount = tabletList.length;
@@ -851,8 +851,8 @@ export const useDesignState = () => {
       // 碑体数量 < 2 且 已有1个底座 → 无法添加第二个底座
       if (currentBaseCount >= tabletCount || tabletCount === 0) {
         message.warning(
-          tabletCount === 0 
-            ? "暂无Tablet碑体，无法添加底座" 
+          tabletCount === 0
+            ? "暂无Tablet碑体，无法添加底座"
             : `当前已有${currentBaseCount}个底座，与${tabletCount}个Tablet碑体数量匹配，无法新增底座`
         );
         return prev; // 不修改状态
@@ -881,7 +881,7 @@ export const useDesignState = () => {
     });
   }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
-  
+
   const removeBase = useCallback((baseId) => {
     updateDesignState(prev => ({
       ...prev,
@@ -897,7 +897,7 @@ export const useDesignState = () => {
         message.warning('暂无可用底座，请先添加底座');
         return prev;
       }
-  
+
       // 2. 按顺序遍历底座，找可添加的目标底座（每个底座最多1个subbase）
       let targetBase = null;
       for (const base of prev.bases) {
@@ -908,17 +908,17 @@ export const useDesignState = () => {
           break;
         }
       }
-  
+
       // 3. 检测是否所有底座都已达上限
       if (!targetBase) {
         message.warning('每个底座最多添加1个副底座，无法继续添加');
         return prev;
       }
-  
+
       const basePos = targetBase.position || [0, -0.5, 0];
       const baseHeight = targetBase.dimensions.height || 0.1;
       const subBaseHeight = 0.1; // 副底座默认高度
-      
+
       const subBasePosition = [
         basePos[0], // X轴与底座对齐
         basePos[1] - baseHeight, // Y轴在底座正下方
@@ -940,7 +940,7 @@ export const useDesignState = () => {
         label: `${targetBase.label}-SubBase`,
         isSelected: false
       };
-  
+
       return {
         ...prev,
         subBases: [...prev.subBases, subBase]
@@ -963,7 +963,7 @@ export const useDesignState = () => {
       const hasSelectedBase = prev.bases.some(b => b.isSelected);
       const hasSelectedSubBase = prev.subBases.some(sb => sb.isSelected);
       const hasSelectedVase = prev.vases.some(v => v.isSelected);
-      
+
       const hasAnySelected = hasSelectedMonument || hasSelectedBase || hasSelectedSubBase || hasSelectedVase;
 
       if (!hasAnySelected) {
@@ -1083,28 +1083,28 @@ export const useDesignState = () => {
             ) {
               return element;
             }
-            
+
             // 尺寸改变后，如果需要重新计算位置
             let newPosition = element.position;
-            
+
             // 如果是底座或碑，根据规则重新计算位置
             if (elementType === 'base' || elementType === 'monument') {
               // 查找对应的碑或底座
               const isBase = elementType === 'base';
               const targetId = isBase ? element.id : element.bindBaseId;
-              const relatedElements = isBase ? 
+              const relatedElements = isBase ?
                 prev.monuments.filter(m => m.bindBaseId === targetId) :
                 prev.bases.filter(b => b.id === targetId);
-              
+
               if (relatedElements.length > 0) {
                 const related = relatedElements[0];
                 const INCH_IN_METERS = 0.0254;
-                
+
                 if (isBase) {
                   // 底座尺寸改变，重新计算碑的位置
                   const baseWidth = newDims.width;
                   const monumentLength = related.dimensions.length || 0;
-                  
+
                   let monumentX = element.position[0];
                   if (baseWidth < 14 * INCH_IN_METERS) {
                     // 底座宽度小于14"，碑在底座前后宽度居中
@@ -1114,7 +1114,7 @@ export const useDesignState = () => {
                     const threeInches = 3 * INCH_IN_METERS;
                     monumentX = element.position[0] + newDims.length - monumentLength - threeInches;
                   }
-                  
+
                   newPosition = [
                     monumentX,
                     element.position[1] + newDims.height,
@@ -1160,9 +1160,9 @@ export const useDesignState = () => {
             });
           }
           break;
-          case 'subBase':
-            updatedState.subBases = updateElement(prev.subBases);
-            break;
+        case 'subBase':
+          updatedState.subBases = updateElement(prev.subBases);
+          break;
         // ... 其他类型
       }
 
@@ -1174,37 +1174,37 @@ export const useDesignState = () => {
   const addVase = useCallback((vaseData) => {
     updateDesignState(prev => {
       // 计算花瓶的默认位置：放在第一个底座的天面宽度居中
-      
+
       let vasePosition = [0.5, 0.5, 0.5];
       let vaseRotation = vaseData.rotation || [0, 0, 0];
-      
+
       // 如果有底座，计算居中位置
       if (prev.bases.length > 0) {
         const base = prev.bases[0];
         const basePosition = base.position || [0, 0, 0];
         const baseDimensions = base.dimensions || { length: 1, width: 1, height: 1 };
-        
+
         // 底座天面中心位置
         const baseTopY = basePosition[1] + (baseDimensions.height);
-        
+
         // 假设花瓶高度为0.5米，放在底座天面上方一点
         const vaseHeight = 0.5;
         const vaseTopY = baseTopY;
-        
+
         // X轴居中
-        const centerX = basePosition[0]-baseDimensions.length/2+0.05;
-        
+        const centerX = basePosition[0] - baseDimensions.length / 2 + 0.05;
+
         // Z轴与底座对齐
         const baseZ = basePosition[2];
-        
+
         vasePosition = [centerX, vaseTopY, baseZ];
-        
+
         // 如果花瓶是Planter类型，可以调整旋转
         if (vaseData.class === 'Planter Vase') {
           vaseRotation = [0, 0, 0];
         }
       }
-      
+
       const vase = {
         id: `vase-${Date.now()}`,
         type: 'vase',
@@ -1277,7 +1277,7 @@ export const useDesignState = () => {
   }, [updateDesignState]);
 
   // 复制元素
-  const duplicateElement = useCallback((elementId, elementType) => {
+  const duplicateElement = useCallback((elementId, elementType, overrides = {}) => {
     updateDesignState(prev => {
       const getElements = () => {
         switch (elementType) {
@@ -1301,6 +1301,7 @@ export const useDesignState = () => {
 
       const duplicatedElement = {
         ...elementToDuplicate,
+        ...overrides,
         id: `${elementType}-${Date.now()}`,
         position: [
           elementToDuplicate.position[0] + 0.85,
@@ -1514,11 +1515,11 @@ export const useDesignState = () => {
   const selectElement = useCallback((elementId, elementType) => {
     updateDesignState(prev => {
       // 清除所有元素的选中状态
-      const clearSelected = (elements) => 
+      const clearSelected = (elements) =>
         elements.map(el => ({ ...el, isSelected: false }));
-      
+
       // 设置指定元素为选中状态
-      const setSelected = (elements) => 
+      const setSelected = (elements) =>
         elements.map(el => ({
           ...el,
           isSelected: el.id === elementId
@@ -1529,8 +1530,35 @@ export const useDesignState = () => {
         clearSelected(prev.monuments) : // 文本选中时，碑全部取消选中
         (elementType === 'monument' ? setSelected(prev.monuments) : clearSelected(prev.monuments));
         
+
+      // 获取选中元素的颜色，用于同步 MaterialPanel 显示
+      let selectedColor = prev.currentMaterial;
+      if (elementId) {
+        let selectedElement = null;
+        switch (elementType) {
+          case 'monument':
+            selectedElement = prev.monuments.find(el => el.id === elementId);
+            break;
+          case 'base':
+            selectedElement = prev.bases.find(el => el.id === elementId);
+            break;
+          case 'subBase':
+            selectedElement = prev.subBases.find(el => el.id === elementId);
+            break;
+          case 'vase':
+            selectedElement = prev.vases.find(el => el.id === elementId);
+            break;
+          default:
+            break;
+        }
+        if (selectedElement && selectedElement.color) {
+          selectedColor = selectedElement.color;
+        }
+      }
+
       return {
         ...prev,
+        currentMaterial: selectedColor, // 同步更新当前材质为选中元素的颜色
         monuments: elementType === 'monument' ? setSelected(prev.monuments) : clearSelected(prev.monuments),
         bases: elementType === 'base' ? setSelected(prev.bases) : clearSelected(prev.bases),
         subBases: elementType === 'subBase' ? setSelected(prev.subBases) : clearSelected(prev.subBases),
@@ -1556,8 +1584,8 @@ export const useDesignState = () => {
 
   const updateModelPosition = useCallback((elementId, newPosition, elementType) => {
     updateDesignState(prev => {
-      const updateElementInArray = (array) => 
-        array.map(el => 
+      const updateElementInArray = (array) =>
+        array.map(el =>
           el.id === elementId ? { ...el, position: newPosition } : el
         );
       console.log(`更新${elementId}位置前位置：`, prev);

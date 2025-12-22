@@ -169,6 +169,9 @@ const EnhancedTextElement = ({
   globalTransformMode,
   surfaceZ
 }) => {
+  const ART_RENDER_ORDER = 1;
+  const TEXT_SHADOW_RENDER_ORDER = ART_RENDER_ORDER + 1;
+  const TEXT_RENDER_ORDER = ART_RENDER_ORDER + 2;
   const { t } = useTranslation();
   const groupRef = useRef();
 
@@ -503,6 +506,7 @@ const EnhancedTextElement = ({
               size={fontSize}
               height={text.thickness || 0.02}
               material={shadowMaterial}
+              renderOrder={TEXT_SHADOW_RENDER_ORDER}
               position={[shadowOffsetX, shadowOffsetY, shadowOffsetZ]}
               bevelEnabled
               bevelSize={0.002}
@@ -516,6 +520,7 @@ const EnhancedTextElement = ({
             size={fontSize}
             height={text.thickness || 0.02}
             material={textMaterial}
+            renderOrder={TEXT_RENDER_ORDER}
             bevelEnabled
             bevelSize={0.002}
             bevelThickness={0.002}
@@ -565,6 +570,7 @@ const EnhancedTextElement = ({
                   height={text.thickness || 0.02}
                   letterSpacing={(text.kerning || 0) * 0.001}
                   material={shadowMaterial}
+                  renderOrder={TEXT_SHADOW_RENDER_ORDER}
                   position={[-0.0035, 0.0035, -0.001]}
                   bevelEnabled
                   bevelSize={0.002}
@@ -580,6 +586,7 @@ const EnhancedTextElement = ({
                 height={text.thickness || 0.02}
                 letterSpacing={(text.kerning || 0) * 0.001}
                 material={textMaterial}
+                renderOrder={TEXT_RENDER_ORDER}
                 bevelEnabled
                 bevelSize={0.002}
                 bevelThickness={0.002}

@@ -140,8 +140,8 @@ const InteractiveArtPlane = forwardRef(({
   });
 
   const artCanvasRef = useRef({ canvas: null, context: null, originalData: null });
-  const uniqueOffset = useMemo(() => Math.random() * 0.0009 + 0.0001, []);
-  const manualOffset = 0.005;
+  const uniqueOffset = useMemo(() => Math.random() * 0.0004 + 0.0001, []);
+  const frontSurfaceOffset = 0.004; // baseZ 通常比前表面前移约 0.005，这里回拉到约 1mm
 
   // --- 辅助方法 ---
   const getMouseOnPlane = (clientX, clientY, z) => {
@@ -187,18 +187,44 @@ const InteractiveArtPlane = forwardRef(({
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         ctx.drawImage(img, 0, 0);
 
-        const loader = new THREE.TextureLoader();
-        loader.load(art.imagePath, (tex) => {
-          const oCanvas = document.createElement('canvas');
-          oCanvas.width = tex.image.naturalWidth;
-          oCanvas.height = tex.image.naturalHeight;
-          const oCtx = oCanvas.getContext('2d', { willReadFrequently: true });
-          oCtx.drawImage(tex.image, 0, 0);
-          artCanvasRef.current = { canvas, context: ctx, originalData: oCtx.getImageData(0, 0, oCanvas.width, oCanvas.height) };
-          const texture = new THREE.CanvasTexture(canvas);
-          texture.colorSpace = THREE.SRGBColorSpace;
-          setCanvasTexture(texture);
-        });
+        // 1. 立即设置纹理，确保复制后的图案可见
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        setCanvasTexture(texture);
+
+        // 2. 初始化 artCanvasRef (作为降级方案)
+        artCanvasRef.current = {
+          canvas,
+          context: ctx,
+          originalData: ctx.getImageData(0, 0, canvas.width, canvas.height)
+        };
+
+        // 3. 尝试加载原始图片以获取正确的 originalData (用于后续填充算法)
+        if (art.imagePath) {
+          const loader = new THREE.TextureLoader();
+          loader.load(
+            art.imagePath,
+            (tex) => {
+              const oCanvas = document.createElement('canvas');
+              oCanvas.width = tex.image.naturalWidth;
+              oCanvas.height = tex.image.naturalHeight;
+              const oCtx = oCanvas.getContext('2d', { willReadFrequently: true });
+              oCtx.drawImage(tex.image, 0, 0);
+
+              // 更新为正确的原始数据
+              artCanvasRef.current = {
+                canvas,
+                context: ctx,
+                originalData: oCtx.getImageData(0, 0, oCanvas.width, oCanvas.height)
+              };
+            },
+            undefined,
+            (err) => {
+              console.warn("Failed to load original image for copy:", err);
+              // 加载失败时保持降级方案 (使用当前图像作为 originalData)
+            }
+          );
+        }
       };
       return;
     }
@@ -310,9 +336,9 @@ const InteractiveArtPlane = forwardRef(({
       const isBack = art.side === 'back';
       let targetZ;
       if (isBack) {
-        targetZ = baseZ + 0.005 + monumentThickness + manualOffset + uniqueOffset;
+        targetZ = baseZ + 0.005 + monumentThickness + uniqueOffset;
       } else {
-        targetZ = baseZ - uniqueOffset;
+        targetZ = baseZ + frontSurfaceOffset - uniqueOffset;
       }
       meshRef.current.position.set(pos[0], pos[1], targetZ);
       meshRef.current.rotation.set(rot[0], rot[1], rot[2]);
@@ -326,10 +352,10 @@ const InteractiveArtPlane = forwardRef(({
           const isBackView = camera.position.z > 0;
           finalSide = isBackView ? 'back' : 'front';
           if (finalSide === 'back') {
-            targetZ = baseZ + 0.005 + monumentThickness + manualOffset + uniqueOffset;
+            targetZ = baseZ + 0.005 + monumentThickness + uniqueOffset;
             meshRef.current.position.set(pos[0], pos[1], targetZ);
           } else {
-            targetZ = baseZ - uniqueOffset;
+            targetZ = baseZ + frontSurfaceOffset - uniqueOffset;
             meshRef.current.position.set(pos[0], pos[1], targetZ);
           }
         }
@@ -486,6 +512,7 @@ const InteractiveArtPlane = forwardRef(({
     <group ref={ref}>
       <mesh
         ref={meshRef}
+        renderOrder={1}
         userData={{ isArtPlane: true, id: art.id }}
         onPointerOver={(e) => { e.stopPropagation(); setIsHovered(true); }}
         onPointerOut={(e) => { e.stopPropagation(); setIsHovered(false); }}
