@@ -35,6 +35,10 @@ const extractNumFromLabel = (label) => {
   return num || 0;
 };
 
+// 工具函数：是否合法位置
+const hasValidPosition = pos => Array.isArray(pos) && pos.length === 3;
+
+// 工具函数：是否在默认位置附近
 const isAtDefaultPosition = (pos) =>
   Math.abs(pos[0]) < 0.01 &&
   Math.abs(pos[1]) < 0.01 &&
@@ -422,49 +426,44 @@ const MonumentScene = forwardRef(({
     const monumentInitZ = 0
 
     const tabletList = designState.monuments.filter(m => m.family === 'Tablet');
-    const baseList = designState.bases;
     const tabletCount = tabletList.length;
     const TABLET_SPACING_HALF = tabletInitLength * 0.8; // 对称间距（可调整）
-    // 对Tablet和Base按序号升序排序（小序号在前）
-    const sortedTablets = [...tabletList].sort((a, b) => {
-      const aNum = extractNumFromLabel(a.label);
-      const bNum = extractNumFromLabel(b.label);
-      return aNum - bNum;
-    });
-    const sortedBases = [...baseList].sort((a, b) => {
-      const aNum = extractNumFromLabel(a.label);
-      const bNum = extractNumFromLabel(b.label);
-      return aNum - bNum;
-    });
-    
+
     // 1. 处理碑位置
+    // 是否需要对称初始化（仅两个 Tablet 且都在默认态）
+    const shouldInitSymmetric =
+      tabletCount === 2 &&
+      tabletList.every(t => hasValidPosition(t.position) && isAtDefaultPosition(t.position));
+    
     designState.monuments.forEach((monument) => {
-      // 非Tablet碑体：判断位置是否为合法三维数组
+      // 非Tablet 碑体
       if (monument.family !== 'Tablet') {
-        if (monument.position && monument.position.length === 3) {
+        if (hasValidPosition(monument.position)) {
           positions[monument.id] = monument.position;
         } else {
           positions[monument.id] = [monumentInitX, monumentInitY, monumentInitZ];
         }
+        return;
       }
-      // Tablet碑体
-      else {
-        // 如果已有有效位置，直接使用（用户可能已拖动）
-        if (monument.position && monument.position.length === 3) {
+      // Tablet 碑体
+      // 初始位置
+      let targetPosition = [tabletInitX, tabletInitY, tabletInitZ];
+      // 有两个 Tablet 且都未被拖拽过 → 对称布局
+      if (shouldInitSymmetric) {
+        const tabletIndex = sortedTablets.findIndex(t => t.id === monument.id);
+        targetPosition = [
+          tabletIndex === 0 ? -TABLET_SPACING_HALF : TABLET_SPACING_HALF,
+          tabletInitY,
+          tabletInitZ
+        ];
+        positions[monument.id] = targetPosition;
+        monument.position = targetPosition; // 写回设计状态
+      }
+      else{
+        // 尊重已有位置（用户拖拽过）
+        if (hasValidPosition(monument.position)) {
           positions[monument.id] = monument.position;
         } else {
-          // 没有有效位置时，使用默认位置或对称布局
-          let targetPosition = [tabletInitX, tabletInitY, tabletInitZ];
-          
-          // 对称布局：仅在初始化时（无位置）应用
-          if (tabletCount === 2) {
-            const tabletIndex = sortedTablets.findIndex(m => m.id === monument.id);
-            targetPosition = [
-              tabletIndex === 0 ? -TABLET_SPACING_HALF : TABLET_SPACING_HALF,
-              tabletInitY,
-              tabletInitZ
-            ];
-          }
           positions[monument.id] = targetPosition;
         }
       }

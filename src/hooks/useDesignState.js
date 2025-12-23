@@ -263,6 +263,80 @@ const generateNewBaseLabel = (baseList) => {
   return maxNum + 1;
 };
 
+// 工具函数：获取当前选中的元素（Monument、Base 或 SubBase）
+const getSelectedElement = (prev) => {
+  return (
+    prev.monuments.find(m => m.isSelected) ||
+    prev.bases.find(b => b.isSelected) ||
+    prev.subBases.find(s => s.isSelected) ||
+    null
+  );
+};
+
+// 工具函数：根据选中元素计算新元素的位置
+// selected：当前选中的元素对象
+// newType：新元素的类型（'base'、'subBase'、'monument'）
+// newDimensions：新元素的尺寸
+// prev：当前设计状态
+const getPositionBySelected = (selected, newType, newDimensions,list) => {
+  const DEFAULT_HORIZONTAL_GAP = 0.2;
+  // 没选中
+  if (!selected ) { 
+    // 如果同类型已经存在
+    if (list.length > 0) {
+      const last = list[list.length - 1];
+      if (last.position && last.dimensions?.length) {
+        const [x, y, z] = last.position;
+        const offsetX = (last.dimensions.length / 2) + (newDimensions.length / 2) + DEFAULT_HORIZONTAL_GAP;
+        return [x + offsetX, y, z];
+      }
+    }
+    return [0, 0, 0];
+  }
+  // 取出选中对象的中心点位置
+  const [x, y, z] = selected.position;
+
+  const selectedHeight = selected.dimensions?.height ?? 0;
+  const newHeight = newDimensions?.height ?? 0;
+
+  // 放在上方
+  const aboveY = y + selectedHeight ;
+
+  // 放在下方
+  const belowY = y -  newHeight;
+
+  // 选中同类型,新产品放在原产品右侧
+  if (selected.type === newType) {
+    const offsetX = (selected.dimensions.length / 2) + (newDimensions.length / 2) + DEFAULT_HORIZONTAL_GAP;
+    return [x + offsetX, y, z];
+  }
+  // 选中 Base
+  if (selected.type === 'base') {
+    if (newType === 'subBase' || newType === 'monument') {
+      return [x, aboveY, z];
+    }
+  }
+
+  // 选中 SubBase
+  if (selected.type === 'subBase') {
+    if (newType === 'base') {
+      return [x, belowY, z];
+    }
+    if (newType === 'monument') {
+      return [x, aboveY, z];
+    }
+  }
+
+  // 选中 Tablet（monument）
+  if (selected.type === 'monument') {
+    if (newType === 'base' || newType === 'subBase') {
+      return [x, belowY, z];
+    }
+  }
+  return [0, 0, 0];
+};
+
+
 // --- 合并点：从同事的 useDesignState.js 添加了 FONT_OPTIONS ---
 const FONT_OPTIONS = [
   // --- 韩文字体 (Korean Fonts) ---
@@ -764,70 +838,23 @@ export const useDesignState = () => {
 
   // 添加碑体
   const addTablet = useCallback(() => {
-    // 统计family为Tablet的碑体数量（非所有碑体）
-    const tabletList = designState.monuments.filter(m => m.family === 'Tablet');
-    // 限制最多2个Tablet
-    // if (tabletList.length >= 2) {
-    //   message.warning('最多只能添加2个Tablet碑体，无法继续添加');
-    //   return;
-    // }
-    const monumentList = designState.monuments;
-
-    // 计算对称间距
-    const TABLET_SPACING_HALF = tabletInitLength*0.8;
-
     updateDesignState(prev => {
+      const selected = getSelectedElement(prev);
+
+      const newDimensions = { 
+        length: tabletInitLength,
+        width: tabletInitWidth,
+        height: tabletInitHeight
+      };
+
+      const tabletList = prev.monuments.filter(m => m.family === 'Tablet');
+      const monumentList = designState.monuments;
+      let newTabletPosition = getPositionBySelected( selected, 'monument', newDimensions,tabletList );
+      
       // 生成新Tablet标签（最大序号+1，删除后新增不会覆盖原有命名）
       const newTabletIndex = generateNewTabletLabel(tabletList);
       const newMonumentIndex = generateNewMonumentLabel(monumentList);
       
-      const newTabletCount = tabletList.length + 1;
-      // 计算新墓碑的位置
-      let newTabletPosition ;
-      if (newTabletCount === 1) {
-        // 第一个墓碑：中心位置
-        newTabletPosition = [tabletInitX, tabletInitY, tabletInitZ];
-      } else if (newTabletCount === 2) {
-        // 第二个墓碑：右侧位置
-        newTabletPosition = [TABLET_SPACING_HALF, tabletInitY, tabletInitZ];
-
-        // 同时更新第一个墓碑到左侧位置（如果它还在中心）
-        const firstTablet = tabletList[0];
-        if (firstTablet && firstTablet.position) {
-          const isAtCenter = Math.abs(firstTablet.position[0]) < 0.01;
-          if (isAtCenter) {
-            // 需要更新现有墓碑的位置
-            const updatedMonuments = prev.monuments.map(m => {
-              if (m.id === firstTablet.id) {
-                return { ...m, position: [-TABLET_SPACING_HALF, m.position[1], m.position[2]] };
-              }
-              return m;
-            });
-
-            const monument = {
-              id: `monument-${newMonumentIndex}`,
-              type: 'monument',
-              family: 'Tablet',
-              class: 'Serp Top',
-              polish: 'P5',
-              color: prev.currentMaterial,
-              modelPath: "/models/Shapes/Tablet/Serp Top.glb",
-              texturePath: "",
-              position: newTabletPosition,
-              dimensions: { length: 0, width: 0, height: 0 },
-              weight: 0,
-              label: `Tablet${newTabletIndex}`,
-              isSelected: false
-            };
-
-            return {
-              ...prev,
-              monuments: [...updatedMonuments, monument]
-            };
-          }
-        }
-      }
-
       const monument = {
         id: `monument-${newMonumentIndex}`,
         type: 'monument',
@@ -855,25 +882,21 @@ export const useDesignState = () => {
 
 
   const addBase = useCallback(() => {
+    
     updateDesignState(prev => {
-      // 筛选出所有Tablet类型的碑体（仅匹配Tablet）
-      const tabletList = prev.monuments.filter(m => m.family === 'Tablet');
-      // 当前已有的底座数量
-      const currentBaseCount = prev.bases.length;
-      // 底座数量 ≥ 碑体数量 → 无法添加（一个base对应一个tablet）
-      // 碑体数量 < 2 且 已有1个底座 → 无法添加第二个底座
-      // if (currentBaseCount >= tabletCount || tabletCount === 0) {
-      //   message.warning(
-      //     tabletCount === 0 
-      //       ? "暂无Tablet碑体，无法添加底座" 
-      //       : `当前已有${currentBaseCount}个底座，与${tabletCount}个Tablet碑体数量匹配，无法新增底座`
-      //   );
-      //   return prev; // 不修改状态
-      // }
+      const selected = getSelectedElement(prev);
 
+      const newDimensions = {
+        length: baseInitLength,
+        width: baseInitWidth,
+        height: baseInitHeight
+      };
+      
+      const newBasePosition = getPositionBySelected(selected,'base', newDimensions, prev.bases);
+      
       // 生成新底座标签（最大序号+1，删除后新增不会覆盖原有命名）
       const newBaseIndex = generateNewBaseLabel(prev.bases);
-      const newBasePosition = [baseInitX, baseInitY, baseInitZ];
+
       const base = {
         id: `base-${newBaseIndex}`,
         type: 'base',
@@ -905,27 +928,32 @@ export const useDesignState = () => {
 
   const addSubBase = useCallback(() => {
     updateDesignState(prev => {
-      const subBasePosition = [
-        subbaseInitX, 
-        subbaseInitY, 
-        subbaseInitZ
-      ];
-      
-      const newsubBaseIndex = generateNewBaseLabel(prev.subBases);
+      const newDimensions = {
+        length: baseInitLength,
+        width: baseInitWidth,
+        height: baseInitHeight 
+      };
+
+      const selected = getSelectedElement(prev);
+  
+      const subBasePosition = getPositionBySelected(selected, 'subBase',newDimensions,prev.subBases);
+  
+      const newIndex = generateNewBaseLabel(prev.subBases);
+  
       const subBase = {
-        id: `subbase-${newsubBaseIndex}`,
+        id: `subbase-${newIndex}`,
         type: 'subBase',
         polish: 'P5',
         color: prev.currentMaterial,
         modelPath: "/models/Bases/Base.glb",
         texturePath: "",
-        position: subBasePosition, // 位置完全由3D场景动态计算
+        position: subBasePosition,
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
-        label: `SubBase${newsubBaseIndex}`,
+        label: `SubBase${newIndex}`,
         isSelected: false
       };
-
+  
       return {
         ...prev,
         subBases: [...prev.subBases, subBase]
