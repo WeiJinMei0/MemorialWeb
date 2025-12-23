@@ -1558,6 +1558,7 @@ export const useDesignState = () => {
 
       return {
       ...prev,
+      currentMaterial: selectedColor, 
       monuments: updatedMonuments,
       bases: elementType === 'base' ? setSelected(prev.bases) : clearSelected(prev.bases),
       subBases: elementType === 'subBase' ? setSelected(prev.subBases) : clearSelected(prev.subBases),
