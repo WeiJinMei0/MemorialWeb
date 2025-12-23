@@ -28,7 +28,9 @@ const ART_PATTERNS = {
   'Angel': ['Angel-1', 'Angel-50', 'Angel-3'],
   'Flower': ['Lily-1', 'Rose-50', 'Lily-3'],
   'Flowers': ['Rose-1', 'Rose-2'],
-  'Crosses': ['Cross-1', 'Cross-3']
+  'Crosses': ['Cross-1', 'Cross-3'],
+  'Oval': ['Oval-5 x 7', 'Oval-6 x 8'],
+  'Rectangular': ['Rectangular-9 x 12', 'Rectangular-13 x 18']
 };
 
 // 辅助函数：生成图案的图片路径

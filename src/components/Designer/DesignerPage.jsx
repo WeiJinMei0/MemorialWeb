@@ -615,9 +615,12 @@ const DesignerPage = () => {
     if (selectElement) {
       selectElement(newTextId, 'text');
     }
-    // 6. 关闭其他可能打开的面板（如 Vase 或 Art）
+    // 关闭其他可能打开的面板
     handleArtElementSelect(null);
     handleCloseVaseEditor();
+    setSelectedModelId(null);
+    setSelectedModelType(null);
+    
     message.success('文本添加成功');
   }, [designState.monuments, addText, selectElement, handleArtElementSelect, handleCloseVaseEditor]);
 

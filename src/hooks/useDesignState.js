@@ -1242,7 +1242,7 @@ export const useDesignState = () => {
 
       // --- 修改开始 ---
       // 检查 artData (来自保存的图案) 是否已有这些属性，如果有，则使用它；否则，使用默认值
-      position: artData.position || [0, 0, -0.205],
+      position: artData.position || [0, 3, -0.205],
       dimensions: artData.dimensions || { length: 0.2, width: 0.01, height: 0.2 },
       scale: artData.scale || [0.2, 0.2, 1],
       rotation: artData.rotation || [0, 0, 0],
@@ -1304,7 +1304,7 @@ export const useDesignState = () => {
         ...overrides,
         id: `${elementType}-${Date.now()}`,
         position: [
-          elementToDuplicate.position[0] + 0.85,
+          elementToDuplicate.position[0] + 1,
           elementToDuplicate.position[1], // 您的版本有 0.1Y 偏移
           elementToDuplicate.position[2]
         ]
@@ -1557,17 +1557,16 @@ export const useDesignState = () => {
       }
 
       return {
-        ...prev,
-        currentMaterial: selectedColor, // 同步更新当前材质为选中元素的颜色
-        monuments: elementType === 'monument' ? setSelected(prev.monuments) : clearSelected(prev.monuments),
-        bases: elementType === 'base' ? setSelected(prev.bases) : clearSelected(prev.bases),
-        subBases: elementType === 'subBase' ? setSelected(prev.subBases) : clearSelected(prev.subBases),
-        vases: elementType === 'vase' ? setSelected(prev.vases) : clearSelected(prev.vases),
-        artElements: elementType === 'art' ? setSelected(prev.artElements) : clearSelected(prev.artElements),
-        textElements: elementType === 'text' ? setSelected(prev.textElements) : clearSelected(prev.textElements),
-      };
-    });
-  }, [updateDesignState]);
+      ...prev,
+      monuments: updatedMonuments,
+      bases: elementType === 'base' ? setSelected(prev.bases) : clearSelected(prev.bases),
+      subBases: elementType === 'subBase' ? setSelected(prev.subBases) : clearSelected(prev.subBases),
+      vases: elementType === 'vase' ? setSelected(prev.vases) : clearSelected(prev.vases),
+      artElements: elementType === 'art' ? setSelected(prev.artElements) : clearSelected(prev.artElements),
+      textElements: elementType === 'text' ? setSelected(prev.textElements) : clearSelected(prev.textElements),
+    };
+  });
+}, [updateDesignState]);
 
   // 新增：取消所有选中
   const clearAllSelection = useCallback(() => {
