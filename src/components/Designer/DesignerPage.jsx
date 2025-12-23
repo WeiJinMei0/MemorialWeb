@@ -8,7 +8,7 @@ import {
   FileTextOutlined,
   CloseOutlined,
   TableOutlined,
-  RotateLeftOutlined, 
+  RotateLeftOutlined,
   EyeOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -135,7 +135,7 @@ const DesignerPage = () => {
     setIsViewRotatable(!isViewRotatable);
   }, [isViewRotatable]);
 
-   // 新增：重置到正面视图
+  // 新增：重置到正面视图
   const handleResetView = useCallback(() => {
     if (sceneRef.current && sceneRef.current.resetCameraToFront) {
       sceneRef.current.resetCameraToFront();
@@ -304,6 +304,61 @@ const DesignerPage = () => {
     { key: 'shapes', label: t('designer.shapes'), icon: '🔷' },
   ];
 
+  // handleArtElementSelect
+  const handleArtElementSelect = useCallback((artId) => {
+    if (artId !== null) {
+      // setIsTextEditing(false);
+      // setCurrentTextId(null);
+      // setSelectedVaseId(null); // 取消选中花瓶
+      setSelectedModelId(null);
+      setSelectedModelType(null);
+      if (clearAllSelection) clearAllSelection();
+      setActiveTool(null);
+      setTransformMode('translate');
+
+      // 【关键修复】：选中新图案时，恢复保存的填充状态
+      const art = designState.artElements.find(a => a.id === artId);
+      if (art && art.properties) {
+        setIsFillModeActive(art.properties.isFillModeActive ?? false);
+        setIsPartialFill(art.properties.isPartialFill ?? false);
+        setFillColor(art.properties.fillColor || '#4285F4');
+      } else {
+        // 如果没有保存的状态，则重置为默认
+        setIsFillModeActive(false);
+        setIsPartialFill(false);
+        setFillColor('#4285F4');
+      }
+
+    } else {
+      setIsFillModeActive(false);
+    }
+    setSelectedArtId(artId);
+  }, [setActiveTool, setTransformMode, setIsFillModeActive, clearAllSelection, designState.artElements]);
+
+  const handleVaseElementSelect = useCallback((vaseId) => {
+    if (vaseId !== null) {
+      // setIsTextEditing(false);
+      // setCurrentTextId(null);
+      // handleArtElementSelect(null); // 取消选中艺术图案
+      setSelectedModelId(null);
+      setSelectedModelType(null);
+      if (clearAllSelection) clearAllSelection();
+      setActiveTool(null);
+      setVaseTransformMode('translate');
+      // 使用 selectElement 来同步选中状态和 currentMaterial
+      if (selectElement) {
+        selectElement(vaseId, 'vase');
+      }
+    } else {
+      // 取消选中时，将所有花瓶的选中状态设为 false
+      designState.vases.forEach(vase => {
+        updateVaseElementState(vase.id, { isSelected: false });
+      });
+    }
+    setSelectedVaseId(vaseId);
+  }, [designState.vases, updateVaseElementState, clearAllSelection, selectElement]);
+
+
   // handleCloseVaseEditor (新增)
   const handleCloseVaseEditor = useCallback(() => {
     if (selectedVaseId) {
@@ -312,62 +367,11 @@ const DesignerPage = () => {
     setSelectedVaseId(null);
   }, [selectedVaseId, updateVaseElementState]);
 
-  // handleArtElementSelect
-  const handleArtElementSelect = useCallback((artId) => {
-    if (artId !== null) {
-      // 选中艺术图案时，取消其他元素的选中
-      if (selectElement) {
-        selectElement(artId, 'art');
-      }
-      
-      // 清除其他元素的本地选中状态
-      setSelectedModelId(null);
-      setSelectedModelType(null);
-      setCurrentTextId(null);
-      setIsTextEditing(false);
-      handleCloseVaseEditor();
-      
-      setActiveTool(null);
-      setTransformMode('translate');
-      setIsFillModeActive(false);
-      setIsPartialFill(false);
-      setFillColor('#4285F4');
-    } else {
-      setIsFillModeActive(false);
-    }
-    setSelectedArtId(artId);
-  }, [selectElement, handleCloseVaseEditor]);
-
-  const handleVaseElementSelect = useCallback((vaseId) => {
-    if (vaseId !== null) {
-      // 选中花瓶时，取消其他元素的选中
-      if (selectElement) {
-        selectElement(vaseId, 'vase');
-      }
-      
-      // 清除其他元素的本地选中状态
-      setSelectedModelId(null);
-      setSelectedModelType(null);
-      setSelectedArtId(null);
-      setCurrentTextId(null);
-      setIsTextEditing(false);
-      
-      setActiveTool(null);
-      setVaseTransformMode('translate');
-    } else {
-      // 取消选中时，将所有花瓶的选中状态设为 false
-      designState.vases.forEach(vase => {
-        updateVaseElementState(vase.id, { isSelected: false });
-      });
-    }
-    setSelectedVaseId(vaseId);
-  }, [designState.vases, updateVaseElementState, selectElement]);
-
   const handleSelectElement = useCallback((elementId, elementType) => {
     if (selectElement) {
       selectElement(elementId, elementType);
     }
-    
+
     // 清除其他元素的本地选中状态
     if (elementType !== 'art') handleArtElementSelect(null);
     if (elementType !== 'vase') handleCloseVaseEditor();
@@ -375,15 +379,15 @@ const DesignerPage = () => {
       setCurrentTextId(null);
       setIsTextEditing(false);
       setActiveTool(prevTool => prevTool === 'text' ? null : prevTool);
-       // 清除文本的选中状态
+      // 清除文本的选中状态
       designState.textElements.forEach(text => {
         setTextSelected(text.id, false);
       });
     }
-    
+
     setSelectedModelId(elementId);
     setSelectedModelType(elementType);
-  }, [selectElement, handleArtElementSelect, handleCloseVaseEditor]);
+  }, [selectElement, handleArtElementSelect, handleCloseVaseEditor, designState.textElements, setTextSelected]);
 
   // handleToolSelect
   // 1. 修改 handleToolSelect 逻辑
@@ -484,6 +488,37 @@ const DesignerPage = () => {
       properties: { ...(prevArt.properties || {}), lineAlpha: newAlpha }
     }));
   }, [updateArtElementState]);
+
+  // 【新增】填充状态同步保存
+  const handleSetFillColor = useCallback((color, artIdOverride = null) => {
+    setFillColor(color);
+    const targetArtId = artIdOverride ?? selectedArtId;
+    if (targetArtId !== null && targetArtId !== undefined) {
+      updateArtElementState(targetArtId, (prev) => ({
+        properties: { ...(prev.properties || {}), fillColor: color }
+      }));
+    }
+  }, [selectedArtId, updateArtElementState]);
+
+  const handleSetIsFillModeActive = useCallback((isActive, artIdOverride = null) => {
+    setIsFillModeActive(isActive);
+    const targetArtId = artIdOverride ?? selectedArtId;
+    if (targetArtId !== null && targetArtId !== undefined) {
+      updateArtElementState(targetArtId, (prev) => ({
+        properties: { ...(prev.properties || {}), isFillModeActive: isActive }
+      }));
+    }
+  }, [selectedArtId, updateArtElementState]);
+
+  const handleSetIsPartialFill = useCallback((isPartial, artIdOverride = null) => {
+    setIsPartialFill(isPartial);
+    const targetArtId = artIdOverride ?? selectedArtId;
+    if (targetArtId !== null && targetArtId !== undefined) {
+      updateArtElementState(targetArtId, (prev) => ({
+        properties: { ...(prev.properties || {}), isPartialFill: isPartial }
+      }));
+    }
+  }, [selectedArtId, updateArtElementState]);
 
   // Vase 操作处理器 (新增)
   const handleVaseDuplicate = useCallback((vaseId) => {
@@ -1444,6 +1479,7 @@ const DesignerPage = () => {
               {/* 艺术图案编辑面板 */}
               {selectedArt && (
                 <ArtEditorPanel
+                  key={selectedArt.id}
                   art={selectedArt}
                   onClose={handleCloseArtEditor}
                   onDelete={handleDeleteElement}
@@ -1451,14 +1487,14 @@ const DesignerPage = () => {
                   setTransformMode={setTransformMode}
                   transformMode={transformMode}
                   fillColor={fillColor}
-                  setFillColor={setFillColor}
+                  setFillColor={handleSetFillColor}
                   onLineColorChange={handleLineColorChange}
                   onLineAlphaChange={handleLineAlphaChange}
                   isFillModeActive={isFillModeActive}
-                  setIsFillModeActive={setIsFillModeActive}
+                  setIsFillModeActive={handleSetIsFillModeActive}
                   onSaveToArtOptions={handleSaveArtToOptions}
                   isPartialFill={isPartialFill}
-                  setIsPartialFill={setIsPartialFill}
+                  setIsPartialFill={handleSetIsPartialFill}
                 />
               )}
               {/* 花瓶编辑面板*/}
@@ -1490,7 +1526,7 @@ const DesignerPage = () => {
                     element={monument}
                     elementType="monument"
                     // label={`${t('designer.tablet')}`}  
-                    label={`${t('designer.tablet')}`}  
+                    label={`${t('designer.tablet')}${index + 1}`}
                   />
                 ))}
                 {/* 底座：添加索引 index，label 拼接序号 */}
@@ -1500,7 +1536,7 @@ const DesignerPage = () => {
                     element={base}
                     elementType="base"
                     // label={`${t('designer.base')}`}  
-                    label={`${t('designer.base')}`}  
+                    label={`${t('designer.base')}${index + 1}`}
                   />
                 ))}
                 {/* 子底座：添加索引 index，label 拼接序号 */}
@@ -1510,27 +1546,27 @@ const DesignerPage = () => {
                     element={subBase}
                     elementType="subBase"
                     // label={`${t('designer.subBase')}`} 
-                    label={`${t('designer.subBase')}`}  
+                    label={`${t('designer.subBase')}${index + 1}`}
                   />
                 ))}
-              </div>
-              <div className="base-buttons-container">
-                <Space>
-                  <Button size="small" onClick={addTablet}>
-                    {t('designer.addTablet')}
-                  </Button>
-                  <Button size="small" onClick={addBase}>{t('designer.addBase')}</Button>
-                  <Button size="small" onClick={addSubBase}>{t('designer.addSubBase')}</Button>
-                  <p> {t('designer.format')}</p>
-                  <select
-                    value={selectedUnit || 'inches'}
-                    onChange={(e) => setSelectedUnit(e.target.value)}
-                    id="size-selection"
-                  >
-                    <option value="inches">{t('designer.Inches')}</option>
-                    <option value="feet">{t('designer.Feet')}</option>
-                  </select>
-                </Space>
+                <div className="base-buttons-container">
+                  <Space>
+                    <Button size="small" onClick={addTablet}>
+                      {t('designer.addTablet')}
+                    </Button>
+                    <Button size="small" onClick={addBase}>{t('designer.addBase')}</Button>
+                    <Button size="small" onClick={addSubBase}>{t('designer.addSubBase')}</Button>
+                    <p> {t('designer.format')}</p>
+                    <select
+                      value={selectedUnit || 'inches'}
+                      onChange={(e) => setSelectedUnit(e.target.value)}
+                      id="size-selection"
+                    >
+                      <option value="inches">{t('designer.Inches')}</option>
+                      <option value="feet">{t('designer.Feet')}</option>
+                    </select>
+                  </Space>
+                </div>
               </div>
             </div>
 

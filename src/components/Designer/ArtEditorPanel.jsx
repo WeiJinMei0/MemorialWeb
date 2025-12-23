@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Button, Space, Tooltip, ColorPicker, Typography } from 'antd';
 import {
   CloseOutlined,
@@ -22,8 +22,8 @@ const presetColors = [
 
 const simplePresetColors = presetColors[0].colors;
 
-// 辅助组件：颜色色块，支持透明色显示
-const ColorSwatches = ({ colors, onColorSelect, selectedColor, disabled = false, t }) => (
+// 【性能优化】将 ColorSwatches 抽取为 React.memo 组件，避免不必要的重渲染
+const ColorSwatches = React.memo(({ colors, onColorSelect, selectedColor, disabled = false, t }) => (
   <Space wrap className="swatches-space">
     {colors.map(color => {
       let isSelected = false;
@@ -61,7 +61,9 @@ const ColorSwatches = ({ colors, onColorSelect, selectedColor, disabled = false,
       );
     })}
   </Space>
-);
+));
+
+ColorSwatches.displayName = 'ColorSwatches';
 
 const ArtEditorPanel = ({
   art,
@@ -76,28 +78,25 @@ const ArtEditorPanel = ({
   isPartialFill = false,
   setIsPartialFill = () => { },
 }) => {
-  // Mock translation function - In production, replace with: const { t } = useTranslation();
-  const t = (key, defaultText) => {
-    // This map simulates your JSON files structure
-    const textMap = {
-      'artEditor.title': 'Edit Pattern',
-      'backgrounds.transparent': 'Transparent',
-      'artEditor.keepColor': 'Keep Color',
-      'artEditor.insert': 'Insert',
-      'artEditor.specialFilling': 'Special Filling',
-      'artEditor.surfaceColor': 'Surface Color',
-      'artEditor.outlineColor': 'Outline Color',
-      'artEditor.frost': 'Frost',
-      'textEditor.color': 'Color', // Reusing existing key from textEditor
-    };
-    // In a real app, this returns the string from en.json/es.json/fr.json
+  // 【性能优化】使用 useMemo 缓存翻译映射，避免每次渲染都创建新对象
+  const textMap = useMemo(() => ({
+    'artEditor.title': 'Edit Pattern',
+    'backgrounds.transparent': 'Transparent',
+    'artEditor.keepColor': 'Keep Color',
+    'artEditor.insert': 'Insert',
+    'artEditor.specialFilling': 'Special Filling',
+    'artEditor.surfaceColor': 'Surface Color',
+    'artEditor.outlineColor': 'Outline Color',
+    'artEditor.frost': 'Frost',
+    'textEditor.color': 'Color',
+  }), []);
+
+  // 【性能优化】使用 useCallback 包装翻译函数
+  const t = useCallback((key, defaultText) => {
     return textMap[key] || defaultText || key;
-  };
+  }, [textMap]);
 
   const nodeRef = useRef(null);
-
-  // 'keepColor' | 'insert' | 'specialFilling'
-  const [activeMode, setActiveMode] = useState('keepColor');
 
   if (!art) return null;
 
@@ -107,7 +106,81 @@ const ArtEditorPanel = ({
   const currentFillColor = isTransparent ? 'transparent' : (fillColor || '#4285F4');
   const isFrost = fillColor === 'frost';
 
+  // 'keepColor' | 'insert' | 'specialFilling'
+  const [activeMode, setActiveMode] = useState('keepColor');
+
+  // Isolated configuration for each mode
+  const [modeConfigs, setModeConfigs] = useState(() => ({
+    keepColor: {
+      lineColor: currentLineColor,
+      lineAlpha: currentLineAlpha
+    },
+    insert: {
+      fillColor: currentFillColor,
+      isFrost: isFrost,
+      isPartialFill: isPartialFill
+    },
+    specialFilling: {
+      fillColor: currentFillColor,
+      lineColor: currentLineColor,
+      lineAlpha: currentLineAlpha,
+      isFrost: isFrost,
+      isPartialFill: isPartialFill
+    }
+  }));
+
+  // Reset configs when switching to a different art object
+  useEffect(() => {
+    setModeConfigs({
+      keepColor: {
+        lineColor: currentLineColor,
+        lineAlpha: currentLineAlpha
+      },
+      insert: {
+        fillColor: currentFillColor,
+        isFrost: isFrost,
+        isPartialFill: isPartialFill
+      },
+      specialFilling: {
+        fillColor: currentFillColor,
+        lineColor: currentLineColor,
+        lineAlpha: currentLineAlpha,
+        isFrost: isFrost,
+        isPartialFill: isPartialFill
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [art.id]);
+
   const displayColors = ['transparent', ...simplePresetColors.slice(0, 5)];
+
+  // Sync current properties to the active mode's config
+  useEffect(() => {
+    setModeConfigs(prev => {
+      const newConfig = { ...prev };
+      if (activeMode === 'keepColor') {
+        newConfig.keepColor = {
+          lineColor: currentLineColor,
+          lineAlpha: currentLineAlpha
+        };
+      } else if (activeMode === 'insert') {
+        newConfig.insert = {
+          fillColor: currentFillColor,
+          isFrost: isFrost,
+          isPartialFill: isPartialFill
+        };
+      } else if (activeMode === 'specialFilling') {
+        newConfig.specialFilling = {
+          fillColor: currentFillColor,
+          lineColor: currentLineColor,
+          lineAlpha: currentLineAlpha,
+          isFrost: isFrost,
+          isPartialFill: isPartialFill
+        };
+      }
+      return newConfig;
+    });
+  }, [currentLineColor, currentLineAlpha, currentFillColor, isFrost, isPartialFill, activeMode]);
 
   useEffect(() => {
     if (currentLineAlpha === 0 && isFillModeActive) {
@@ -121,7 +194,8 @@ const ArtEditorPanel = ({
     }
   }, [art.id, currentLineAlpha, isFillModeActive, isTransparent, isPartialFill, isFrost]);
 
-  const handleLineColor = (color) => {
+  // 【性能优化】使用 useCallback 包装颜色处理函数
+  const handleLineColor = useCallback((color) => {
     const hex = typeof color === 'string' ? color : color.toHexString();
     if (color === 'transparent') {
       onLineAlphaChange(art.id, 0);
@@ -131,66 +205,77 @@ const ArtEditorPanel = ({
         onLineAlphaChange(art.id, 1.0);
       }
     }
-  };
+  }, [art.id, currentLineAlpha, onLineColorChange, onLineAlphaChange]);
 
-  const handleLineAlpha = (value) => {
+  const handleLineAlpha = useCallback((value) => {
     onLineAlphaChange(art.id, value);
-  };
+  }, [art.id, onLineAlphaChange]);
 
-  const handleFillColor = (color) => {
+  const handleFillColor = useCallback((color) => {
     if (color === 'transparent') {
-      setFillColor('transparent');
-      setIsFillModeActive(true);
+      setFillColor('transparent', art.id);
+      setIsFillModeActive(true, art.id);
     } else if (color === 'frost') {
       // 【新增】处理 Frost 模式
-      setFillColor('frost');
-      setIsFillModeActive(true);
+      setFillColor('frost', art.id);
+      setIsFillModeActive(true, art.id);
     } else {
       const val = typeof color === 'string' ? color : color.toRgbString();
-      setFillColor(val);
+      setFillColor(val, art.id);
       if (!isFillModeActive) {
-        setIsFillModeActive(true);
+        setIsFillModeActive(true, art.id);
       }
     }
-  };
+  }, [art.id, isFillModeActive, setFillColor, setIsFillModeActive]);
 
-  const handleSetMode = (mode) => {
+  const handleSetMode = useCallback((mode) => {
     setActiveMode(mode);
+    const config = modeConfigs[mode];
 
     if (mode === 'keepColor') {
-      setIsFillModeActive(false);
-      setFillColor('transparent');
-      handleLineColor('#FFFFFF');
-      handleLineAlpha(1.0);
-      setIsPartialFill(false);
+      setIsFillModeActive(false, art.id);
+      setFillColor('transparent', art.id);
+      onLineColorChange(art.id, config.lineColor);
+      onLineAlphaChange(art.id, config.lineAlpha);
+      setIsPartialFill(false, art.id);
     } else if (mode === 'insert') {
-      setIsFillModeActive(true);
-      if (isTransparent) setFillColor('#FFFFFF');
-      handleLineAlpha(0);
-      setIsPartialFill(false);
+      setIsFillModeActive(true, art.id);
+      onLineAlphaChange(art.id, 0);
+      if (config.isFrost) {
+        setFillColor('frost', art.id);
+      } else {
+        setFillColor(config.fillColor === 'transparent' ? '#FFFFFF' : config.fillColor, art.id);
+      }
+      setIsPartialFill(config.isPartialFill, art.id);
     } else if (mode === 'specialFilling') {
-      setIsFillModeActive(true);
-      if (isTransparent) setFillColor('#FFFFFF');
-      handleLineColor('#000000');
-      handleLineAlpha(1.0);
-      setIsPartialFill(false);
+      setIsFillModeActive(true, art.id);
+      onLineColorChange(art.id, config.lineColor);
+      onLineAlphaChange(art.id, config.lineAlpha);
+      if (config.isFrost) {
+        setFillColor('frost', art.id);
+      } else {
+        setFillColor(config.fillColor === 'transparent' ? '#FFFFFF' : config.fillColor, art.id);
+      }
+      setIsPartialFill(config.isPartialFill, art.id);
     }
-  };
+  });
 
   const handleKeepColorSelection = (color) => {
     handleLineColor(color);
   };
 
   const PartialButton = ({ forMode }) => {
-    const isActive = isPartialFill && activeMode === forMode;
+    const isPartial = activeMode === forMode ? isPartialFill : modeConfigs[forMode].isPartialFill;
+    const isActive = isPartial;
     const btnClass = `small-btn partial-btn ${isActive ? 'active' : 'inactive'}`;
 
     const handleClick = () => {
       if (activeMode !== forMode) {
+        // If we allow clicking to switch mode:
         handleSetMode(forMode);
-        setTimeout(() => setIsPartialFill(true), 0);
+        setTimeout(() => setIsPartialFill(true, art.id), 0);
       } else {
-        setIsPartialFill(!isPartialFill);
+        setIsPartialFill(!isPartialFill, art.id);
       }
     };
 
@@ -199,6 +284,7 @@ const ArtEditorPanel = ({
         size="small"
         onClick={handleClick}
         className={btnClass}
+        disabled={activeMode !== forMode}
       >
         P
       </Button>
@@ -207,6 +293,23 @@ const ArtEditorPanel = ({
 
   const getModeBtnClass = (modeName) => {
     return `mode-btn ${activeMode === modeName ? 'active' : 'inactive'}`;
+  };
+
+  const getDisplayFillColor = (mode) => {
+    if (mode === activeMode) return isFrost ? null : currentFillColor;
+    const config = modeConfigs[mode];
+    return config.isFrost ? null : config.fillColor;
+  };
+
+  const getDisplayLineColor = (mode) => {
+    if (mode === activeMode) return currentLineAlpha < 0.05 ? 'transparent' : currentLineColor;
+    const config = modeConfigs[mode];
+    return config.lineAlpha < 0.05 ? 'transparent' : config.lineColor;
+  };
+
+  const isModeFrost = (mode) => {
+    if (mode === activeMode) return isFrost;
+    return modeConfigs[mode].isFrost;
   };
 
   return (
@@ -232,19 +335,21 @@ const ArtEditorPanel = ({
                 {activeMode === 'keepColor' && <CheckOutlined style={{ marginRight: 8 }} />}
                 <Text strong>{t('artEditor.keepColor', 'Keep Color')}</Text>
               </div>
-              <div className="section-padding">
+              <div className="section-padding" style={{ opacity: activeMode === 'keepColor' ? 1 : 0.5, pointerEvents: activeMode === 'keepColor' ? 'auto' : 'none' }}>
                 <div className="color-row mb-4">
                   {/* Reuse "Color" from textEditor or add to artEditor */}
                   <Text className="color-label">{t('textEditor.color', 'Color')}</Text>
                   <ColorSwatches
                     colors={displayColors}
                     onColorSelect={handleKeepColorSelection}
-                    selectedColor={currentLineColor}
+                    selectedColor={getDisplayLineColor('keepColor')}
+                    disabled={activeMode !== 'keepColor'}
                     t={t}
                   />
                   <ColorPicker
-                    value={currentLineColor}
+                    value={getDisplayLineColor('keepColor')}
                     onChange={handleKeepColorSelection}
+                    disabled={activeMode !== 'keepColor'}
                     size="small"
                     className="color-picker-sm"
                   />
@@ -266,30 +371,33 @@ const ArtEditorPanel = ({
                 {/* 【启用 Frost 按钮】 */}
                 <Button
                   size="small"
-                  className={`small-btn ${isFrost && activeMode === 'insert' ? 'active-frost' : ''}`}
+                  className={`small-btn ${isModeFrost('insert') ? 'active-frost' : ''}`}
                   onClick={() => {
                     handleSetMode('insert');
                     handleFillColor('frost');
                   }}
-                  style={isFrost && activeMode === 'insert' ? { borderColor: '#1890ff', color: '#1890ff', background: '#e6f7ff' } : {}}
+                  disabled={activeMode !== 'insert'}
+                  style={isModeFrost('insert') ? { borderColor: '#1890ff', color: '#1890ff', background: '#e6f7ff' } : {}}
                 >
                   {t('artEditor.frost', 'Frost')}
                 </Button>
                 <PartialButton forMode="insert" />
               </div>
 
-              <div className="section-padding">
+              <div className="section-padding" style={{ opacity: activeMode === 'insert' ? 1 : 0.5, pointerEvents: activeMode === 'insert' ? 'auto' : 'none' }}>
                 <div className="color-row mb-4">
                   <Text className="color-label">{t('textEditor.color', 'Color')}</Text>
                   <ColorSwatches
                     colors={displayColors}
                     onColorSelect={handleFillColor}
-                    selectedColor={isFrost ? null : currentFillColor}
+                    selectedColor={getDisplayFillColor('insert')}
+                    disabled={activeMode !== 'insert'}
                     t={t}
                   />
                   <ColorPicker
-                    value={currentFillColor === 'transparent' || isFrost ? '#FFFFFF' : currentFillColor}
+                    value={getDisplayFillColor('insert') === 'transparent' || isModeFrost('insert') ? '#FFFFFF' : getDisplayFillColor('insert')}
                     onChange={handleFillColor}
+                    disabled={activeMode !== 'insert'}
                     size="small"
                     className="color-picker-sm"
                   />
@@ -308,7 +416,7 @@ const ArtEditorPanel = ({
                 {t('artEditor.specialFilling', 'Special Filling')}
               </Button>
 
-              <div className="section-padding section-column">
+              <div className="section-padding section-column" style={{ opacity: activeMode === 'specialFilling' ? 1 : 0.5, pointerEvents: activeMode === 'specialFilling' ? 'auto' : 'none' }}>
 
                 {/* Surface Color */}
                 <div>
@@ -318,12 +426,13 @@ const ArtEditorPanel = ({
                       {/* 【启用 Frost 按钮】 */}
                       <Button
                         size="small"
-                        className={`small-btn ${isFrost && activeMode === 'specialFilling' ? 'active-frost' : ''}`}
+                        className={`small-btn ${isModeFrost('specialFilling') ? 'active-frost' : ''}`}
                         onClick={() => {
                           handleSetMode('specialFilling');
                           handleFillColor('frost');
                         }}
-                        style={isFrost && activeMode === 'specialFilling' ? { borderColor: '#1890ff', color: '#1890ff', background: '#e6f7ff' } : {}}
+                        disabled={activeMode !== 'specialFilling'}
+                        style={isModeFrost('specialFilling') ? { borderColor: '#1890ff', color: '#1890ff', background: '#e6f7ff' } : {}}
                       >
                         {t('artEditor.frost', 'Frost')}
                       </Button>
@@ -334,12 +443,14 @@ const ArtEditorPanel = ({
                     <ColorSwatches
                       colors={displayColors}
                       onColorSelect={handleFillColor}
-                      selectedColor={isFrost ? null : currentFillColor}
+                      selectedColor={getDisplayFillColor('specialFilling')}
+                      disabled={activeMode !== 'specialFilling'}
                       t={t}
                     />
                     <ColorPicker
-                      value={currentFillColor === 'transparent' || isFrost ? '#FFFFFF' : currentFillColor}
+                      value={getDisplayFillColor('specialFilling') === 'transparent' || isModeFrost('specialFilling') ? '#FFFFFF' : getDisplayFillColor('specialFilling')}
                       onChange={handleFillColor}
+                      disabled={activeMode !== 'specialFilling'}
                       size="small"
                       className="color-picker-sm"
                     />
@@ -356,12 +467,14 @@ const ArtEditorPanel = ({
                     <ColorSwatches
                       colors={displayColors}
                       onColorSelect={handleLineColor}
-                      selectedColor={currentLineAlpha < 0.05 ? 'transparent' : currentLineColor}
+                      selectedColor={getDisplayLineColor('specialFilling')}
+                      disabled={activeMode !== 'specialFilling'}
                       t={t}
                     />
                     <ColorPicker
-                      value={currentLineColor}
+                      value={getDisplayLineColor('specialFilling')}
                       onChange={handleLineColor}
+                      disabled={activeMode !== 'specialFilling'}
                       size="small"
                       className="color-picker-sm"
                     />
