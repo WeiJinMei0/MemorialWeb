@@ -1549,14 +1549,17 @@ const DesignerPage = () => {
                     // label={`${t('designer.subBase')}${index + 1}`}
                   />
                 ))}
-                <div className="base-buttons-container">
+              </div>
+              <div className="base-buttons-container">
                   <Space>
                     <Button size="small" onClick={addTablet}>
                       {t('designer.addTablet')}
                     </Button>
                     <Button size="small" onClick={addBase}>{t('designer.addBase')}</Button>
                     <Button size="small" onClick={addSubBase}>{t('designer.addSubBase')}</Button>
-                    <p> {t('designer.format')}</p>
+                    <div style={{ marginTop: '11px' }}>
+                      <p>{t('designer.format')}</p>
+                    </div>
                     <select
                       value={selectedUnit || 'inches'}
                       onChange={(e) => setSelectedUnit(e.target.value)}
@@ -1567,7 +1570,6 @@ const DesignerPage = () => {
                     </select>
                   </Space>
                 </div>
-              </div>
             </div>
 
             {/* 3. 添加 Art Options 拖拽保存功能 (作为 Flex 的右侧部分) */}
