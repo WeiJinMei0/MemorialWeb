@@ -702,7 +702,20 @@ export const useDesignState = () => {
               label: `${family}1`,
               isSelected: false
             };
-            newBases = [...oldBases]; // 保留旧底座
+            const base = {
+              id: 'base-1',
+              type: 'base',
+              polish: 'PT',
+              color,
+              modelPath: "/models/Bases/Base.glb",
+              texturePath: "",
+              position: [baseInitX, baseInitY, baseInitZ],
+              dimensions: { length: 0, width: 0, height: 0 },
+              weight: 0,
+              label: `Base1`,
+              isSelected: false
+            };
+            newBases = [base];
             newSubBases = [...oldSubBases]; // 保留旧副底座
             console.log(`📍 旧有${oldTabletCount}个Tablet但无选中项，清空所有旧Tablet，仅保留新Tablet,新Tablet放原点：`, newPosition);
           }
