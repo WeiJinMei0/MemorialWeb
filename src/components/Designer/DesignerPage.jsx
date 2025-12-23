@@ -131,6 +131,7 @@ const DesignerPage = () => {
     clearAllSelection,
   } = useDesignState();
   
+  
   const getSelectedElement = (designState) => {
     const sources = [
       ['text', designState.texts],
@@ -166,6 +167,54 @@ const DesignerPage = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [designState, deleteElement]);
 
+  const dimensionElements = useMemo(() => {
+    const list = [];
+  
+    designState.monuments.forEach(el =>
+      list.push({ element: el, type: 'monument' })
+    );
+  
+    designState.bases.forEach(el =>
+      list.push({ element: el, type: 'base' })
+    );
+  
+    designState.subBases.forEach(el =>
+      list.push({ element: el, type: 'subBase' })
+    );
+  
+    return list;
+  }, [
+    designState.monuments,
+    designState.bases,
+    designState.subBases,
+  ]);
+
+  // 排序 dimensionElements，把选中的尺寸类产品放在最前面
+  const sortedDimensionElements = useMemo(() => {
+    // 没有选中任何产品 → 原顺序
+    if (!selectedModelId || !selectedModelType) {
+      return dimensionElements;
+    }
+  
+    const selectedIndex = dimensionElements.findIndex(
+      item =>
+        item.element.id === selectedModelId &&
+        item.type === selectedModelType
+    );
+  
+    // 选中的不是尺寸类产品（比如 Art / Text）
+    if (selectedIndex === -1) {
+      return dimensionElements;
+    }
+  
+    // 把选中的提到最前
+    const selectedItem = dimensionElements[selectedIndex];
+    const rest = dimensionElements.filter((_, i) => i !== selectedIndex);
+  
+    return [selectedItem, ...rest];
+  }, [dimensionElements, selectedModelId, selectedModelType]);
+  
+  
   const handleToggleRotatable = useCallback(() => {
     setIsViewRotatable(!isViewRotatable);
   }, [isViewRotatable]);
@@ -1182,7 +1231,7 @@ const DesignerPage = () => {
 
   // DimensionControl
   // DimensionControl 组件 - 支持分数输入（修复版）
-  const DimensionControl = ({ element, elementType, label }) => {
+  const DimensionControl = ({ element, elementType, label, isSelected }) => {
     const getPolishOptions = () => {
       switch (elementType) {
         case 'monument': return productFamilies[element.family]?.polishOptions || ['P5'];
@@ -1329,7 +1378,12 @@ const DesignerPage = () => {
 
 
     return (
-      <div className="dimension-control">
+      <div
+        className={`dimension-control ${
+          isSelected ? 'dimension-control--selected' : ''
+        }`}
+      >
+      {/* <div className="dimension-control"> */}
         <label>{label}</label>
         <div className="dimension-inputs">
           {['length', 'width', 'height'].map((dim) => (
@@ -1554,34 +1608,22 @@ const DesignerPage = () => {
             {/* 2. 将现有的控件包裹在 footer-controls div 中 (作为 Flex 的左侧部分) */}
             <div className="footer-controls">
               <div className="control-rows-container">
-                {/* 墓碑：添加索引 index，label 拼接序号 */}
-                {designState.monuments.map((monument, index) => (
+                {sortedDimensionElements.map(({ element, type }) => (
                   <DimensionControl
-                    key={monument.id}
-                    element={monument}
-                    elementType="monument"
-                    label={`${t('designer.tablet')}`}  
-                    // label={`${t('designer.tablet')}${index + 1}`}
-                  />
-                ))}
-                {/* 底座：添加索引 index，label 拼接序号 */}
-                {designState.bases.map((base, index) => (
-                  <DimensionControl
-                    key={base.id}
-                    element={base}
-                    elementType="base"
-                    label={`${t('designer.base')}`}  
-                    // label={`${t('designer.base')}${index + 1}`}
-                  />
-                ))}
-                {/* 子底座：添加索引 index，label 拼接序号 */}
-                {designState.subBases.map((subBase, index) => (
-                  <DimensionControl
-                    key={subBase.id}
-                    element={subBase}
-                    elementType="subBase"
-                    label={`${t('designer.subBase')}`} 
-                    // label={`${t('designer.subBase')}${index + 1}`}
+                    key={element.id}
+                    element={element}
+                    elementType={type}
+                    label={
+                      type === 'monument'
+                        ? t('designer.tablet')
+                        : type === 'base'
+                        ? t('designer.base')
+                        : t('designer.subBase')
+                    }
+                    isSelected={
+                      element.id === selectedModelId &&
+                      type === selectedModelType
+                    }
                   />
                 ))}
               </div>
@@ -1604,7 +1646,7 @@ const DesignerPage = () => {
                       <option value="feet">{t('designer.Feet')}</option>
                     </select>
                   </Space>
-                </div>
+              </div>
             </div>
 
             {/* 3. 添加 Art Options 拖拽保存功能 (作为 Flex 的右侧部分) */}

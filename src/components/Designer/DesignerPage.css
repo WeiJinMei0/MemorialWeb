@@ -991,3 +991,16 @@
   margin-top: 2px;
   flex-shrink: 0;
 }
+
+.dimension-control {
+  border-radius: 6px;
+  padding: 4px 6px;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+
+.dimension-control--selected {
+  background-color: rgba(24, 144, 255, 0.12); /* Ant Design 主蓝 */
+  box-shadow: inset 0 0 0 1px #1890ff;
+}
+
