@@ -8,6 +8,7 @@ import SavedDesignsPage from './components/Designer/SavedDesignsPage';
 import OrderHistoryPage from './components/Designer/OrderHistoryPage';
 import MainLayout from './components/Layout/MainLayout';
 import './App.css';
+import 'antd/dist/reset.css';
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();

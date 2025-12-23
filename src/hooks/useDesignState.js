@@ -208,6 +208,10 @@ const baseInitX = 0;
 const baseInitY = 0 - baseInitHeight;  // 底座默认的初始 Y 轴位置
 const baseInitZ = 0;   // 底座默认的初始 Z 轴位置
 
+const subbaseInitX = 0;
+const subbaseInitY = 0;  
+const subbaseInitZ = 0;   
+
 const tabletInitX = 0;
 const tabletInitY = 0; // 碑体默认的初始 Y 轴位置
 const tabletInitZ = 0; // 碑体默认的初始 Z 轴位置
@@ -745,31 +749,28 @@ export const useDesignState = () => {
     });
   }, [designState, updateDesignState]);
 
-  // 添加碑体，至多两个
+  // 添加碑体
   const addTablet = useCallback(() => {
     // 统计family为Tablet的碑体数量（非所有碑体）
     const tabletList = designState.monuments.filter(m => m.family === 'Tablet');
     // 限制最多2个Tablet
-    if (tabletList.length >= 2) {
-      message.warning('最多只能添加2个Tablet碑体，无法继续添加');
-      return;
-    }
+    // if (tabletList.length >= 2) {
+    //   message.warning('最多只能添加2个Tablet碑体，无法继续添加');
+    //   return;
+    // }
     const monumentList = designState.monuments;
 
     // 计算对称间距
-    const TABLET_SPACING_HALF = tabletInitWidth * 1.5;
+    const TABLET_SPACING_HALF = tabletInitLength*0.8;
 
     updateDesignState(prev => {
       // 生成新Tablet标签（最大序号+1，删除后新增不会覆盖原有命名）
       const newTabletIndex = generateNewTabletLabel(tabletList);
       const newMonumentIndex = generateNewMonumentLabel(monumentList);
-
-      // 获取当前所有Tablet（添加新的之前）
-      const currentTablets = prev.monuments.filter(m => m.family === 'Tablet');
-      const newTabletCount = currentTablets.length + 1;
-
+      
+      const newTabletCount = tabletList.length + 1;
       // 计算新墓碑的位置
-      let newTabletPosition;
+      let newTabletPosition ;
       if (newTabletCount === 1) {
         // 第一个墓碑：中心位置
         newTabletPosition = [tabletInitX, tabletInitY, tabletInitZ];
@@ -778,7 +779,7 @@ export const useDesignState = () => {
         newTabletPosition = [TABLET_SPACING_HALF, tabletInitY, tabletInitZ];
 
         // 同时更新第一个墓碑到左侧位置（如果它还在中心）
-        const firstTablet = currentTablets[0];
+        const firstTablet = tabletList[0];
         if (firstTablet && firstTablet.position) {
           const isAtCenter = Math.abs(firstTablet.position[0]) < 0.01;
           if (isAtCenter) {
@@ -844,22 +845,22 @@ export const useDesignState = () => {
     updateDesignState(prev => {
       // 筛选出所有Tablet类型的碑体（仅匹配Tablet）
       const tabletList = prev.monuments.filter(m => m.family === 'Tablet');
-      const tabletCount = tabletList.length;
       // 当前已有的底座数量
       const currentBaseCount = prev.bases.length;
       // 底座数量 ≥ 碑体数量 → 无法添加（一个base对应一个tablet）
       // 碑体数量 < 2 且 已有1个底座 → 无法添加第二个底座
-      if (currentBaseCount >= tabletCount || tabletCount === 0) {
-        message.warning(
-          tabletCount === 0
-            ? "暂无Tablet碑体，无法添加底座"
-            : `当前已有${currentBaseCount}个底座，与${tabletCount}个Tablet碑体数量匹配，无法新增底座`
-        );
-        return prev; // 不修改状态
-      }
+      // if (currentBaseCount >= tabletCount || tabletCount === 0) {
+      //   message.warning(
+      //     tabletCount === 0 
+      //       ? "暂无Tablet碑体，无法添加底座" 
+      //       : `当前已有${currentBaseCount}个底座，与${tabletCount}个Tablet碑体数量匹配，无法新增底座`
+      //   );
+      //   return prev; // 不修改状态
+      // }
 
       // 生成新底座标签（最大序号+1，删除后新增不会覆盖原有命名）
       const newBaseIndex = generateNewBaseLabel(prev.bases);
+      const newBasePosition = [baseInitX, baseInitY, baseInitZ];
       const base = {
         id: `base-${newBaseIndex}`,
         type: 'base',
@@ -868,18 +869,17 @@ export const useDesignState = () => {
         // 【V_MODIFICATION】: 使用 Scene3D.jsx 期望的静态路径
         modelPath: "/models/Bases/Base.glb",
         texturePath: "", // 不再需要，由 Scene3D.jsx 处理
-        position: [baseInitX, baseInitY, baseInitZ],
+        position: newBasePosition,
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
         label: `Base${newBaseIndex}` // 添加标识，如 Base1, Base2
       };
-
       return {
         ...prev,
         bases: [...prev.bases, base]
       };
     });
-  }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
+  }, [updateDesignState]); 
 
 
   const removeBase = useCallback((baseId) => {
@@ -892,44 +892,16 @@ export const useDesignState = () => {
 
   const addSubBase = useCallback(() => {
     updateDesignState(prev => {
-      // 1. 检测是否有可用底座
-      if (prev.bases.length === 0) {
-        message.warning('暂无可用底座，请先添加底座');
-        return prev;
-      }
-
-      // 2. 按顺序遍历底座，找可添加的目标底座（每个底座最多1个subbase）
-      let targetBase = null;
-      for (const base of prev.bases) {
-        // 统计该底座下已有的subbase数量（通过base.id临时标记，避免位置匹配误差）
-        const subBaseCount = prev.subBases.filter(s => s.bindBaseId === base.id).length;
-        if (subBaseCount < 1) { // 改为最多1个
-          targetBase = base;
-          break;
-        }
-      }
-
-      // 3. 检测是否所有底座都已达上限
-      if (!targetBase) {
-        message.warning('每个底座最多添加1个副底座，无法继续添加');
-        return prev;
-      }
-
-      const basePos = targetBase.position || [0, -0.5, 0];
-      const baseHeight = targetBase.dimensions.height || 0.1;
-      const subBaseHeight = 0.1; // 副底座默认高度
-
       const subBasePosition = [
-        basePos[0], // X轴与底座对齐
-        basePos[1] - baseHeight, // Y轴在底座正下方
-        basePos[2]  // Z轴与底座对齐
+        subbaseInitX, 
+        subbaseInitY, 
+        subbaseInitZ
       ];
-
-      // 4. 创建subbase（绑定base.id，而非位置，解决跟随问题）
+      
+      const newsubBaseIndex = generateNewBaseLabel(prev.subBases);
       const subBase = {
-        id: `subbase-${Date.now()}`,
+        id: `subbase-${newsubBaseIndex}`,
         type: 'subBase',
-        bindBaseId: targetBase.id, // 绑定底座ID，而非位置，确保跟随
         polish: 'P5',
         color: prev.currentMaterial,
         modelPath: "/models/Bases/Base.glb",
@@ -937,7 +909,7 @@ export const useDesignState = () => {
         position: subBasePosition, // 位置完全由3D场景动态计算
         dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
-        label: `${targetBase.label}-SubBase`,
+        label: `SubBase${newsubBaseIndex}`,
         isSelected: false
       };
 
@@ -1588,8 +1560,7 @@ export const useDesignState = () => {
         array.map(el =>
           el.id === elementId ? { ...el, position: newPosition } : el
         );
-      console.log(`更新${elementId}位置前位置：`, prev);
-      console.log(`更新${elementId}位置,新位置：`, newPosition);
+
       switch (elementType) {
         case 'monument':
           return { ...prev, monuments: updateElementInArray(prev.monuments) };

@@ -217,11 +217,11 @@ const Model = forwardRef(({
           _originalPos.z
         );
         // CS新增日志输出拖拽前后位置对比
-        console.log(`===== 产品【${elementId}】拖拽信息 =====`);
+        console.group(`【${elementId}】拖拽信息 =====`);
         console.log('原始位置:', _originalPos.toArray());
         console.log('拖拽后的位置:', newPosition.toArray());
         console.log('groupRef.current.position:', groupRef.current.position);
-        console.log("=============================================");
+        console.groupEnd();
         
         // 直接更新本地位置（不触发外部状态）
 
@@ -339,6 +339,7 @@ const Model = forwardRef(({
         if (!isMounted) return;
 
         const clonedScene = gltf.scene.clone();
+        // clonedScene.position.copy(localPosition);// 会造成位置叠加
         // 【修复】模型位置固定为原点，由 group 控制实际位置
         // 避免 group.position + model.position 导致位置叠加
         clonedScene.position.set(0, 0, 0);
@@ -352,13 +353,6 @@ const Model = forwardRef(({
         box.getCenter(center);
 
         const originalDims = { length: size.x, width: size.z, height: size.y };
-        // CS新增日志输出模型信息
-        // const modelName = clonedScene.name || elementId || 'Unnamed Model';
-        // console.log(`模型位置: ${modelName}, 当前 Position:`, clonedScene.position.toArray());
-        // console.log(`模型长高宽: ${modelName}, X=${originalDims.length}, Y=${originalDims.height}, Z=${originalDims.width}`);
-        // const bottomCenter = new THREE.Vector3(center.x, center.y - size.y / 2, center.z);
-        // console.log(`模型底部中心点 ${modelName},: ${bottomCenter.toArray()}`);
-        // console.log(`=============================================`);
         if (isMounted) {
           setOriginalDimensions(originalDims);
           setSelectionBox({ 
@@ -416,32 +410,7 @@ const Model = forwardRef(({
               });
             }
           });
-        }
-        
-        // =============================================
-        // 【核心：打印世界坐标 + 长宽高 - 唯一准确位置】
-        // 1. 强制更新矩阵（必须！确保位置/缩放/父级变换全部生效）
-        // clonedScene.updateMatrix();
-        // clonedScene.updateWorldMatrix(true, true);
-        
-        // // 2. 创建Vector3对象存储世界坐标
-        // const worldPosition = new THREE.Vector3();
-        // // 3. 获取模型在世界坐标系（画布原点0,0,0）的绝对位置
-        // clonedScene.getWorldPosition(worldPosition);
-        
-        // // 4. 打印世界坐标 + 长宽高（清晰标注产品ID，方便区分）
-        // console.log(`===== 产品【${elementId}】核心信息 =====`);
-        // console.log(`世界坐标（X,Y,Z）：`, worldPosition.toArray());
-        // console.log(`模型尺寸（长X,高Y,宽Z,）：`, {
-        //   length: originalDims.length, // 长（X轴）
-        //   height: originalDims.height,  // 高（Y轴）
-        //   width: originalDims.width   // 宽（Z轴）
-        // });
-        // // 可选：打印原始size向量，方便核对
-        // console.log(`原始尺寸向量（X,Y,Z）：`, size.toArray());
-        // console.log("=============================================");
-        // =============================================
-        
+        }        
         if (isMounted) {
           setModel(clonedScene);
           if (onLoad) onLoad(clonedScene);
@@ -462,6 +431,54 @@ const Model = forwardRef(({
       }
     };
   }, [modelPath, color, texturePath, isMultiTextureBase, gl, onLoad, onDimensionsChange, dimensions, hasReportedDimensions]);
+
+  // ===================================================
+  // 🔍 模型原点 / 尺寸 / 关键点世界坐标强制校验（只在加载后执行）
+  // ===================================================
+  useLayoutEffect(() => {
+    if (!groupRef.current || !model) return;
+  
+    // 1️⃣ 强制更新世界矩阵
+    groupRef.current.updateWorldMatrix(true, true);
+  
+    // 2️⃣ 世界坐标下的包围盒（真实几何）
+    const box = new THREE.Box3().setFromObject(groupRef.current);
+  
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+  
+    // 3️⃣ 关键几何点（世界坐标）
+    const bottomCenterWorld = new THREE.Vector3(
+      center.x,
+      box.min.y,
+      center.z
+    );
+  
+    const topCenterWorld = new THREE.Vector3(
+      center.x,
+      box.max.y,
+      center.z
+    );
+  
+    // 4️⃣ pivot（模型原点）世界坐标
+    const pivotWorld = new THREE.Vector3();
+    groupRef.current.getWorldPosition(pivotWorld);
+  
+    // 5️⃣ 打印
+    console.group(`📦【模型位置校验】${elementId || modelPath}`);
+    // 模型原点（0,0,0）在整个世界坐标系中的最终位置
+    console.log('📍 模型原点在世界坐标中的最终位置:', pivotWorld.toArray());
+  
+    console.log('📐 模型尺寸 (X,Y,Z):', size.toArray());
+    console.log('⚪ 模型中心 (world):', center.toArray());
+  
+    console.log('⬇️ 模型底部中心 (world):', bottomCenterWorld.toArray());
+    console.log('⬆️ 模型顶部中心 (world):', topCenterWorld.toArray());
+  
+    console.groupEnd();
+  }, [model, localPosition]);
 
   // --- 动态贴图应用 ---
   useEffect(() => {

@@ -35,6 +35,11 @@ const extractNumFromLabel = (label) => {
   return num || 0;
 };
 
+const isAtDefaultPosition = (pos) =>
+  Math.abs(pos[0]) < 0.01 &&
+  Math.abs(pos[1]) < 0.01 &&
+  Math.abs(pos[2]) < 0.01;
+
 /**
  * MonumentScene 是 3D 画布的聚合层
  */
@@ -403,6 +408,11 @@ const MonumentScene = forwardRef(({
     const baseInitY = 0 - baseInitHeight;  // 底座默认的初始 Y 轴位置
     const baseInitZ = 0;   // 底座默认的初始 Z 轴位置
 
+    const subbaseInitX = 0;
+    const subbaseInitY = 0;  
+    const subbaseInitZ = 0;   
+
+
     const tabletInitX = 0;
     const tabletInitY = 0; // 碑体默认的初始 Y 轴位置
     const tabletInitZ = 0; // 碑体默认的初始 Z 轴位置
@@ -414,97 +424,20 @@ const MonumentScene = forwardRef(({
     const tabletList = designState.monuments.filter(m => m.family === 'Tablet');
     const baseList = designState.bases;
     const tabletCount = tabletList.length;
-    const TABLET_SPACING_HALF = tabletInitWidth * 1.5; // 对称间距（可调整）
-
-    designState.bases.forEach((base) => {
-      if (base.position && base.position.length === 3) {
-        positions[base.id] = base.position;
-      } else {
-        positions[base.id] = [baseInitX, baseInitY, baseInitZ];
-      }
+    const TABLET_SPACING_HALF = tabletInitLength * 0.8; // 对称间距（可调整）
+    // 对Tablet和Base按序号升序排序（小序号在前）
+    const sortedTablets = [...tabletList].sort((a, b) => {
+      const aNum = extractNumFromLabel(a.label);
+      const bNum = extractNumFromLabel(b.label);
+      return aNum - bNum;
     });
-    // 1. 处理底座位置
-    // designState.bases.forEach((base) => {
-    //   // 对Tablet和Base按序号升序排序（小序号在前）
-    //   const sortedTablets = [...tabletList].sort((a, b) => {
-    //     const aNum = extractNumFromLabel(a.label);
-    //     const bNum = extractNumFromLabel(b.label);
-    //     return aNum - bNum;
-    //   });
-    //   const sortedBases = [...baseList].sort((a, b) => {
-    //     const aNum = extractNumFromLabel(a.label);
-    //     const bNum = extractNumFromLabel(b.label);
-    //     return aNum - bNum;
-    //   });
-    //   // 获取当前Base的序号 + 在排序后Base列表中的索引
-    //   const baseNum = extractNumFromLabel(base.label);
-    //   const baseIndex = sortedBases.findIndex(b => b.id === base.id);
-    //   console.log("sortedTablets:",sortedTablets)
-    //   console.log("sortedBases:",sortedBases)
-    //   console.log("baseIndex:",baseIndex)
-    //   // 分场景计算Base位置（核心逻辑）
-    //   let basePos;
-    //   // 有Tablet → 按序号匹配base在Tablet正下方
-    //   if (tabletCount > 0) {
-    //     // 小序号Base对应小序号Tablet（baseIndex匹配sortedTablets索引）
-    //     const targetTablet = sortedTablets[baseIndex];
-    //     if (targetTablet && targetTablet.position && targetTablet.position.length === 3) {
-    //       // Base位置 = 对应Tablet正下方（X/Z一致，Y=Tablet.Y - 底座高度）
-    //       // basePos = [
-    //       //   targetTablet.position[0],
-    //       //   targetTablet.position[1] - baseInitHeight,
-    //       //   targetTablet.position[2]
-    //       // ];
-    //       // basePos =  targetTablet.position; //指向了targetTablet.position的内存地址，引用赋值，会改变targetTablet.position的值
-    //       basePos = [...targetTablet.position]; 
-    //       console.log("basePos before:",basePos)
-    //       console.log("targetTablet.position before:",targetTablet.position)
-    //       basePos[1] = basePos[1] - baseInitHeight;
-    //       console.log("basePos after:",basePos)
-    //       console.log("targetTablet.position after:",targetTablet.position)
-    //       console.log("1111111111111")
-    //     } else {
-    //       // 兜底：Tablet位置异常 → 用Base自身位置或默认位置
-    //       basePos = (base.position && base.position.length === 3) 
-    //         ? base.position 
-    //         : [baseInitX, baseInitY, baseInitZ];
-    //       console.log("222222222222222")
-    //     }
-    //   }
-    //   // 无Tablet → 底座对称布局 
-    //   else {
-    //     if (baseCount === 1) {
-    //       // 1个Base：默认位置 [0, -底座高度, 0]
-    //       basePos = (base.position && base.position.length === 3) 
-    //         ? base.position 
-    //         : [baseInitX, baseInitY, baseInitZ];
-    //         console.log("333333333333333")
-    //     } else if (baseCount === 2) {
-    //       // 2个Base：关于原点对称（X轴±TABLET_SPACING_HALF）
-    //       basePos = (base.position && base.position.length === 3) 
-    //         ? base.position 
-    //         : [
-    //             baseIndex === 0 ? -TABLET_SPACING_HALF : TABLET_SPACING_HALF,
-    //             baseInitY,
-    //             baseInitZ
-    //           ];
-    //       console.log("444444444444444444")
-    //     } else {
-    //       // 超过2个Base → 兜底默认位置
-    //       basePos = (base.position && base.position.length === 3) 
-    //         ? base.position 
-    //         : [baseInitX, baseInitY, baseInitZ];
-    //         console.log("5555555555555")
-    //     }
-    //   }
-    //   console.log("basePos:",basePos)
-    //   console.log("base.id:",base.id)
-    //   // 最终：将计算后的位置存入positions
-    //   positions[base.id] = basePos;
-    // });
-
-
-    // 2. 处理碑位置
+    const sortedBases = [...baseList].sort((a, b) => {
+      const aNum = extractNumFromLabel(a.label);
+      const bNum = extractNumFromLabel(b.label);
+      return aNum - bNum;
+    });
+    
+    // 1. 处理碑位置
     designState.monuments.forEach((monument) => {
       // 非Tablet碑体：判断位置是否为合法三维数组
       if (monument.family !== 'Tablet') {
@@ -521,20 +454,15 @@ const MonumentScene = forwardRef(({
           positions[monument.id] = monument.position;
         } else {
           // 没有有效位置时，使用默认位置或对称布局
-          let targetPosition = [monumentInitX, monumentInitY, monumentInitZ];
-
+          let targetPosition = [tabletInitX, tabletInitY, tabletInitZ];
+          
           // 对称布局：仅在初始化时（无位置）应用
           if (tabletCount === 2) {
-            const sortedTablets = [...tabletList].sort((a, b) => {
-              const aNum = extractNumFromLabel(a.label);
-              const bNum = extractNumFromLabel(b.label);
-              return aNum - bNum;
-            });
             const tabletIndex = sortedTablets.findIndex(m => m.id === monument.id);
             targetPosition = [
               tabletIndex === 0 ? -TABLET_SPACING_HALF : TABLET_SPACING_HALF,
-              monumentInitY,
-              monumentInitZ
+              tabletInitY,
+              tabletInitZ
             ];
           }
           positions[monument.id] = targetPosition;
@@ -542,18 +470,27 @@ const MonumentScene = forwardRef(({
       }
     });
 
+    // 2. 处理底座位置
+    designState.bases.forEach(base => {
+      if (base.position && base.position.length === 3) {
+        positions[base.id] = base.position;
+      } else {
+        positions[base.id] = [baseInitX, baseInitY, baseInitZ];
+      }
+    });
+
     // 3. 处理副底座位置
-    // designState.subBases.forEach(subBase => {
-    //   if (subBase.position && subBase.position.length === 3) {
-    //     positions[subBase.id] = subBase.position;
-    //   } else {
-    //     positions[subBase.id] = [baseInitX, baseInitY, baseInitZ];
-    //   }
-    // });
+    designState.subBases.forEach(subBase => {
+      if (subBase.position && subBase.position.length === 3) {
+        positions[subBase.id] = subBase.position;
+      } else {
+        positions[subBase.id] = [subbaseInitX, subbaseInitY, subbaseInitZ];
+      }
+    });
 
     return positions;
   }, [designState.subBases, designState.bases, designState.monuments]);
-
+  
   const handleModelLoad = (elementId, elementType, dimensions) => {
     if (onDimensionsChange) {
       onDimensionsChange(elementId, dimensions, elementType);
