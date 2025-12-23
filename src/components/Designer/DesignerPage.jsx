@@ -31,6 +31,7 @@ const { Sider, Content, Footer } = Layout;
 
 const MAX_RECENTLY_SAVED = 8;
 
+
 const DesignerPage = () => {
   const { t } = useTranslation();
   const location = useLocation();
@@ -129,8 +130,42 @@ const DesignerPage = () => {
     selectElement,
     clearAllSelection,
   } = useDesignState();
+  
+  const getSelectedElement = (designState) => {
+    const sources = [
+      ['text', designState.texts],
+      ['art', designState.artElements],
+      ['vase', designState.vases],
+      ['monument', designState.monuments],
+      ['base', designState.bases],
+      ['subBase', designState.subBases],
+    ];
+  
+    for (const [type, list] of sources) {
+      if (!Array.isArray(list)) continue;
+      const item = list.find(el => el.isSelected);
+      if (item) return { item, type };
+    }
+    return null;
+  };
+  // 添加键盘监听，实现Delete/Backspace删除选中元素功能
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const tagName = e.target.tagName;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA') return;
+  
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const selected = getSelectedElement(designState);
+        if (!selected) return;
+  
+        deleteElement(selected.item.id, selected.type);
+      }
+    };
+  
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [designState, deleteElement]);
 
-  // 新增：切换视图旋转功能
   const handleToggleRotatable = useCallback(() => {
     setIsViewRotatable(!isViewRotatable);
   }, [isViewRotatable]);
