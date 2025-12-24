@@ -199,10 +199,21 @@ const tabletInitLength = 0.761999964; // 碑体默认长度
 const tabletInitWidth = 0.20320001150977138;   // 碑体默认宽度
 const tabletInitHeight = 0.6095151570481228;  // 碑体默认高度
 
+const tabletInitDimensions = { 
+  length: tabletInitLength,
+  width: tabletInitWidth,
+  height: tabletInitHeight
+};
+
 const baseInitLength = 0.9144; // 底座默认长度
 const baseInitWidth = 0.3555999644456996;   // 底座默认宽度
 const baseInitHeight = 0.20320000099831273;  // 底座默认高度
 
+const basetInitDimensions = { 
+  length: baseInitLength,
+  width: baseInitWidth,
+  height: baseInitHeight
+};
 
 const baseInitX = 0;
 const baseInitY = 0 - baseInitHeight;  // 底座默认的初始 Y 轴位置
@@ -335,6 +346,102 @@ const getPositionBySelected = (selected, newType, newDimensions,list) => {
   }
   return [0, 0, 0];
 };
+
+// 工具函数：找到某个“顶平面”上承载的所有 tablets
+function findTabletsOnTop({
+  monuments,
+  basePosition,
+  baseDimensions,
+  EPSILON = 0.1
+}) {
+  // console.group('🔍【找到顶平面上的 tablets】');
+  
+  const [bx, by, bz] = basePosition;
+  const { length: bL, width: bW, height: bH } = baseDimensions;
+
+  const baseTopY = by + bH;
+  // console.log('base位置:', basePosition, 'base尺寸:', baseDimensions);
+  // console.log('base/subbase的顶部位置:', [bx, baseTopY, bz]);
+
+  return monuments.filter(t => {
+    if (
+      t.family !== 'Tablet' ||
+      !t.position ||
+      !t.dimensions
+    ) {
+      return false;
+    }
+
+    const { length: tL, width: tW, height: tH } = t.dimensions;
+    if (tH <= 0) return false;
+
+    const [tx, ty, tz] = t.position;
+    // console.log(`${t.id}的位置：${t.position}`, `尺寸：${tL} x ${tW} x ${tH}`);
+
+    /** 1️⃣ Y：底面贴合 */
+    if (Math.abs(ty - baseTopY) > EPSILON) return false;
+
+    /** 2️⃣ X / Z：完全落在顶平面 */
+    const baseXMin = bx - bL / 2;
+    const baseXMax = bx + bL / 2;
+    const baseZMin = bz - bW / 2;
+    const baseZMax = bz + bW / 2;
+
+    const tabletXMin = tx - tL / 2;
+    const tabletXMax = tx + tL / 2;
+    const tabletZMin = tz - tW / 2;
+    const tabletZMax = tz + tW / 2;
+    console.groupEnd();
+    return (
+      tabletXMin >= baseXMin - EPSILON &&
+      tabletXMax <= baseXMax + EPSILON &&
+      tabletZMin >= baseZMin - EPSILON &&
+      tabletZMax <= baseZMax + EPSILON
+    );
+  });
+}
+
+// 工具函数：布局 tablets 在 base 上的位置
+// base宽度 ≤ 14'' → 全部居中
+// base宽度 > 14'' → 靠后边缘，保持 3'' 间距
+function layoutTabletsOnBase({
+  base,
+  tablets,
+  edgeGap,              // 3'' → 米
+  baseDefaultWidth,   // 14'' → 米
+}) {
+  // base 顶面上没有 tablet
+  if (!tablets.length) return [];
+
+  const [bx, by, bz] = base.position;
+  const baseWidth = base.dimensions.width;
+  const baseBackZ = bz + baseWidth / 2;
+  // console.log('当前base宽度:', baseWidth, '默认宽度:', baseDefaultWidth);
+  // console.log('当前base的位置:', base.position);
+  // console.log('当前base后边缘Z:', baseBackZ);
+  // console.log('布局当前base上的tablets:');
+  return tablets.map(t => {
+    // console.log('处理tablet:', t.id, '当前位置:', t.position);
+    let z = t.position[2]; // 默认：保持原 Z
+    // base > 14'' → 贴后边 3''
+    if (baseWidth > baseDefaultWidth) {
+      // console.log('base宽度大于默认宽度，调整tablet位置靠后边缘');
+      const tabletHalfWidth = t.dimensions.width / 2;
+      z = baseBackZ - edgeGap - tabletHalfWidth;
+    }
+    else{
+      // console.log('base宽度小于等于默认宽度，tablet居中');
+      // base ≤ 14'' → 居中
+      z = bz;
+    }
+    // console.log('调整后tablet位置:', [t.position[0], t.position[1], z]);
+    return {
+      id: t.id,
+      position: [t.position[0], t.position[1], z]
+    };
+  });
+
+}
 
 
 // --- 合并点：从同事的 useDesignState.js 添加了 FONT_OPTIONS ---
@@ -619,7 +726,7 @@ export const useDesignState = () => {
       modelPath: "/models/Shapes/Tablet/Serp Top.glb",
       texturePath: "", // 不再需要，由 Scene3D.jsx 处理
       position: monumentPosition, // 设置默认位置
-      dimensions: { length: 0, width: 0, height: 0 },
+      dimensions: tabletInitDimensions,
       weight: 0,
       label: `${family}1`, // 初始墓碑标识
       isSelected: false
@@ -635,7 +742,7 @@ export const useDesignState = () => {
       modelPath: "/models/Bases/Base.glb",
       texturePath: "", // 不再需要，由 Scene3D.jsx 处理
       position: basePosition, // 设置默认位置
-      dimensions: { length: 0, width: 0, height: 0 },
+      dimensions: basetInitDimensions,
       weight: 0,
       label: `Base1`, // 初始底座标识
       isSelected: false
@@ -710,7 +817,7 @@ export const useDesignState = () => {
             modelPath: productData.modelPath,
             texturePath: "",
             position: newPosition,
-            dimensions: { length: 0, width: 0, height: 0 },
+            dimensions: tabletInitDimensions,
             weight: 0,
             label: `${family}1`,
             isSelected: false
@@ -723,7 +830,7 @@ export const useDesignState = () => {
             modelPath: "/models/Bases/Base.glb",
             texturePath: "",
             position: [baseInitX, baseInitY, baseInitZ],
-            dimensions: { length: 0, width: 0, height: 0 },
+            dimensions: basetInitDimensions,
             weight: 0,
             label: `Base1`,
             isSelected: false
@@ -771,7 +878,7 @@ export const useDesignState = () => {
               modelPath: productData.modelPath,
               texturePath: "",
               position: newPosition,
-              dimensions: { length: 0, width: 0, height: 0 },
+              dimensions: tabletInitDimensions,
               weight: 0,
               label: `${family}1`,
               isSelected: false
@@ -784,7 +891,7 @@ export const useDesignState = () => {
               modelPath: "/models/Bases/Base.glb",
               texturePath: "",
               position: [baseInitX, baseInitY, baseInitZ],
-              dimensions: { length: 0, width: 0, height: 0 },
+              dimensions: basetInitDimensions,
               weight: 0,
               label: `Base1`,
               isSelected: false
@@ -865,7 +972,7 @@ export const useDesignState = () => {
         modelPath: "/models/Shapes/Tablet/Serp Top.glb",
         texturePath: "",
         position: newTabletPosition,
-        dimensions: { length: 0, width: 0, height: 0 },
+        dimensions: tabletInitDimensions,
         weight: 0,
         label: `Tablet${newTabletIndex}`,
         isSelected: false
@@ -906,7 +1013,7 @@ export const useDesignState = () => {
         modelPath: "/models/Bases/Base.glb",
         texturePath: "", // 不再需要，由 Scene3D.jsx 处理
         position: newBasePosition,
-        dimensions: { length: 0, width: 0, height: 0 },
+        dimensions: basetInitDimensions,
         weight: 0,
         label: `Base${newBaseIndex}` // 添加标识，如 Base1, Base2
       };
@@ -917,15 +1024,7 @@ export const useDesignState = () => {
     });
   }, [updateDesignState]); 
 
-
-  const removeBase = useCallback((baseId) => {
-    updateDesignState(prev => ({
-      ...prev,
-      bases: prev.bases.filter(base => base.id !== baseId)
-    }));
-  }, [updateDesignState]);
-
-
+  
   const addSubBase = useCallback(() => {
     updateDesignState(prev => {
       const newDimensions = {
@@ -948,7 +1047,7 @@ export const useDesignState = () => {
         modelPath: "/models/Bases/Base.glb",
         texturePath: "",
         position: subBasePosition,
-        dimensions: { length: 0, width: 0, height: 0 },
+        dimensions: basetInitDimensions,
         weight: 0,
         label: `SubBase${newIndex}`,
         isSelected: false
@@ -960,6 +1059,14 @@ export const useDesignState = () => {
       };
     });
   }, [updateDesignState]);
+
+  const removeBase = useCallback((baseId) => {
+    updateDesignState(prev => ({
+      ...prev,
+      bases: prev.bases.filter(base => base.id !== baseId)
+    }));
+  }, [updateDesignState]);
+
 
   const removeSubBase = useCallback((subBaseId) => {
     updateDesignState(prev => ({
@@ -1076,111 +1183,139 @@ export const useDesignState = () => {
   }, [updateDesignState]); // 移除了 buildModelPath, buildTexturePath
 
 
-  // 在 updateDimensions 函数中，尺寸改变时重新计算位置
+  // 在 updateDimensions 函数中，尺寸改变时重新计算相关位置
+  // elementId：要修改的元素ID
+  // newDimensions：新的尺寸对象 { length, width, height }
+  // elementType：元素类型（'monument'、'base'、'subBase'）
   const updateDimensions = useCallback((elementId, newDimensions, elementType) => {
+    // console.group(`🧰updateDimensions【修改${elementId}的尺寸】`)
     updateDesignState(prev => {
-      const updateElement = (elements) =>
-        elements.map(element => {
-          if (element.id === elementId) {
-            const currentDims = element.dimensions;
-            const newDims = {
-              length: Number(newDimensions.length) || 1,
-              width: Number(newDimensions.width) || 1,
-              height: Number(newDimensions.height) || 1
-            };
-            // 尺寸完全一样，不更新 state
-            if (
-              currentDims.length === newDims.length &&
-              currentDims.width === newDims.width &&
-              currentDims.height === newDims.height
-            ) {
-              return element;
-            }
-
-            // 尺寸改变后，如果需要重新计算位置
-            let newPosition = element.position;
-
-            // 如果是底座或碑，根据规则重新计算位置
-            if (elementType === 'base' || elementType === 'monument') {
-              // 查找对应的碑或底座
-              const isBase = elementType === 'base';
-              const targetId = isBase ? element.id : element.bindBaseId;
-              const relatedElements = isBase ?
-                prev.monuments.filter(m => m.bindBaseId === targetId) :
-                prev.bases.filter(b => b.id === targetId);
-
-              if (relatedElements.length > 0) {
-                const related = relatedElements[0];
-                const INCH_IN_METERS = 0.0254;
-
-                if (isBase) {
-                  // 底座尺寸改变，重新计算碑的位置
-                  const baseWidth = newDims.width;
-                  const monumentLength = related.dimensions.length || 0;
-
-                  let monumentX = element.position[0];
-                  if (baseWidth < 14 * INCH_IN_METERS) {
-                    // 底座宽度小于14"，碑在底座前后宽度居中
-                    monumentX = element.position[0] + (newDims.length - monumentLength) / 2;
-                  } else {
-                    // 底座宽度大于14"，碑背面离底座边缘3"
-                    const threeInches = 3 * INCH_IN_METERS;
-                    monumentX = element.position[0] + newDims.length - monumentLength - threeInches;
-                  }
-
-                  newPosition = [
-                    monumentX,
-                    element.position[1] + newDims.height,
-                    element.position[2]
-                  ];
-                } else {
-                  // 碑尺寸改变，重新计算底座位置（如果需要）
-                  // 这里可以根据需要调整底座位置
-                }
-              }
-            }
-            // console.log(`更新${elementId}尺寸,新尺寸：`, newDims);
-            // console.log(`更新${elementId}尺寸，重新计算位置：`, newPosition);
-            return {
-              ...element,
-              dimensions: newDims,
-              position: newPosition,
-              weight: calculateWeight(newDims)
-            };
-          }
-          return element;
-        });
+      // 单位常量（英寸 → 米）
+      const INCH_TO_METER = 1 / 39.37;
+      const BASE_DEFAULT_WIDTH = 14 * INCH_TO_METER;
+      const EDGE_GAP = 3 * INCH_TO_METER;
+      const EPSILON = 1e-4;
 
       let updatedState = { ...prev };
+      let deltaHeight = 0;
+      let deltaWidth = 0;
+      let oldBaseOrSubBase = null;
+      let newBaseOrSubBase = null;
 
-      switch (elementType) {
-        case 'monument':
-          updatedState.monuments = updateElement(prev.monuments);
-          break;
-        case 'base':
-          updatedState.bases = updateElement(prev.bases);
-          // 同时更新对应的碑位置
-          const updatedBase = updatedState.bases.find(b => b.id === elementId);
-          if (updatedBase) {
-            updatedState.monuments = updatedState.monuments.map(monument => {
-              if (monument.bindBaseId === elementId) {
-                return {
-                  ...monument,
-                  position: monument.position // 使用计算后的新位置
-                };
-              }
-              return monument;
-            });
-          }
-          break;
-        case 'subBase':
-          updatedState.subBases = updateElement(prev.subBases);
-          break;
-        // ... 其他类型
+      const sourceArray = elementType === 'base'
+        ? prev.bases
+        : elementType === 'subBase'
+        ? prev.subBases
+        : prev.monuments;
+
+      const target = sourceArray.find(e => e.id === elementId);
+      if (!target) return prev;
+
+      
+      const oldDimensions = target.dimensions;
+      const newDims = {
+        length: Number(newDimensions.length) || 1,
+        width: Number(newDimensions.width) || 1,
+        height: Number(newDimensions.height) || 1
+      };
+
+      deltaHeight = newDims.height - (oldDimensions.height || 0);
+      deltaWidth  = newDims.width - (oldDimensions.width || 0);
+
+      oldBaseOrSubBase = target;
+      // console.log(`旧尺寸：`, oldDimensions)
+      // console.log(`新尺寸：`, newDims);
+      // console.log(`${elementId} 高度变化量: ${deltaHeight} 米`);
+
+      // 如果是base / subBase 高度变化 → monument 上下移动
+      let tabletsOnTop = [];
+      if (elementType === 'base' || elementType === 'subBase') {
+        tabletsOnTop = findTabletsOnTop({
+          monuments: prev.monuments,
+          basePosition: target.position,
+          baseDimensions: oldDimensions
+        });
+        // console.log(`寻找${elementId}上方的 Tablet...`);
+        // console.log('受影响的 Tablet:', tabletsOnTop);
       }
 
+      // 更新dimensions
+      const updateElement = (elements) =>
+        elements.map(element => {
+          if (element.id !== elementId) {
+            return element; //  非目标元素必须原样返回
+          }
+          if (
+            oldDimensions.length === newDims.length &&
+            oldDimensions.width === newDims.width &&
+            oldDimensions.height === newDims.height
+          ) {
+            return element;
+          }
+          return {
+            ...element,
+            dimensions: newDims,
+            weight: calculateWeight(newDims)
+          };
+      });
+
+      if (elementType === 'base') {
+        updatedState.bases = updateElement(prev.bases);
+        newBaseOrSubBase = updatedState.bases.find(b => b.id === elementId);
+      } else if (elementType === 'subBase') {
+        updatedState.subBases = updateElement(prev.subBases);
+        newBaseOrSubBase = updatedState.subBases.find(b => b.id === elementId);
+      } else {
+        updatedState.monuments = updateElement(prev.monuments);
+        return updatedState;
+      }
+
+
+      if (!newBaseOrSubBase) return updatedState;
+      // 根据 base / subBase 高度变化 → monument 上下移动
+      const affectedIds = new Set(tabletsOnTop.map(t => t.id));
+
+      if (Math.abs(deltaHeight) > EPSILON) {
+        updatedState.monuments = updatedState.monuments.map(m => {
+          if (!affectedIds.has(m.id)) return m;
+          const newTabletPosition = [
+            m.position[0],
+            m.position[1] + deltaHeight,
+            m.position[2]
+          ];
+          // console.log(`更新 ${m.id} 位置: 从 ${m.position} 到 ${newTabletPosition}`);
+          return {
+            ...m,
+            position: newTabletPosition
+          };
+        });
+      }
+   
+      // base 宽度变化 → tablet 重新布局
+      if(Math.abs(deltaWidth) > EPSILON && elementType === 'base' && tabletsOnTop.length){
+        // console.log(`${elementId} 宽度变化，重新布局顶部 Tablet`);
+        const relaid = layoutTabletsOnBase({
+          base: newBaseOrSubBase,
+          tablets: tabletsOnTop,
+          edgeGap: EDGE_GAP,
+          baseDefaultWidth: BASE_DEFAULT_WIDTH
+        });
+        // console.log(`重新布局结果:`, relaid);
+        const positionMap = new Map(
+          relaid.map(r => [r.id, r.position])
+        );
+        updatedState.monuments = updatedState.monuments.map(m => {
+          const newPos = positionMap.get(m.id);
+          if (!newPos) return m;
+          return {
+            ...m,
+            position: newPos
+          };
+        });
+      }
       return updatedState;
     });
+    console.groupEnd();
   }, [updateDesignState]);
 
   // 修改 addVase 函数以调整花瓶默认位置
