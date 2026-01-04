@@ -198,11 +198,12 @@ const initialDesignState = {
 const tabletInitLength = 0.761999964; // 碑体默认长度
 const tabletInitWidth = 0.20320001150977138;   // 碑体默认宽度
 const tabletInitHeight = 0.6095151570481228;  // 碑体默认高度
+const scaleFactor = 1; // 放大比例
 
 const tabletInitDimensions = { 
-  length: tabletInitLength,
-  width: tabletInitWidth,
-  height: tabletInitHeight
+  length: tabletInitLength * scaleFactor,
+  width: tabletInitWidth* scaleFactor,
+  height: tabletInitHeight* scaleFactor
 };
 
 const baseInitLength = 0.9144; // 底座默认长度
@@ -210,27 +211,27 @@ const baseInitWidth = 0.3555999644456996;   // 底座默认宽度
 const baseInitHeight = 0.20320000099831273;  // 底座默认高度
 
 const basetInitDimensions = { 
-  length: baseInitLength,
-  width: baseInitWidth,
-  height: baseInitHeight
+  length: baseInitLength* scaleFactor,
+  width: baseInitWidth* scaleFactor,
+  height: baseInitHeight* scaleFactor
 };
 
 const baseInitX = 0;
-const baseInitY = 0 - baseInitHeight;  // 底座默认的初始 Y 轴位置
+const baseInitY = 0 - baseInitHeight - 0.3;  // 底座默认的初始 Y 轴位置
 const baseInitZ = 0;   // 底座默认的初始 Z 轴位置
 
 const subbaseInitX = 0;
-const subbaseInitY = 0;  
+const subbaseInitY = - 0.3;  
 const subbaseInitZ = 0;   
 
 const tabletInitX = 0;
-const tabletInitY = 0; // 碑体默认的初始 Y 轴位置
+const tabletInitY = - 0.3; // 碑体默认的初始 Y 轴位置
 const tabletInitZ = 0; // 碑体默认的初始 Z 轴位置
 
 
-const monumentInitX = 0
-const monumentInitY = 0
-const monumentInitZ = 0
+const monumentInitX = 0;
+const monumentInitY = - 0.3;
+const monumentInitZ = 0;
 
 // 工具函数：从标签中提取数字（如Tablet1→1，Base2→2）
 const extractNumFromLabel = (label) => {
