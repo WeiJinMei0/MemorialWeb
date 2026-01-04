@@ -70,19 +70,20 @@ const Scene3D = forwardRef(({
           gl.setClearColor('#f0f2f5');
           
           // 仅打印画布中心点核心信息（修复变量作用域问题）
-          const centerWorld = new Vector3(0, 0, 0); // 3D场景中心
-          const centerScreen = centerWorld.clone().project(camera); // 转屏幕坐标
+          // const centerWorld = new Vector3(0, 0, 0); // 3D场景中心
+          // const centerScreen = centerWorld.clone().project(camera); // 转屏幕坐标
           
-          console.log('===== 画布中心点 =====');
-          console.log('世界坐标：', { x: centerWorld.x, y: centerWorld.y, z: centerWorld.z });
-          console.log('屏幕像素坐标：', {
-            x: Math.round((centerScreen.x * 0.5 + 0.5) * size.width),
-            y: Math.round((centerScreen.y * -0.5 + 0.5) * size.height)
-          });
+          // console.log('===== 画布中心点 =====');
+          // console.log('世界坐标：', { x: centerWorld.x, y: centerWorld.y, z: centerWorld.z });
+          // console.log('屏幕像素坐标：', {
+          //   x: Math.round((centerScreen.x * 0.5 + 0.5) * size.width),
+          //   y: Math.round((centerScreen.y * -0.5 + 0.5) * size.height)
+          // });
         }}
       >
         <Suspense fallback={<Loader />}>
-          <axesHelper args={[5]} /> {/* 添加坐标轴 */}
+          {/* 添加坐标轴
+          <axesHelper args={[5]} />  */}
           <MonumentScene
             ref={ref}
             background={background}
