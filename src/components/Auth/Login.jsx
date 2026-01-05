@@ -1,8 +1,7 @@
 import React, { useState } from 'react'
-import { Form, Input, Button, Card, message } from 'antd'
+import { Form, Input, Button, Card } from 'antd'
 import { UserOutlined, LockOutlined, UserSwitchOutlined } from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
-import { Link } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
 import './Login.css'
@@ -19,50 +18,19 @@ const Login = () => {
   const onFinish = async (values) => {
     setLoading(true)
     try {
-      // 模拟登录API调用
-      setTimeout(() => {
-        // 从模拟数据库获取用户数据
-        const existingUsers = JSON.parse(localStorage.getItem('mockUsersDatabase') || '[]');
+      await login({
+        account: values.username,
+        password: values.password,
+      });
 
-        // 第一步：先只根据用户名/邮箱查找用户（不检查密码）
-        const userByUsername = existingUsers.find(u =>
-          u.username === values.username || u.email === values.username
-        )
-
-        // 如果用户不存在
-        if (!userByUsername) {
-          message.error(t('login.user_not_found'))
-          setLoading(false)
-          return
-        }
-        // 查找匹配的用户（支持用户名或邮箱登录）
-        const user = existingUsers.find(u =>
-          (u.username === values.username || u.email === values.username) &&
-          u.password === values.password
-        );
-
-
-        if (user) {
-          // 登录成功
-          const userData = {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            phone: user.phone,
-            type: userType,
-            token: 'mock-jwt-token'
-          }
-          login(userData)
-          message.success(t('login.success'))
-          navigate('/designer')
-        } else {
-          // 登录失败
-          message.error(t('login.password_incorrect'))
-
-        }
-      }, 1000)
+      message.success(t('login.success'));
+      navigate('/designer');
     } catch (error) {
-      message.error(t('login.error'))
+      const msg =
+        error?.response?.data?.message ||
+        t('login.error');
+
+      message.error(msg)
     } finally {
       setLoading(false)
     }

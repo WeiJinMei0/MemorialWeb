@@ -15,48 +15,31 @@ const Register = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { message } = useApp();
+  const { register } = useAuth(); 
 
   const onFinish = async (values) => {
     setLoading(true);
-    setTimeout(() => {
-      try {
-        const existingUsers = JSON.parse(localStorage.getItem('mockUsersDatabase') || '[]');
-        const userExists = existingUsers.some(user =>
-          user.username === values.username || user.email === values.email
-        );
-        //验证用户邮箱是否已存在
-        if (userExists) {
-          message.error(t('register.user_exists'));
-          setLoading(false);
-          return;
-        }
-        const newUser = {
-          id: Date.now(), // 简单ID生成
-          username: values.username,
-          email: values.email,
-          phone: values.phone,
-          password: values.password,
-          type: userType,
-          agreeToTerms: values.agreeToTerms,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        existingUsers.push(newUser);
-        localStorage.setItem('mockUsersDatabase', JSON.stringify(existingUsers));
+    try {
+      const result = await register({
+        username: values.username,
+        email: values.email,
+        phone: values.phone,
+        password: values.password,
+        type: userType
+      });
 
-        message.success(t('register.success'));
-        navigate('/login', {
-          state: {
-            message: t('register.success_message'),
-            username: newUser.username
-          }
-        });
-      } catch (error) {
-        message.error(error.message || t('register.error'));
-      } finally {
-        setLoading(false);
-      }
-    }, 1000);
+      message.success(t('register.success'));
+      navigate('/login', {
+        state: { message: t('register.success_message'), username: values.username },
+      });
+    } catch (error) {
+      const msg =
+        error?.response?.data?.message ||
+        t('register.error');
+      message.error(msg)
+    } finally {
+      setLoading(false);
+    }
   };
 
   const validateConfirmPassword = ({ getFieldValue }) => ({

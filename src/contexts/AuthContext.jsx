@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
 
 const AuthContext = createContext();
 
@@ -9,6 +10,8 @@ export const useAuth = () => {
   }
   return context;
 };
+
+const API_BASE = 'http://10.157.197.76:8080/api';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -25,18 +28,24 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (userData) => {
-    setUser(userData)
-    localStorage.setItem('user', JSON.stringify(userData))
-  }
+  const login = async (loginData) => {
+    const res = await axios.post(`${API_BASE}/v1/auth/login`, loginData);
 
-  const register = async (userData) => {
-    setUser(userData)
-    localStorage.setItem('user', JSON.stringify(userData))
-  }
+    const { token, user } = res.data.data;
+
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+
+    setUser(user);
+  };
+
+  const register = async (registerData) => {
+    await axios.post(`${API_BASE}/v1/auth/register`, registerData);
+  };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('token');
     localStorage.removeItem('user');
   };
 
@@ -53,35 +62,4 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
-};
-
-// 模拟API函数
-const mockLoginAPI = (email, password) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      if (email === 'admin@arbor.com' && password === 'admin') {
-        resolve({
-          success: true,
-          user: { id: 1, name: 'Admin', email: 'admin@arbor.com', role: 'admin' },
-          token: 'mock-jwt-token'
-        });
-      } else if (email === 'user@arbor.com' && password === 'user') {
-        resolve({
-          success: true,
-          user: { id: 2, name: 'User', email: 'user@arbor.com', role: 'user' },
-          token: 'mock-jwt-token'
-        });
-      } else {
-        resolve({ success: false, error: 'Invalid credentials' });
-      }
-    }, 1000);
-  });
-};
-
-const mockRegisterAPI = (userData) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ success: true });
-    }, 1000);
-  });
 };
