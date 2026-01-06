@@ -104,6 +104,8 @@ const DEFAULT_FONT_FAMILY = {
   sv: 'Arial',
 };
 
+
+
 function extractFontShortName(fontFileName) {
   // 去掉下划线及后面的部分
   return fontFileName.split('_')[0];
@@ -198,12 +200,12 @@ const initialDesignState = {
 const tabletInitLength = 0.761999964; // 碑体默认长度
 const tabletInitWidth = 0.20320001150977138;   // 碑体默认宽度
 const tabletInitHeight = 0.6095151570481228;  // 碑体默认高度
-const scaleFactor = 1; // 放大比例
+
 
 const tabletInitDimensions = { 
-  length: tabletInitLength * scaleFactor,
-  width: tabletInitWidth* scaleFactor,
-  height: tabletInitHeight* scaleFactor
+  length: tabletInitLength ,
+  width: tabletInitWidth,
+  height: tabletInitHeight
 };
 
 const baseInitLength = 0.9144; // 底座默认长度
@@ -211,9 +213,9 @@ const baseInitWidth = 0.3555999644456996;   // 底座默认宽度
 const baseInitHeight = 0.20320000099831273;  // 底座默认高度
 
 const basetInitDimensions = { 
-  length: baseInitLength* scaleFactor,
-  width: baseInitWidth* scaleFactor,
-  height: baseInitHeight* scaleFactor
+  length: baseInitLength,
+  width: baseInitWidth,
+  height: baseInitHeight
 };
 
 const baseInitX = 0;
@@ -221,17 +223,24 @@ const baseInitY = 0 - baseInitHeight - 0.3;  // 底座默认的初始 Y 轴位�
 const baseInitZ = 0;   // 底座默认的初始 Z 轴位置
 
 const subbaseInitX = 0;
-const subbaseInitY = - 0.3;  
+const subbaseInitY = -0.3;  
 const subbaseInitZ = 0;   
 
 const tabletInitX = 0;
-const tabletInitY = - 0.3; // 碑体默认的初始 Y 轴位置
+const tabletInitY = -0.3; // 碑体默认的初始 Y 轴位置
 const tabletInitZ = 0; // 碑体默认的初始 Z 轴位置
 
 
 const monumentInitX = 0;
-const monumentInitY = - 0.3;
+const monumentInitY = -0.3;
 const monumentInitZ = 0;
+
+const basePosition = [baseInitX, baseInitY, baseInitZ];
+const monumentPosition = [
+  tabletInitX,
+  tabletInitY,
+  tabletInitZ
+];
 
 // 工具函数：从标签中提取数字（如Tablet1→1，Base2→2）
 const extractNumFromLabel = (label) => {
@@ -292,6 +301,13 @@ const getSelectedElement = (prev) => {
 // prev：当前设计状态
 const getPositionBySelected = (selected, newType, newDimensions,list) => {
   const DEFAULT_HORIZONTAL_GAP = 0.2;
+  let DEFAULT_Position = [0, 0, 0];
+  if(newType === 'monument'){
+    DEFAULT_Position = monumentPosition;
+  }
+  else{
+    DEFAULT_Position = basePosition;
+  }
   // 没选中
   if (!selected ) { 
     // 如果同类型已经存在
@@ -303,7 +319,7 @@ const getPositionBySelected = (selected, newType, newDimensions,list) => {
         return [x + offsetX, y, z];
       }
     }
-    return [0, 0, 0];
+    return DEFAULT_Position;
   }
   // 取出选中对象的中心点位置
   const [x, y, z] = selected.position;
@@ -345,7 +361,7 @@ const getPositionBySelected = (selected, newType, newDimensions,list) => {
       return [x, belowY, z];
     }
   }
-  return [0, 0, 0];
+  return DEFAULT_Position;
 };
 
 // 工具函数：找到某个“顶平面”上承载的所有 tablets
@@ -446,7 +462,7 @@ function layoutTabletsOnBase({
 
 
 // --- 合并点：从同事的 useDesignState.js 添加了 FONT_OPTIONS ---
-const FONT_OPTIONS = [
+export const FONT_OPTIONS = [
   // --- 韩文字体 (Korean Fonts) ---
   // 假设这些都是独立的 Regular 字体，如果它们有家族关系，请按照下文英文部分的方式合并
   { family: '(한)고인돌B', variant: 'regular', name: '(한)고인돌B_Regular', path: '/fonts/(한)고인돌B_Regular.json' },
@@ -708,13 +724,6 @@ export const useDesignState = () => {
     const polish = 'P5';
     const color = 'Black';
 
-    // 设置默认位置
-    const basePosition = [baseInitX, baseInitY, baseInitZ];
-    const monumentPosition = [
-      tabletInitX,
-      tabletInitY,
-      tabletInitZ
-    ];
 
     const monument = {
       id: 'monument-1',
