@@ -29,11 +29,6 @@ const MonumentGrid = ({ width, height, position }) => {
   );
 };
 
-// 工具函数（放在positions useMemo外，或内部）
-const extractNumFromLabel = (label) => {
-  const num = parseInt(label?.replace(/[^0-9]/g, ''), 10);
-  return num || 0;
-};
 
 // 工具函数：是否合法位置
 const hasValidPosition = pos => Array.isArray(pos) && pos.length === 3;

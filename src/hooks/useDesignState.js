@@ -133,7 +133,6 @@ function getFallbackFontFamily(language) {
  * 获取用于渲染的字体 family（优先选中字体，若不支持则 fallback）
  */
 export function getFontFamilyForLanguage(selectedFamily, language) {
-  console.log('getFontFamilyForLanguage', { selectedFamily, language });
   if (isFamilySupportLanguage(selectedFamily, language)) return selectedFamily;
   return getFallbackFontFamily(language);;
 
@@ -201,22 +200,9 @@ const tabletInitLength = 0.761999964; // 碑体默认长度
 const tabletInitWidth = 0.20320001150977138;   // 碑体默认宽度
 const tabletInitHeight = 0.6095151570481228;  // 碑体默认高度
 
-
-const tabletInitDimensions = { 
-  length: tabletInitLength ,
-  width: tabletInitWidth,
-  height: tabletInitHeight
-};
-
 const baseInitLength = 0.9144; // 底座默认长度
 const baseInitWidth = 0.3555999644456996;   // 底座默认宽度
 const baseInitHeight = 0.20320000099831273;  // 底座默认高度
-
-const basetInitDimensions = { 
-  length: baseInitLength,
-  width: baseInitWidth,
-  height: baseInitHeight
-};
 
 const baseInitX = 0;
 const baseInitY = 0 - baseInitHeight - 0.3;  // 底座默认的初始 Y 轴位置
@@ -736,7 +722,7 @@ export const useDesignState = () => {
       modelPath: "/models/Shapes/Tablet/Serp Top.glb",
       texturePath: "", // 不再需要，由 Scene3D.jsx 处理
       position: monumentPosition, // 设置默认位置
-      dimensions: tabletInitDimensions,
+      dimensions: { length: 0, width: 0, height: 0 },
       weight: 0,
       label: `${family}1`, // 初始墓碑标识
       isSelected: false
@@ -752,7 +738,7 @@ export const useDesignState = () => {
       modelPath: "/models/Bases/Base.glb",
       texturePath: "", // 不再需要，由 Scene3D.jsx 处理
       position: basePosition, // 设置默认位置
-      dimensions: basetInitDimensions,
+      dimensions: { length: 0, width: 0, height: 0 },
       weight: 0,
       label: `Base1`, // 初始底座标识
       isSelected: false
@@ -779,15 +765,6 @@ export const useDesignState = () => {
       return;
     }
 
-    // CS新增日志
-    console.log('【addProduct】传入的 productData：', productData);
-    console.log('📋 当前设计状态（旧）：', {
-      monuments: designState.monuments,
-      bases: designState.bases,
-      subBases: designState.subBases,
-      currentMaterial: designState.currentMaterial
-    });
-
     updateDesignState(prev => {
       // 1. 提取旧状态核心信息
       const oldMonuments = prev.monuments || [];
@@ -803,7 +780,6 @@ export const useDesignState = () => {
         oldFamily = 'Tablet'; // 业务规则：数量为2时默认是Tablet
       } else {
         oldFamily = oldMonuments[0].family || ''; // 兼容数量>2的边界情况（可选）
-        console.log(`oldMonuments数量>2!!!`);
       }
 
       // 2. 创建新的碑体
@@ -827,7 +803,7 @@ export const useDesignState = () => {
             modelPath: productData.modelPath,
             texturePath: "",
             position: newPosition,
-            dimensions: tabletInitDimensions,
+            dimensions: { length: 0, width: 0, height: 0 },
             weight: 0,
             label: `${family}1`,
             isSelected: false
@@ -840,7 +816,7 @@ export const useDesignState = () => {
             modelPath: "/models/Bases/Base.glb",
             texturePath: "",
             position: [baseInitX, baseInitY, baseInitZ],
-            dimensions: basetInitDimensions,
+            dimensions: { length: 0, width: 0, height: 0 },
             weight: 0,
             label: `Base1`,
             isSelected: false
@@ -888,7 +864,7 @@ export const useDesignState = () => {
               modelPath: productData.modelPath,
               texturePath: "",
               position: newPosition,
-              dimensions: tabletInitDimensions,
+              dimensions: { length: 0, width: 0, height: 0 },
               weight: 0,
               label: `${family}1`,
               isSelected: false
@@ -901,7 +877,7 @@ export const useDesignState = () => {
               modelPath: "/models/Bases/Base.glb",
               texturePath: "",
               position: [baseInitX, baseInitY, baseInitZ],
-              dimensions: basetInitDimensions,
+              dimensions: { length: 0, width: 0, height: 0 },
               weight: 0,
               label: `Base1`,
               isSelected: false
@@ -982,7 +958,7 @@ export const useDesignState = () => {
         modelPath: "/models/Shapes/Tablet/Serp Top.glb",
         texturePath: "",
         position: newTabletPosition,
-        dimensions: tabletInitDimensions,
+        dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
         label: `Tablet${newTabletIndex}`,
         isSelected: false
@@ -1023,7 +999,7 @@ export const useDesignState = () => {
         modelPath: "/models/Bases/Base.glb",
         texturePath: "", // 不再需要，由 Scene3D.jsx 处理
         position: newBasePosition,
-        dimensions: basetInitDimensions,
+        dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
         label: `Base${newBaseIndex}` // 添加标识，如 Base1, Base2
       };
@@ -1057,7 +1033,7 @@ export const useDesignState = () => {
         modelPath: "/models/Bases/Base.glb",
         texturePath: "",
         position: subBasePosition,
-        dimensions: basetInitDimensions,
+        dimensions: { length: 0, width: 0, height: 0 },
         weight: 0,
         label: `SubBase${newIndex}`,
         isSelected: false
@@ -1233,9 +1209,6 @@ export const useDesignState = () => {
       deltaWidth  = newDims.width - (oldDimensions.width || 0);
 
       oldBaseOrSubBase = target;
-      // console.log(`旧尺寸：`, oldDimensions)
-      // console.log(`新尺寸：`, newDims);
-      // console.log(`${elementId} 高度变化量: ${deltaHeight} 米`);
 
       // 如果是base / subBase 高度变化 → monument 上下移动
       let tabletsOnTop = [];
@@ -1245,8 +1218,7 @@ export const useDesignState = () => {
           basePosition: target.position,
           baseDimensions: oldDimensions
         });
-        // console.log(`寻找${elementId}上方的 Tablet...`);
-        // console.log('受影响的 Tablet:', tabletsOnTop);
+
       }
 
       // 更新dimensions
@@ -1293,7 +1265,7 @@ export const useDesignState = () => {
             m.position[1] + deltaHeight,
             m.position[2]
           ];
-          // console.log(`更新 ${m.id} 位置: 从 ${m.position} 到 ${newTabletPosition}`);
+
           return {
             ...m,
             position: newTabletPosition
@@ -1303,14 +1275,12 @@ export const useDesignState = () => {
    
       // base 宽度变化 → tablet 重新布局
       if(Math.abs(deltaWidth) > EPSILON && elementType === 'base' && tabletsOnTop.length){
-        // console.log(`${elementId} 宽度变化，重新布局顶部 Tablet`);
         const relaid = layoutTabletsOnBase({
           base: newBaseOrSubBase,
           tablets: tabletsOnTop,
           edgeGap: EDGE_GAP,
           baseDefaultWidth: BASE_DEFAULT_WIDTH
         });
-        // console.log(`重新布局结果:`, relaid);
         const positionMap = new Map(
           relaid.map(r => [r.id, r.position])
         );
