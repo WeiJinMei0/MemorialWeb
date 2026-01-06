@@ -233,6 +233,73 @@ const useSVGTexture = (textContent, options = {}) => {
 };
 
 
+function VcutLineMesh({
+  text,
+  vcutColor,
+  fontOption,
+  fontSize,
+  position
+}) {
+  const result = useSVGTexture(text, {
+    fillColor: vcutColor,
+    fontSize,
+    fontOption
+  });
+
+  if (!result) return null;
+
+  const { texture, widthPx, heightPx } = result;
+  const scale = 0.001;
+
+  return (
+    <mesh position={position}>
+      <planeGeometry args={[widthPx * scale, heightPx * scale]} />
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        side={THREE.DoubleSide}
+        toneMapped={false}
+        depthWrite={true}
+        color={0xffffff}
+      />
+    </mesh>
+  );
+}
+
+function VcutCurvedGlyph({
+  char,
+  fontSize,
+  fontOption,
+  position,
+  rotationZ,
+  vcutColor
+}) {
+  const result = useSVGTexture(char, {
+    fillColor: vcutColor,
+    fontSize,
+    fontOption
+  });
+
+  if (!result) return null;
+
+  const { texture, widthPx, heightPx } = result;
+  const scale = 0.001;
+
+  return (
+    <mesh position={position} rotation={[0, 0, rotationZ]}>
+      <planeGeometry args={[widthPx * scale, heightPx * scale]} />
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        toneMapped={false}
+        depthWrite={true}
+        color={0xffffff}
+      />
+    </mesh>
+  );
+}
+
+
 
 /**
  * 独立的隐藏输入组件
@@ -685,6 +752,29 @@ const EnhancedTextElement = ({
     }
   }, [textContentFor3D, text.size, text.kerning, text.lineSpacing, text.alignment, textDirection]);
 
+  const lines = useMemo(() => {
+    const content = text.content || 'Enter Text';
+    return textDirection === 'horizontal'
+      ? content.split('\n')
+      : content.split('');
+  }, [text.content, textDirection]);
+
+  const lineFontFamilies = useMemo(() => {
+    return lines.map((ln) => {
+      const firstNonEnChar = ln.match(/[^A-Za-z0-9\u0020-\u007E]/)?.[0];
+      if (!firstNonEnChar) return text.font;
+      const lang = detectCharLanguage(firstNonEnChar);
+      return getFontFamilyForLanguage(text.font, lang);
+    });
+  }, [lines, text.font]);
+
+  const lineFontOptions = useMemo(() => {
+    return lineFontFamilies.map(f =>
+      FONT_OPTIONS.find(opt => opt.name === f) || DEFAULT_FONT_OPTION
+    );
+  }, [lineFontFamilies]);
+  
+
   // 渲染函数：弯曲文字
   const renderCurvedText = () => {
     if (!textContentFor3D) return null;
@@ -719,27 +809,21 @@ const EnhancedTextElement = ({
       const charW = charWidths[index];
       currentAngle += (charW + fontSize * kerningUnit) / radius;
 
-      const shadowOffsetX = -0.003;
-      const shadowOffsetY = 0.003;
-      const shadowOffsetZ = -0.003;
-
+      if (text.engraveType === 'vcut') {
+        return (
+          <VcutCurvedGlyph
+            key={index}
+            char={char}
+            fontSize={fontSize * 1000}
+            fontOption={FONT_OPTIONS.find(f => f.name === text.font)}
+            vcutColor={text.vcutColor}
+            position={[x, y, 0]}
+            rotationZ={rotationZ}
+          />
+        );
+      }
       return (
         <group key={index} position={[x, y, 0]} rotation={[0, 0, rotationZ]}>
-          {text.engraveType === 'vcut' && char !== '|' && (
-            <Text3D
-              font={localGetFontPath(text.font, char)}
-              size={fontSize}
-              height={text.thickness || 0.02}
-              material={shadowMaterial}
-              renderOrder={TEXT_SHADOW_RENDER_ORDER}
-              position={[shadowOffsetX, shadowOffsetY, shadowOffsetZ]}
-              bevelEnabled
-              bevelSize={0.002}
-              bevelThickness={0.002}
-            >
-              {char}
-            </Text3D>
-          )}
           <Text3D
             font={localGetFontPath(text.font, char)}
             size={fontSize}
@@ -757,54 +841,10 @@ const EnhancedTextElement = ({
     });
   };
 
-  
   const renderNormalText = () => {
-    const content = textContentFor3D;
     const fontSize = text.size * 0.0254;
     const lineGap = fontSize * (text.lineSpacing || 1.2);
-    const lines = textDirection === 'horizontal' ? content.split('\n') : content.split('');
     const isVcut = text.engraveType === 'vcut';
-
-    // 在组件顶层，使用 useMemo 来计算每一行的字体
-    const lineFontFamilies = useMemo(() => {
-      return lines.map((ln) => {
-        const hasNonEnglish = /[^A-Za-z0-9\u0020-\u007E]/.test(ln);
-        let lineFontFamily = text.font;
-        if (hasNonEnglish) {
-          const firstNonEnChar = ln.match(/[^A-Za-z0-9\u0020-\u007E]/)?.[0];
-          if (firstNonEnChar) {
-            const lang = detectCharLanguage(firstNonEnChar); 
-            const fallbackFamily = getFontFamilyForLanguage(text.font, lang); 
-            lineFontFamily = fallbackFamily;
-            // lineFontFamily = "SimHei, Microsoft YaHei, sans-serif"; // 使用一个示例备用字体
-          }
-        }
-        return lineFontFamily;
-      });
-    }, [lines, text.font]); // 依赖于 lines 和 text.font
-
-    const lineFontOptions = useMemo(() => {
-      return lineFontFamilies.map((fontName) => {
-        if (!fontName) return null;
-
-        const option = FONT_OPTIONS.find(
-          f => f.name === fontName
-        );
-
-        return option || null;
-      });
-    }, [lineFontFamilies]);
-
-    // vcut 模式，textures 是 useSVGTexture 的返回值数组
-    const textures = lines.map((ln, idx) => {
-      const fontOption = lineFontOptions[idx] || DEFAULT_FONT_OPTION;
-      return useSVGTexture(ln, {
-        fillColor: text.vcutColor,
-        fontSize: fontSize * 1000,
-        fontOption
-      });
-    });
-
 
     return (
       <group>
@@ -816,29 +856,16 @@ const EnhancedTextElement = ({
 
           // vcut 模式使用 SVG 内阴影
           if (isVcut) {
-            const result = textures[idx];
-            if (!result) return null;
-            const { texture, widthPx, heightPx } = result;
-
-            // 将像素转换为世界单位
-            const scale = 0.001; // 根据场景缩放调整
-            const planeWidth = widthPx * scale;
-            const planeHeight = heightPx * scale;
-            
-            // 创建一个指定尺寸的平面，并把一张预先生成好的图片（纹理）贴在这个平面上，然后将这个带有图片的平面放置在 3D 空间的指定位置
+            const fontOption = lineFontOptions[idx] || DEFAULT_FONT_OPTION;
             return (
-              <mesh key={idx}   position={[positionX, positionY, 0]}>
-                {/* 创建一个平面几何体 */}
-                <planeGeometry args={[planeWidth, planeHeight]} />
-                {/* 使用 MeshBasicMaterial，这是一种不受光照影响的基础材质 */}
-                <meshBasicMaterial map={texture} 
-                transparent
-                side={THREE.DoubleSide}  // 只渲染正面  
-                depthWrite={true}
-                toneMapped={false}
-                color={0xffffff}
-                 />
-              </mesh>
+              <VcutLineMesh
+                key={idx}
+                text={ln}
+                fontSize={fontSize * 1000}
+                vcutColor={text.vcutColor}
+                fontOption={fontOption}
+                position={[positionX, positionY, 0]}
+              />
             );
           }
 
