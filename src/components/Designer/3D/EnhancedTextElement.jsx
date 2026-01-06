@@ -1,6 +1,6 @@
 // src/components/Designer/3d/EnhancedTextElement.jsx
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { getFontFamilyForLanguage } from '../../../hooks/useDesignState';
+import { getFontFamilyForLanguage,FONT_OPTIONS  } from '../../../hooks/useDesignState';
 import { useThree } from '@react-three/fiber';
 import { Text3D, TransformControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -8,8 +8,231 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { extend } from '@react-three/fiber';
 import { ReloadOutlined, DeleteOutlined, CheckOutlined, EditOutlined, } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
 
 extend({ TextGeometry });
+
+const DEFAULT_FONT_OPTION = {
+  family: 'Cambria', 
+  variant: 'regular', 
+  name: 'Cambria_Regular', 
+  path: '/fonts/Cambria_Regular.json', 
+  cssFamily: 'serif' 
+};
+
+
+// 高清
+function shapeToPath(shape, offsetX, offsetY) {
+  let d = '';
+
+  // 外轮廓
+  const contour = shape.getPoints();
+  contour.forEach((p, i) => {
+    d += `${i === 0 ? 'M' : 'L'}${p.x + offsetX},${p.y + offsetY} `;
+  });
+  d += 'Z ';
+
+  // 内部洞
+  shape.holes.forEach(hole => {
+    const pts = hole.getPoints();
+    pts.forEach((p, i) => {
+      d += `${i === 0 ? 'M' : 'L'}${p.x + offsetX},${p.y + offsetY} `;
+    });
+    d += 'Z ';
+  });
+
+  return d;
+}
+
+
+const useSVGTexture = (textContent, options = {}) => {
+  const {
+    fillColor = '#5D4037',
+    fontSize = 64,
+    fontOption,
+    fontWeight = '900', // 仅用于语义，不再参与测量
+    padding = 20,
+  } = options;
+
+  const textureScale = 4; // 提高清晰度
+  const textureScale2 = 1; 
+  const [result, setResult] = useState(null);
+
+  const BASE_FONT_SIZE = 76; 
+  const shadowScale = fontSize / BASE_FONT_SIZE / 4;
+  useEffect(() => {
+    const realFontOption = fontOption?.path
+      ? fontOption
+      : DEFAULT_FONT_OPTION;
+
+    if (!textContent) return;
+
+
+    const loader = new FontLoader();
+    let revokedUrl = null;
+
+    loader.load(realFontOption.path, (font) => {
+      /* 1️⃣ 生成 shapes（真实字体几何） */
+      const shapes = font.generateShapes(
+        textContent,
+        fontSize * textureScale
+      );
+
+      const geometry = new THREE.ShapeGeometry(shapes);
+      geometry.computeBoundingBox();
+
+      const box = geometry.boundingBox;
+
+      const textWidth  = box.max.x - box.min.x;
+      const textHeight = box.max.y - box.min.y;
+
+      const pad = padding * textureScale;
+
+      const svgWidth  = Math.ceil(textWidth  + pad * 2);
+      const svgHeight = Math.ceil(textHeight + pad * 2);
+
+      /* 2️⃣ path 数据（注意：直接用 shapes，不重新算） */
+      let d = '';
+
+      shapes.forEach(shape => {
+        d += shapeToPath(
+          shape,
+          -box.min.x + pad,
+          -box.min.y + pad
+        );
+      });
+
+
+      geometry.dispose();
+
+      /* 3️⃣ SVG */
+      const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg"
+        width="${svgWidth}"
+        height="${svgHeight}"
+        viewBox="0 0 ${svgWidth} ${svgHeight}">
+        <defs>
+          <filter id="innerShadow"
+            x="-50%" y="-50%" width="200%" height="200%" filterUnits="userSpaceOnUse">
+
+            <feGaussianBlur
+              in="SourceAlpha"
+              stdDeviation="${16 * shadowScale}"
+              result="blur"/>
+
+            <feOffset
+              in="blur"
+              dx="${-20 * shadowScale}" 
+              dy="${20 * shadowScale}" 
+              result="darkOffset"/>
+
+            <feComposite
+              in="darkOffset"
+              in2="SourceAlpha"
+              operator="in"
+              result="darkCut"/>
+
+            <feFlood
+              flood-color="black"
+              flood-opacity="0.98"
+              result="floodDark"/>
+
+            <feComposite
+              in="floodDark"
+              in2="darkCut"
+              operator="in"
+              result="dark"/>
+        
+            <feOffset
+              in="blur"
+              dx="${24 * shadowScale}"
+              dy="${-20 * shadowScale}"
+              result="lightOffset"/>
+
+            <feComposite
+              in="lightOffset"
+              in2="SourceAlpha"
+              operator="in"
+              result="lightCut"/>
+
+            <feFlood
+              flood-color="${fillColor}"
+              flood-opacity="1"
+              result="floodLight"/>
+
+            <feComposite
+              in="floodLight"
+              in2="lightCut"
+              operator="in"
+              result="light"/>
+
+            <feMerge>
+              <feMergeNode in="SourceGraphic"/>
+              <feMergeNode in="dark"/>        
+              <feMergeNode in="light"/>       
+            </feMerge>
+          </filter>
+        </defs>
+        <path
+          d="${d}"
+          fill="${fillColor}"
+          fill-opacity="1"
+          fill-rule="evenodd"
+          clip-rule="evenodd"
+          transform="translate(0, ${svgHeight}) scale(1,-1)"
+          filter="url(#innerShadow)"
+        />
+      </svg>
+      `;
+
+
+      /* 4️⃣ SVG → Canvas → Texture */
+      const img = new Image();
+      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      revokedUrl = url;
+
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width  = svgWidth;
+        canvas.height = svgHeight;
+
+        const ctx = canvas.getContext('2d');
+        // 确保背景透明
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.generateMipmaps = false;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.needsUpdate = true;
+
+        setResult({
+          texture,
+          widthPx: svgWidth / textureScale,
+          heightPx: svgHeight / textureScale,
+        });
+
+        URL.revokeObjectURL(url);
+      };
+
+      img.src = url;
+    });
+
+    return () => {
+      if (result?.texture) result.texture.dispose();
+      if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+    };
+  }, [textContent, fontSize, fillColor, fontOption, padding]);
+
+  return result;
+};
+
+
 
 /**
  * 独立的隐藏输入组件
@@ -282,7 +505,7 @@ const EnhancedTextElement = ({
     if (/^[\uac00-\ud7af]$/.test(char)) return 'ko'; // 韩文
     if (/^[A-Za-z0-9\u0020-\u007E]$/.test(char)) return 'en'; // 英文及常用符号
     return 'en'; // 其它默认英文
-  };
+  }
 
   // 获取渲染用字体 family（优先选中字体，若不支持则 fallback）
   const getRenderFontFamily = (selectedFamily, char) => {
@@ -311,6 +534,8 @@ const EnhancedTextElement = ({
             clearcoatRoughness: 0.2,
             opacity: 0.95
           });
+          
+        
         case 'frost':
           return new THREE.MeshPhysicalMaterial({
             ...materialProps,
@@ -532,12 +757,54 @@ const EnhancedTextElement = ({
     });
   };
 
-  // 渲染函数：普通文字 (带对齐逻辑)
+  
   const renderNormalText = () => {
     const content = textContentFor3D;
     const fontSize = text.size * 0.0254;
     const lineGap = fontSize * (text.lineSpacing || 1.2);
     const lines = textDirection === 'horizontal' ? content.split('\n') : content.split('');
+    const isVcut = text.engraveType === 'vcut';
+
+    // 在组件顶层，使用 useMemo 来计算每一行的字体
+    const lineFontFamilies = useMemo(() => {
+      return lines.map((ln) => {
+        const hasNonEnglish = /[^A-Za-z0-9\u0020-\u007E]/.test(ln);
+        let lineFontFamily = text.font;
+        if (hasNonEnglish) {
+          const firstNonEnChar = ln.match(/[^A-Za-z0-9\u0020-\u007E]/)?.[0];
+          if (firstNonEnChar) {
+            const lang = detectCharLanguage(firstNonEnChar); 
+            const fallbackFamily = getFontFamilyForLanguage(text.font, lang); 
+            lineFontFamily = fallbackFamily;
+            // lineFontFamily = "SimHei, Microsoft YaHei, sans-serif"; // 使用一个示例备用字体
+          }
+        }
+        return lineFontFamily;
+      });
+    }, [lines, text.font]); // 依赖于 lines 和 text.font
+
+    const lineFontOptions = useMemo(() => {
+      return lineFontFamilies.map((fontName) => {
+        if (!fontName) return null;
+
+        const option = FONT_OPTIONS.find(
+          f => f.name === fontName
+        );
+
+        return option || null;
+      });
+    }, [lineFontFamilies]);
+
+    // vcut 模式，textures 是 useSVGTexture 的返回值数组
+    const textures = lines.map((ln, idx) => {
+      const fontOption = lineFontOptions[idx] || DEFAULT_FONT_OPTION;
+      return useSVGTexture(ln, {
+        fillColor: text.vcutColor,
+        fontSize: fontSize * 1000,
+        fontOption
+      });
+    });
+
 
     return (
       <group>
@@ -547,38 +814,50 @@ const EnhancedTextElement = ({
           const positionX = textDirection === 'horizontal' ? offsetX : offsetY;
           const positionY = textDirection === 'horizontal' ? -idx * lineGap : -idx * lineGap + offsetX;
 
+          // vcut 模式使用 SVG 内阴影
+          if (isVcut) {
+            const result = textures[idx];
+            if (!result) return null;
+            const { texture, widthPx, heightPx } = result;
+
+            // 将像素转换为世界单位
+            const scale = 0.001; // 根据场景缩放调整
+            const planeWidth = widthPx * scale;
+            const planeHeight = heightPx * scale;
+            
+            // 创建一个指定尺寸的平面，并把一张预先生成好的图片（纹理）贴在这个平面上，然后将这个带有图片的平面放置在 3D 空间的指定位置
+            return (
+              <mesh key={idx}   position={[positionX, positionY, 0]}>
+                {/* 创建一个平面几何体 */}
+                <planeGeometry args={[planeWidth, planeHeight]} />
+                {/* 使用 MeshBasicMaterial，这是一种不受光照影响的基础材质 */}
+                <meshBasicMaterial map={texture} 
+                transparent
+                side={THREE.DoubleSide}  // 只渲染正面  
+                depthWrite={true}
+                toneMapped={false}
+                color={0xffffff}
+                 />
+              </mesh>
+            );
+          }
+
           // 检查整行是否包含非英文字符
           const hasNonEnglish = /[^A-Za-z0-9\u0020-\u007E]/.test(ln);
-          let lineFontFamily = text.font;
+          let lineFontFamily = text.font || 'Cambria_Regular';
           if (hasNonEnglish) {
             // 检查当前字体是否支持该字符类型（如中文/韩文）
             // 取第一个非英文字符，检测其语言
             const firstNonEnChar = ln.match(/[^A-Za-z0-9\u0020-\u007E]/)?.[0];
             if (firstNonEnChar) {
               const lang = detectCharLanguage(firstNonEnChar);
-              const fallbackFamily = getFontFamilyForLanguage(text.font, lang);
-              lineFontFamily = fallbackFamily;
+              const fallbackFamily = getFontFamilyForLanguage(text.font, lang)
+              lineFontFamily = fallbackFamily || 'Cambria_Regular';
             }
           }
 
           return (
             <group key={idx} position={[positionX, positionY, 0]}>
-              {text.engraveType === 'vcut' && (
-                <Text3D
-                  font={localGetFontPath(lineFontFamily, ln)}
-                  size={fontSize}
-                  height={text.thickness || 0.02}
-                  letterSpacing={(text.kerning || 0) * 0.001}
-                  material={shadowMaterial}
-                  renderOrder={TEXT_SHADOW_RENDER_ORDER}
-                  position={[-0.0035, 0.0035, -0.001]}
-                  bevelEnabled
-                  bevelSize={0.002}
-                  bevelThickness={0.002}
-                >
-                  {ln.replace(/\|/g, ' ')}
-                </Text3D>
-              )}
               <Text3D
                 ref={(el) => (lineRefs.current[idx] = el)}
                 font={localGetFontPath(lineFontFamily, ln)}
@@ -747,6 +1026,23 @@ const EnhancedTextElement = ({
       .applyQuaternion(worldQuaternion)
       .add(worldPosition);
 
+    // CS新增
+    if (text.engraveType === 'vcut') {
+
+      // 需要补偿的距离
+      const bias = -0.0001;
+      const zOffset = -0.02 + bias;
+
+      // 将补偿距离应用到世界坐标上
+      // 注意：这里需要沿着墓碑的局部 Z 轴方向进行补偿
+      // 所以我们创建一个局部空间的偏移向量，然后将其转换到世界空间
+      const localOffset = new THREE.Vector3(0, 0, zOffset);
+      const worldOffset = localOffset.clone().applyQuaternion(worldQuaternion); // 注意：使用 clone() 避免修改原向量
+
+      // 将世界空间的偏移量加到最终位置上
+      worldPoint.add(worldOffset);
+    }
+
     const flipQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
     const localEuler = new THREE.Euler(...(text.rotation || [0, 0, 0]), 'XYZ');
     const localQuat = new THREE.Quaternion().setFromEuler(localEuler);
@@ -756,7 +1052,8 @@ const EnhancedTextElement = ({
       groupRef.current.position.copy(worldPoint);
       groupRef.current.quaternion.copy(worldQuat);
     }
-  }, [monument, text.position, text.rotation, modelRefs, isDragging]);
+    
+  }, [monument, text.position, text.rotation, modelRefs, isDragging, text.engraveType, text.thickness]);
 
   useEffect(() => {
     // Skip initial positioning if no monument
