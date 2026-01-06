@@ -569,10 +569,9 @@ const MonumentScene = forwardRef(({
 
       <OrbitControls
         ref={orbitControlsRef}
-        enabled={isViewRotatable && !selectedModelId && !selectedElementId && !currentTextId && !selectedVaseId && !isFillModeActive}
-        enablePan={true}
-        enableZoom={true}
-        enableRotate={true}
+        enableRotate={isViewRotatable && !selectedModelId && !selectedElementId && !currentTextId && !selectedVaseId && !isFillModeActive}
+        // enablePan={true}
+        // enableZoom={true}
         minDistance={1}
         maxDistance={50}
         minPolarAngle={0}
