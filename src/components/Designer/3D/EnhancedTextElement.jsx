@@ -1,5 +1,5 @@
 // src/components/Designer/3d/EnhancedTextElement.jsx
-import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo,useLayoutEffect } from 'react';
 import { getFontFamilyForLanguage,FONT_OPTIONS  } from '../../../hooks/useDesignState';
 import { useThree } from '@react-three/fiber';
 import { Text3D, TransformControls, Html } from '@react-three/drei';
@@ -52,6 +52,7 @@ const useSVGTexture = (textContent, options = {}) => {
     fontOption,
     fontWeight = '900', // 仅用于语义，不再参与测量
     padding = 20,
+    kerning = 0,
   } = options;
 
   const textureScale = 4; // 提高清晰度
@@ -75,7 +76,8 @@ const useSVGTexture = (textContent, options = {}) => {
       /* 1️⃣ 生成 shapes（真实字体几何） */
       const shapes = font.generateShapes(
         textContent,
-        fontSize * textureScale
+        fontSize * textureScale,
+        { letterSpacing: kerning }
       );
 
       const geometry = new THREE.ShapeGeometry(shapes);
@@ -238,12 +240,14 @@ function VcutLineMesh({
   vcutColor,
   fontOption,
   fontSize,
-  position
+  position,
+  kerning
 }) {
   const result = useSVGTexture(text, {
     fillColor: vcutColor,
     fontSize,
-    fontOption
+    fontOption,
+    kerning
   });
 
   if (!result) return null;
@@ -465,6 +469,7 @@ const EnhancedTextElement = ({
   const { t } = useTranslation();
   const groupRef = useRef();
 
+
   const { controls } = useThree();
   const [isDragging, setIsDragging] = useState(false);
   const [monumentMaterial, setMonumentMaterial] = useState(null);
@@ -557,6 +562,7 @@ const EnhancedTextElement = ({
       bottomCenter: [0.1, -halfH - 0.02, 0]
     });
   }, [text.content, text.size, text.kerning, text.lineSpacing, textDirection]);
+
 
   // 内容变化后重新计算包围盒
   useEffect(() => {
@@ -824,20 +830,7 @@ const EnhancedTextElement = ({
         );
       }
       return (
-        <group key={index} position={[x, y, 0]} rotation={[0, 0, rotationZ]}
-        onUpdate={(self) => {
-          const mesh = self.children[0];
-            if (!mesh?.geometry) return;
-
-            mesh.geometry.computeBoundingBox();
-            const bb = mesh.geometry.boundingBox;
-            if (!bb) return;
-
-            const cx = (bb.max.x + bb.min.x) / 2;
-            const cy = (bb.max.y + bb.min.y) / 2;
-
-            mesh.position.set(-cx, -cy, 0);
-          }}>
+        <group key={index} position={[x, y, 0]} rotation={[0, 0, rotationZ]}>
           <Text3D
             font={localGetFontPath(text.font, char)}
             size={fontSize}
@@ -879,6 +872,7 @@ const EnhancedTextElement = ({
                 vcutColor={text.vcutColor}
                 fontOption={fontOption}
                 position={[positionX, positionY, 0]}
+                kerning={(text.kerning || 0) * 0.001}
               />
             );
           }
@@ -898,35 +892,37 @@ const EnhancedTextElement = ({
           }
 
           return (
-            <group key={idx} position={[positionX, positionY, 0]}
-            // 手动把 Text3D 的几何中心移动到 (0,0)，让它和 vcut 的 planeGeometry完全一致
-            onUpdate={(self) => {
-              const textMesh = self.children[0];
-              if (!textMesh?.geometry) return;
-
-              textMesh.geometry.computeBoundingBox();
-              const bb = textMesh.geometry.boundingBox;
-              if (!bb) return;
-
-              const centerX = (bb.max.x + bb.min.x) / 2;
-              const centerY = (bb.max.y + bb.min.y) / 2;
-
-              textMesh.position.set(-centerX, -centerY, 0);
-            }}>
+            <group key={idx} position={[positionX, positionY, 0]}>
               <Text3D
-                ref={(el) => (lineRefs.current[idx] = el)}
+                ref={(el) => {
+                  if (!el) return;
+                  lineRefs.current[idx] = el;
+                  if (el.geometry) {
+                    el.geometry.computeBoundingBox();
+                    const box = el.geometry.boundingBox;
+                    const center = new THREE.Vector3();
+                    box.getCenter(center);
+                    // 只修正 X / Y，不动 Z
+                    el.geometry.translate(
+                      -center.x,
+                      -center.y,
+                      0
+                    );
+                    el.geometry.computeBoundingSphere();
+                  }
+                }}
                 font={localGetFontPath(lineFontFamily, ln)}
                 size={fontSize}
                 height={text.thickness || 0.02}
                 letterSpacing={(text.kerning || 0) * 0.001}
                 material={textMaterial}
-                renderOrder={TEXT_RENDER_ORDER}
                 bevelEnabled
                 bevelSize={0.002}
                 bevelThickness={0.002}
               >
                 {ln}
               </Text3D>
+
             </group>
           );
         })}
@@ -1287,8 +1283,7 @@ const EnhancedTextElement = ({
         onPointerDown={(e) => e.stopPropagation()}
         userData={{ isTextElement: true, textId: text.id }}
       >
-        {renderTextContent()}
-
+          {renderTextContent()}
         {controlButtons}
       </group>
 
@@ -1297,6 +1292,7 @@ const EnhancedTextElement = ({
           object={groupRef.current}
           mode={mode}
           space="local"
+          anchor="center"
           showX={mode === 'translate'}
           showY={mode === 'translate'}
           showZ={mode === 'rotate'}
