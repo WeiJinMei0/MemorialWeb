@@ -474,6 +474,7 @@ const EnhancedTextElement = ({
   const mode = globalTransformMode || 'translate';
   const textDirection = text.textDirection || 'horizontal';
 
+  
   // 旋转状态
   const [currentRotationDeg, setCurrentRotationDeg] = useState(0);
   const [isRotating, setIsRotating] = useState(false);
@@ -823,7 +824,20 @@ const EnhancedTextElement = ({
         );
       }
       return (
-        <group key={index} position={[x, y, 0]} rotation={[0, 0, rotationZ]}>
+        <group key={index} position={[x, y, 0]} rotation={[0, 0, rotationZ]}
+        onUpdate={(self) => {
+          const mesh = self.children[0];
+            if (!mesh?.geometry) return;
+
+            mesh.geometry.computeBoundingBox();
+            const bb = mesh.geometry.boundingBox;
+            if (!bb) return;
+
+            const cx = (bb.max.x + bb.min.x) / 2;
+            const cy = (bb.max.y + bb.min.y) / 2;
+
+            mesh.position.set(-cx, -cy, 0);
+          }}>
           <Text3D
             font={localGetFontPath(text.font, char)}
             size={fontSize}
@@ -884,7 +898,21 @@ const EnhancedTextElement = ({
           }
 
           return (
-            <group key={idx} position={[positionX, positionY, 0]}>
+            <group key={idx} position={[positionX, positionY, 0]}
+            // 手动把 Text3D 的几何中心移动到 (0,0)，让它和 vcut 的 planeGeometry完全一致
+            onUpdate={(self) => {
+              const textMesh = self.children[0];
+              if (!textMesh?.geometry) return;
+
+              textMesh.geometry.computeBoundingBox();
+              const bb = textMesh.geometry.boundingBox;
+              if (!bb) return;
+
+              const centerX = (bb.max.x + bb.min.x) / 2;
+              const centerY = (bb.max.y + bb.min.y) / 2;
+
+              textMesh.position.set(-centerX, -centerY, 0);
+            }}>
               <Text3D
                 ref={(el) => (lineRefs.current[idx] = el)}
                 font={localGetFontPath(lineFontFamily, ln)}
