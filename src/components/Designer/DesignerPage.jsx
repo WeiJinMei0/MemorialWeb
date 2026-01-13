@@ -188,19 +188,38 @@ const DesignerPage = () => {
   
   // 添加处理函数
   const handleResetPosition = useCallback(() => {
+    // console.log('=== 开始复位操作 ===');
+    // console.log('当前选中的所有元素:', selectedElements);
+    // console.log('designState.monuments:', designState.monuments);
+    
     // 从 selectedElements 中提取选中的元素
     const selectedTablets = selectedElements.filter(el => el.type === 'monument');
     const selectedBases = selectedElements.filter(el => el.type === 'base');
     const selectedSubBases = selectedElements.filter(el => el.type === 'subBase');
     
+    // console.log('选中的墓碑:', selectedTablets);
+    // console.log('选中的底座:', selectedBases);
+    // console.log('选中的副底座:', selectedSubBases);
+    
+    // 检查墓碑的 isSelected 状态
+    if (selectedTablets.length > 0) {
+      const tabletId = selectedTablets[0].id;
+      const tabletInState = designState.monuments.find(m => m.id === tabletId);
+      // console.log('墓碑在 designState 中的状态:', tabletInState);
+      // console.log('墓碑的 isSelected:', tabletInState?.isSelected);
+      // console.log('墓碑的 family:', tabletInState?.family);
+    }
+    
     // 验证选中条件
     if (selectedTablets.length !== 1) {
+      // console.warn('请选中一个墓碑进行操作', { selectedTablets });
       message.warning('请选中一个墓碑进行操作');
       return;
     }
     
     if ((selectedBases.length !== 1 && selectedSubBases.length !== 1) || 
         (selectedBases.length > 0 && selectedSubBases.length > 0)) {
+      // console.warn('请同时选中一个底座或一个副底座', { selectedBases, selectedSubBases });
       message.warning('请同时选中一个底座或一个副底座（不能同时选中两者）');
       return;
     }
@@ -209,21 +228,33 @@ const DesignerPage = () => {
     const selectedTabletId = selectedTablets[0].id;
     const selectedTablet = designState.monuments.find(m => m.id === selectedTabletId);
     
-    if (!selectedTablet || selectedTablet.family !== 'Tablet') {
+    // console.log('选中的墓碑详情:', selectedTablet);
+    
+    if (!selectedTablet) {
+      // console.error('墓碑不存在:', selectedTabletId);
+      message.error('墓碑不存在');
+      return;
+    }
+    
+    if (selectedTablet.family !== 'Tablet') {
+      // console.warn('选中的墓碑不是Tablet类型:', selectedTablet.family);
       message.warning('选中的墓碑必须是Tablet类型');
       return;
     }
+    
+    // console.log('✅ 所有条件满足，开始复位...');
     
     // 执行复位操作
     try {
       resetSelectedTabletPosition();
       message.success('墓碑已复位到底座位置');
     } catch (error) {
-      console.error('复位失败:', error);
+      // console.error('复位失败:', error);
       message.error('复位失败，请重试');
     }
   }, [selectedElements, designState.monuments, resetSelectedTabletPosition, message]);
 
+  
   const dimensionElements = useMemo(() => {
     const list = [];
   
@@ -1645,7 +1676,7 @@ const DesignerPage = () => {
   return (
     <Layout className="main-content-layout">
       {/* ✅ 新增：左上角简化版选中提示 */}
-      {selectedElements.length > 0 && (
+      {/* {selectedElements.length > 0 && (
         <div className="top-left-selection-hint">
           <div className="selection-hint-content">
             <span className="selection-count">
@@ -1661,7 +1692,7 @@ const DesignerPage = () => {
             </Button>
           </div>
         </div>
-      )}
+      )} */}
       <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={190} className="toolbar-sider">
         <Toolbar tools={tools} activeTool={activeTool} onToolSelect={handleToolSelect} />
         {!collapsed && (
@@ -1690,7 +1721,7 @@ const DesignerPage = () => {
                     (selectedElements.some(el => el.type === 'base') || selectedElements.some(el => el.type === 'subBase'))
                   )}
                 >
-                  {t('designer.redo')}
+                  {t('designer.reset')}
                 </Button>
 
                 {/* 新增：视图旋转控制按钮 */}

@@ -1639,37 +1639,10 @@ export const useDesignState = () => {
 
   const selectElement = useCallback((elementId, elementType, isMultiSelect = false) => {
     updateDesignState(prev => {
-      // 辅助函数：设置指定元素的选中状态
-      const setElementSelected = (elements, targetId, isSelected) =>
-        elements.map(el => ({
-          ...el,
-          isSelected: el.id === targetId ? isSelected : el.isSelected
-        }));
-
-      // 辅助函数：切换指定元素的选中状态
-      const toggleElementSelected = (elements, targetId) =>
-        elements.map(el => ({
-          ...el,
-          isSelected: el.id === targetId ? !el.isSelected : el.isSelected
-        }));
 
       // 辅助函数：清除所有元素的选中状态
       const clearAllSelected = (elements) =>
         elements.map(el => ({ ...el, isSelected: false }));
-
-      // 辅助函数：清除指定类型之外的所有元素选中状态
-      const clearSelectedExceptType = (state, exceptType) => {
-        const newState = { ...state };
-        
-        const elementTypes = ['monuments', 'bases', 'subBases', 'vases', 'artElements', 'textElements'];
-        elementTypes.forEach(type => {
-          if (type !== exceptType && type !== 'textElements') { // 保持文本的特殊处理
-            newState[type] = clearAllSelected(newState[type]);
-          }
-        });
-        
-        return newState;
-      };
 
       // 获取要更新的元素数组
       const getElementArray = (type) => {
@@ -1700,9 +1673,21 @@ export const useDesignState = () => {
       if (isMultiSelect) {
         // 多选模式：切换当前元素的选中状态，不影响其他元素
         const currentElements = getElementArray(elementType);
-        const updatedElements = toggleElementSelected(currentElements, elementId);
+        const element = currentElements.find(el => el.id === elementId);
         
-        // 获取选中元素的颜色（如果有选中的话）
+        let updatedElements;
+        if (element && element.isSelected) {
+          // 如果已选中，保持选中（不移除）
+          updatedElements = currentElements;
+        } else {
+          // 如果未选中，添加到选中列表
+          updatedElements = currentElements.map(el => ({
+            ...el,
+            isSelected: el.id === elementId ? true : el.isSelected
+          }));
+        }
+        
+        // 获取选中元素的颜色
         let selectedColor = prev.currentMaterial;
         const selectedElement = updatedElements.find(el => el.id === elementId);
         if (selectedElement && selectedElement.color && selectedElement.isSelected) {
@@ -1800,13 +1785,18 @@ export const useDesignState = () => {
   // 新增：复位选中的墓碑到对应的底座位置
   const resetSelectedTabletPosition = useCallback(() => {
     updateDesignState(prev => {
+      // console.log('=== resetSelectedTabletPosition 内部 ===');
       // 1. 找到选中的墓碑（只处理Tablet家族）
       const selectedTablets = prev.monuments.filter(m => m.isSelected && m.family === 'Tablet');
-      
+      // console.log('选中的墓碑（根据isSelected）:', selectedTablets);
+
       // 2. 找到选中的底座和副底座
       const selectedBases = prev.bases.filter(b => b.isSelected);
       const selectedSubBases = prev.subBases.filter(sb => sb.isSelected);
       
+      // console.log('选中的底座:', selectedBases);
+      // console.log('选中的副底座:', selectedSubBases);
+
       // 3. 检查条件：必须恰好选中一个墓碑和一个底座（或一个副底座）
       if (selectedTablets.length !== 1) {
         console.warn('复位失败：必须选中且仅选中一个墓碑');
@@ -1828,7 +1818,9 @@ export const useDesignState = () => {
         console.warn('复位失败：必须同时选中一个墓碑和一个底座（或一个副底座）');
         return prev;
       }
-      
+
+      // console.log('目标底座:', targetBase);
+      // console.log('目标墓碑:', selectedTablet);
       // 5. 使用现有的布局逻辑计算墓碑位置
       const INCH_TO_METER = 1 / 39.37;
       const BASE_DEFAULT_WIDTH = 14 * INCH_TO_METER;
@@ -1914,8 +1906,8 @@ export const useDesignState = () => {
         });
       }
       
-      console.log(`✅ 墓碑 ${selectedTablet.id} 已复位到 ${baseType} ${targetBase.id} 上`);
-      console.log(`新位置:`, newTabletPosition);
+      // console.log(`✅ 墓碑 ${selectedTablet.id} 已复位到 ${baseType} ${targetBase.id} 上`);
+      // console.log(`新位置:`, newTabletPosition);
       
       return {
         ...prev,
