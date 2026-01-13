@@ -32,6 +32,7 @@ const { Sider, Content, Footer } = Layout;
 const MAX_RECENTLY_SAVED = 8;
 
 
+
 const DesignerPage = () => {
   const { t } = useTranslation();
   const location = useLocation();
@@ -79,6 +80,9 @@ const DesignerPage = () => {
 
   const [selectedModelId, setSelectedModelId] = useState(null);
   const [selectedModelType, setSelectedModelType] = useState(null);
+  const [selectedElements, setSelectedElements] = useState([]); // 存储选中元素数组
+  // 获取当前是否有元素被选中（用于某些判断）
+  const hasSelectedElements = selectedElements.length > 0;
 
   // 新增：旋转控制状态
   const [isViewRotatable, setIsViewRotatable] = useState(false);
@@ -149,24 +153,8 @@ const DesignerPage = () => {
     }
     return null;
   };
-  // 添加键盘监听，实现Delete/Backspace删除选中元素功能
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      const tagName = e.target.tagName;
-      if (tagName === 'INPUT' || tagName === 'TEXTAREA') return;
   
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        const selected = getSelectedElement(designState);
-        if (!selected) return;
   
-        deleteElement(selected.item.id, selected.type);
-      }
-    };
-  
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [designState, deleteElement]);
-
   const dimensionElements = useMemo(() => {
     const list = [];
   
@@ -451,28 +439,70 @@ const DesignerPage = () => {
     setSelectedVaseId(null);
   }, [selectedVaseId, updateVaseElementState]);
 
-  const handleSelectElement = useCallback((elementId, elementType) => {
-    if (selectElement) {
-      selectElement(elementId, elementType);
+  // CS
+  const handleSelectElement = useCallback((elementId, elementType, event) => {
+    // 如果点击 null 或 undefined，清除所有选中
+    if (!elementId || !elementType) {
+      setSelectedElements([]);
+      if (selectElement) {
+        // 清除设计状态中的所有选中
+        designState.monuments.forEach(m => selectElement(m.id, 'monument', false));
+        designState.bases.forEach(b => selectElement(b.id, 'base', false));
+        designState.subBases.forEach(sb => selectElement(sb.id, 'subBase', false));
+      }
+      return;
     }
 
-    // 清除其他元素的本地选中状态
+    // 获取是否按住了 Ctrl 键
+    const isCtrlPressed = event?.ctrlKey || event?.metaKey;
+    
+    const elementKey = `${elementType}:${elementId}`;
+    
+    if (selectElement) {
+      // 调用 useDesignState 中的 selectElement，传入 Ctrl 键状态
+      selectElement(elementId, elementType, isCtrlPressed);
+    }
+    
+    // 更新本地选中状态
+    setSelectedElements(prev => {
+      const elementExists = prev.some(el => el.id === elementId && el.type === elementType);
+      
+      if (isCtrlPressed) {
+        // Ctrl + 点击：切换选中状态
+        if (elementExists) {
+          // 如果已选中，则取消选中
+          return prev.filter(el => !(el.id === elementId && el.type === elementType));
+        } else {
+          // 如果未选中，则添加选中
+          return [...prev, { id: elementId, type: elementType }];
+        }
+      } else {
+        // 普通点击：单选（如果点击的不是已选中的元素）
+        if (elementExists && prev.length === 1) {
+          // 如果点击的是唯一已选中的元素，保持选中
+          return prev;
+        }
+        // 否则，单选该元素
+        return [{ id: elementId, type: elementType }];
+      }
+    });
+    
+    // 清除其他类型元素的选中状态（保持类型互斥，可选）
     if (elementType !== 'art') handleArtElementSelect(null);
     if (elementType !== 'vase') handleCloseVaseEditor();
     if (elementType !== 'text') {
       setCurrentTextId(null);
       setIsTextEditing(false);
-      setActiveTool(prevTool => prevTool === 'text' ? null : prevTool);
-      // 清除文本的选中状态
       designState.textElements.forEach(text => {
         setTextSelected(text.id, false);
       });
     }
-
+    
+    // 同时更新旧的单一选中状态（用于兼容性）
     setSelectedModelId(elementId);
     setSelectedModelType(elementType);
   }, [selectElement, handleArtElementSelect, handleCloseVaseEditor, designState.textElements, setTextSelected]);
-
+      
   // handleToolSelect
   // 1. 修改 handleToolSelect 逻辑
   const handleToolSelect = (key) => {
@@ -1229,8 +1259,7 @@ const DesignerPage = () => {
   };
 
 
-  // DimensionControl
-  // DimensionControl 组件 - 支持分数输入（修复版）
+  // 修改 DimensionControl 中的 isSelected 判断
   const DimensionControl = ({ element, elementType, label, isSelected }) => {
     const getPolishOptions = () => {
       switch (elementType) {
@@ -1378,11 +1407,7 @@ const DesignerPage = () => {
 
 
     return (
-      <div
-        className={`dimension-control ${
-          isSelected ? 'dimension-control--selected' : ''
-        }`}
-      >
+      <div className={`dimension-control ${isSelected ? 'dimension-control--selected' : ''}`}>
       {/* <div className="dimension-control"> */}
         <label>{label}</label>
         <div className="dimension-inputs">
@@ -1442,9 +1467,118 @@ const DesignerPage = () => {
     return 'Black';
   };
 
+  // 添加全局键盘事件监听
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl+A: 全选
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        
+        // 收集所有可选中元素
+        const allElements = [
+          ...designState.monuments.map(m => ({ id: m.id, type: 'monument' })),
+          ...designState.bases.map(b => ({ id: b.id, type: 'base' })),
+          ...designState.subBases.map(sb => ({ id: sb.id, type: 'subBase' })),
+        ];
+        
+        setSelectedElements(allElements);
+        
+        // 同时更新每个元素的 isSelected 状态
+        allElements.forEach(({ id, type }) => {
+          if (selectElement) {
+            selectElement(id, type, true); // 使用多选模式
+          }
+        });
+        
+        message.success(`已选中 ${allElements.length} 个元素`);
+      }
+      
+      // Esc: 取消所有选中
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (selectedElements.length > 0) {
+          setSelectedElements([]);
+          message.info('已清除所有选中');
+          
+          // 同时清除设计状态中的选中状态
+          if (selectElement) {
+            // 清除所有元素的选中状态
+            designState.monuments.forEach(m => selectElement(m.id, 'monument', false));
+            designState.bases.forEach(b => selectElement(b.id, 'base', false));
+            designState.subBases.forEach(sb => selectElement(sb.id, 'subBase', false));
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [designState, selectElement]);
+
+
+  // 修改键盘删除逻辑支持多选
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const tagName = e.target.tagName;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA') return;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        // 多选删除：删除所有选中的元素
+        if (selectedElements.length > 0) {
+          // 逐个删除选中的元素
+          selectedElements.forEach(({ id, type }) => {
+            deleteElement(id, type);
+          });
+          
+          // 清除选中状态
+          setSelectedElements([]);
+          
+          // 根据删除的元素类型清除相应的选中状态
+          if (selectedElements.some(el => el.type === 'art')) {
+            handleArtElementSelect(null);
+          }
+          if (selectedElements.some(el => el.type === 'vase')) {
+            handleCloseVaseEditor();
+          }
+          if (selectedElements.some(el => el.type === 'text')) {
+            setCurrentTextId(null);
+            setIsTextEditing(false);
+          }
+        } else {
+          // 保持原有的单选删除逻辑
+          const selected = getSelectedElement(designState);
+          if (!selected) return;
+          deleteElement(selected.item.id, selected.type);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [designState, deleteElement, selectedElements, handleArtElementSelect, handleCloseVaseEditor]);
+    
+
   // --- 渲染 ---
   return (
     <Layout className="main-content-layout">
+      {/* ✅ 新增：左上角简化版选中提示 */}
+      {selectedElements.length > 0 && (
+        <div className="top-left-selection-hint">
+          <div className="selection-hint-content">
+            <span className="selection-count">
+              已选中 {selectedElements.length} 个元素
+            </span>
+            <Button 
+              type="link" 
+              size="small"
+              onClick={() => setSelectedElements([])}
+              className="clear-selection-btn"
+            >
+              清除选中
+            </Button>
+          </div>
+        </div>
+      )}
       <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={190} className="toolbar-sider">
         <Toolbar tools={tools} activeTool={activeTool} onToolSelect={handleToolSelect} />
         {!collapsed && (
@@ -1545,6 +1679,9 @@ const DesignerPage = () => {
                 vaseTransformMode={vaseTransformMode}
                 onUpdateVaseElementState={updateVaseElementState}
 
+                // 添加新的多选状态
+                selectedElements={selectedElements} 
+                // 保持旧的单一选中状态（用于向后兼容）
                 selectedModelId={selectedModelId}
                 selectedModelType={selectedModelType}
                 onSelectElement={handleSelectElement}
@@ -1620,10 +1757,9 @@ const DesignerPage = () => {
                         ? t('designer.base')
                         : t('designer.subBase')
                     }
-                    isSelected={
-                      element.id === selectedModelId &&
-                      type === selectedModelType
-                    }
+                    isSelected={selectedElements.some(el => 
+                      el.id === element.id && el.type === type
+                    )}
                   />
                 ))}
               </div>

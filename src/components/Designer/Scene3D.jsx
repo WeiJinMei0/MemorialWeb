@@ -35,6 +35,7 @@ const Scene3D = forwardRef(({
   vaseTransformMode,
   onUpdateVaseElementState,
   isGridEnabled,
+  selectedElements, // 选中的元素数组
   selectedModelId,
   selectedModelType,
   onSelectElement,
@@ -107,6 +108,8 @@ const Scene3D = forwardRef(({
             vaseTransformMode={vaseTransformMode}
             onUpdateVaseElementState={onUpdateVaseElementState}
             isGridEnabled={isGridEnabled}
+            // 传递多选状态
+            selectedElements={selectedElements}
             selectedModelId={selectedModelId}
             selectedModelType={selectedModelType}
             onSelectElement={onSelectElement}

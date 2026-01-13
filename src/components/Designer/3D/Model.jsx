@@ -108,13 +108,13 @@ const Model = forwardRef(({
 
   // --- 交互样式管理 ---
   useEffect(() => {
-    if (isSelected && isDraggable) {
+    if ((isSelected || isDraggable) && !isFillModeActive) {
       gl.domElement.style.cursor = isHovered ? 'move' : 'default';
     } else {
       gl.domElement.style.cursor = 'auto';
     }
     return () => { gl.domElement.style.cursor = 'auto'; };
-  }, [isSelected, isHovered, isDraggable, gl]);
+  }, [isSelected, isHovered, isDraggable, gl, isFillModeActive]);
 
   // --- 拖拽辅助函数 ---
   const getIntersection = useCallback((clientX, clientY, rect, cameraZ) => {
@@ -149,9 +149,13 @@ const Model = forwardRef(({
     }
     
     // 选中元素
+    // if (onSelectElement) {
+    //   onSelectElement(elementId, elementType);
+    // }
     if (onSelectElement) {
-      onSelectElement(elementId, elementType);
+      onSelectElement(elementId, elementType, e.nativeEvent); 
     }
+
     
     // 开始拖拽
     if (groupRef.current && isDraggable) {
@@ -270,16 +274,23 @@ const Model = forwardRef(({
     };
   }, [handlePointerMove]);
 
-  // --- 悬停效果 ---
+  // 添加悬停效果，考虑多选状态
   const handlePointerOver = useCallback((e) => {
     e.stopPropagation();
     setIsHovered(true);
-  }, []);
+    
+    // 如果按住 Ctrl，显示特殊光标
+    if (e.ctrlKey || e.metaKey) {
+      gl.domElement.style.cursor = 'copy';
+    }
+  }, [gl]);
 
   const handlePointerOut = useCallback((e) => {
     e.stopPropagation();
     setIsHovered(false);
-  }, []);
+    // 恢复默认光标
+    gl.domElement.style.cursor = 'auto';
+  }, [gl]);
 
   // --- 纹理加载 ---
   useEffect(() => {
@@ -549,7 +560,7 @@ const Model = forwardRef(({
         <lineSegments>
           <edgesGeometry args={[boxGeometry]} />
           <lineBasicMaterial 
-            color="#1890ff" 
+            color="#1890ff"  // 🔵 蓝色
             linewidth={2} 
             depthTest={false}
             transparent 

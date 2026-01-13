@@ -74,6 +74,7 @@ const MonumentScene = forwardRef(({
   vaseTransformMode,
   onUpdateVaseElementState,
   onSaveToArtOptions,
+  selectedElements = [],
   selectedModelId,
   selectedModelType,
   onSelectElement,
@@ -115,33 +116,29 @@ const MonumentScene = forwardRef(({
 
   // 全局点击处理（点击空白处取消选中）
   useEffect(() => {
+    // 修改 handleGlobalClick 函数以支持 Ctrl 多选
     const handleGlobalClick = (event) => {
-      // 只处理canvas上的点击
       if (event.target !== gl.domElement) return;
-
-      // 检查是否点击到了模型
+      
       raycaster.setFromCamera(pointer, camera);
       const intersects = raycaster.intersectObjects(scene.children, true);
-
-      // 查找第一个击中的可见 Mesh
       const hit = intersects.find(i => i.object.isMesh && i.object.visible);
-
+      
       if (!hit) {
-        // 点击空白处，清除所有选中
-        if (onSelectElement) onSelectElement(null, null);
-        // 同时清除其他元素的选中状态
-        if (onArtElementSelect) onArtElementSelect(null);
-        if (onTextSelect) onTextSelect(null);
-        if (onVaseSelect) onVaseSelect(null);
+        // 点击空白处：如果没有按 Ctrl，则清除所有选中
+        if (!event.ctrlKey && !event.metaKey) {
+          if (onSelectElement) onSelectElement(null, null, event);
+          if (onArtElementSelect) onArtElementSelect(null);
+          if (onTextSelect) onTextSelect(null);
+          if (onVaseSelect) onVaseSelect(null);
+        }
       } else {
-        // 检查点击的是什么类型的元素
+        // 查找点击的元素类型和ID
         let elementType = null;
         let elementId = null;
         
-        // 向上遍历查找元素的类型和ID
         let obj = hit.object;
         while (obj) {
-          // 检查 userData
           if (obj.userData) {
             if (obj.userData.isModel) {
               elementType = obj.userData.modelType;
@@ -168,13 +165,13 @@ const MonumentScene = forwardRef(({
           obj = obj.parent;
         }
         
-        // 如果找到了元素类型，调用相应的选中函数
+        // 触发选中事件，传递事件对象以检测 Ctrl 键
         if (elementType && elementId) {
           switch (elementType) {
             case 'monument':
             case 'base':
             case 'subBase':
-              if (onSelectElement) onSelectElement(elementId, elementType);
+              if (onSelectElement) onSelectElement(elementId, elementType, event);
               break;
             case 'art':
               if (onArtElementSelect) onArtElementSelect(elementId);
@@ -564,7 +561,12 @@ const MonumentScene = forwardRef(({
 
       <OrbitControls
         ref={orbitControlsRef}
-        enableRotate={isViewRotatable && !selectedModelId && !selectedElementId && !currentTextId && !selectedVaseId && !isFillModeActive}
+        enableRotate={isViewRotatable && 
+          !selectedModelId &&       // ✅ 没有选中模型
+          !selectedElementId &&     // ✅ 没有选中艺术图案
+          !currentTextId &&         // ✅ 没有选中文字
+          !selectedVaseId &&        // ✅ 没有选中花瓶
+          !isFillModeActive}        // ✅ 不在填充模式
         // enablePan={true}
         // enableZoom={true}
         minDistance={1}
@@ -587,7 +589,10 @@ const MonumentScene = forwardRef(({
           isFillModeActive={isFillModeActive}
           onFillClick={() => onModelFillClick(subBase.id, 'subBase')}
           isDraggable={true}
-          isSelected={selectedModelId === subBase.id && selectedModelType === 'subBase'}
+          // isSelected={selectedModelId === subBase.id && selectedModelType === 'subBase'}
+          isSelected={selectedElements.some(el => 
+            el.id === subBase.id && el.type === 'subBase'
+          )}
           elementId={subBase.id}
           elementType="subBase"
           onSelectElement={handleSelectElement}
@@ -609,7 +614,10 @@ const MonumentScene = forwardRef(({
           isFillModeActive={isFillModeActive}
           onFillClick={() => onModelFillClick(base.id, 'base')}
           isDraggable={true}
-          isSelected={selectedModelId === base.id && selectedModelType === 'base'}
+          // isSelected={selectedModelId === base.id && selectedModelType === 'base'}
+          isSelected={selectedElements.some(el => 
+            el.id === base.id && el.type === 'base'
+          )}
           elementId={base.id}
           elementType="base"
           onSelectElement={handleSelectElement}
@@ -631,7 +639,11 @@ const MonumentScene = forwardRef(({
           isFillModeActive={isFillModeActive}
           onFillClick={() => onModelFillClick(monument.id, 'monument')}
           isDraggable={true}
-          isSelected={selectedModelId === monument.id && selectedModelType === 'monument'}
+          // isSelected={selectedModelId === monument.id && selectedModelType === 'monument'}
+          // 修改 isSelected 判断：检查该元素是否在选中数组中
+          isSelected={selectedElements.some(el => 
+            el.id === monument.id && el.type === 'monument'
+          )}
           elementId={monument.id}
           elementType="monument"
           onSelectElement={handleSelectElement}

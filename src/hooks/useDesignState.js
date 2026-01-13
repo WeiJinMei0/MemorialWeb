@@ -1640,62 +1640,189 @@ export const useDesignState = () => {
   }, [updateDesignState]);
 
   // 新增：选中元素
-  const selectElement = useCallback((elementId, elementType) => {
+//   const selectElement = useCallback((elementId, elementType) => {
+//     updateDesignState(prev => {
+//       // 清除所有元素的选中状态
+//       const clearSelected = (elements) =>
+//         elements.map(el => ({ ...el, isSelected: false }));
+
+//       // 设置指定元素为选中状态
+//       const setSelected = (elements) =>
+//         elements.map(el => ({
+//           ...el,
+//           isSelected: el.id === elementId
+//         }));
+
+//       // 特别处理：如果是文本，确保所有碑都取消选中
+//       const updatedMonuments = elementType === 'text' ? 
+//         clearSelected(prev.monuments) : // 文本选中时，碑全部取消选中
+//         (elementType === 'monument' ? setSelected(prev.monuments) : clearSelected(prev.monuments));
+        
+
+//       // 获取选中元素的颜色，用于同步 MaterialPanel 显示
+//       let selectedColor = prev.currentMaterial;
+//       if (elementId) {
+//         let selectedElement = null;
+//         switch (elementType) {
+//           case 'monument':
+//             selectedElement = prev.monuments.find(el => el.id === elementId);
+//             break;
+//           case 'base':
+//             selectedElement = prev.bases.find(el => el.id === elementId);
+//             break;
+//           case 'subBase':
+//             selectedElement = prev.subBases.find(el => el.id === elementId);
+//             break;
+//           case 'vase':
+//             selectedElement = prev.vases.find(el => el.id === elementId);
+//             break;
+//           default:
+//             break;
+//         }
+//         if (selectedElement && selectedElement.color) {
+//           selectedColor = selectedElement.color;
+//         }
+//       }
+
+//       return {
+//       ...prev,
+//       currentMaterial: selectedColor, 
+//       monuments: updatedMonuments,
+//       bases: elementType === 'base' ? setSelected(prev.bases) : clearSelected(prev.bases),
+//       subBases: elementType === 'subBase' ? setSelected(prev.subBases) : clearSelected(prev.subBases),
+//       vases: elementType === 'vase' ? setSelected(prev.vases) : clearSelected(prev.vases),
+//       artElements: elementType === 'art' ? setSelected(prev.artElements) : clearSelected(prev.artElements),
+//       textElements: elementType === 'text' ? setSelected(prev.textElements) : clearSelected(prev.textElements),
+//     };
+//   });
+// }, [updateDesignState]);
+
+  const selectElement = useCallback((elementId, elementType, isMultiSelect = false) => {
     updateDesignState(prev => {
-      // 清除所有元素的选中状态
-      const clearSelected = (elements) =>
+      // 辅助函数：设置指定元素的选中状态
+      const setElementSelected = (elements, targetId, isSelected) =>
+        elements.map(el => ({
+          ...el,
+          isSelected: el.id === targetId ? isSelected : el.isSelected
+        }));
+
+      // 辅助函数：切换指定元素的选中状态
+      const toggleElementSelected = (elements, targetId) =>
+        elements.map(el => ({
+          ...el,
+          isSelected: el.id === targetId ? !el.isSelected : el.isSelected
+        }));
+
+      // 辅助函数：清除所有元素的选中状态
+      const clearAllSelected = (elements) =>
         elements.map(el => ({ ...el, isSelected: false }));
 
-      // 设置指定元素为选中状态
-      const setSelected = (elements) =>
-        elements.map(el => ({
+      // 辅助函数：清除指定类型之外的所有元素选中状态
+      const clearSelectedExceptType = (state, exceptType) => {
+        const newState = { ...state };
+        
+        const elementTypes = ['monuments', 'bases', 'subBases', 'vases', 'artElements', 'textElements'];
+        elementTypes.forEach(type => {
+          if (type !== exceptType && type !== 'textElements') { // 保持文本的特殊处理
+            newState[type] = clearAllSelected(newState[type]);
+          }
+        });
+        
+        return newState;
+      };
+
+      // 获取要更新的元素数组
+      const getElementArray = (type) => {
+        switch (type) {
+          case 'monument': return prev.monuments;
+          case 'base': return prev.bases;
+          case 'subBase': return prev.subBases;
+          case 'vase': return prev.vases;
+          case 'art': return prev.artElements;
+          case 'text': return prev.textElements;
+          default: return [];
+        }
+      };
+
+      // 设置要更新的元素数组
+      const setElementArray = (type, array) => {
+        switch (type) {
+          case 'monument': return { ...prev, monuments: array };
+          case 'base': return { ...prev, bases: array };
+          case 'subBase': return { ...prev, subBases: array };
+          case 'vase': return { ...prev, vases: array };
+          case 'art': return { ...prev, artElements: array };
+          case 'text': return { ...prev, textElements: array };
+          default: return prev;
+        }
+      };
+
+      if (isMultiSelect) {
+        // 多选模式：切换当前元素的选中状态，不影响其他元素
+        const currentElements = getElementArray(elementType);
+        const updatedElements = toggleElementSelected(currentElements, elementId);
+        
+        // 获取选中元素的颜色（如果有选中的话）
+        let selectedColor = prev.currentMaterial;
+        const selectedElement = updatedElements.find(el => el.id === elementId);
+        if (selectedElement && selectedElement.color && selectedElement.isSelected) {
+          selectedColor = selectedElement.color;
+        }
+
+        return {
+          ...setElementArray(elementType, updatedElements),
+          currentMaterial: selectedColor
+        };
+      } else {
+        // 单选模式：选中当前元素，取消其他所有元素的选中状态
+        // 清除所有元素的选中状态
+        const clearAllState = {
+          ...prev,
+          monuments: clearAllSelected(prev.monuments),
+          bases: clearAllSelected(prev.bases),
+          subBases: clearAllSelected(prev.subBases),
+          vases: clearAllSelected(prev.vases),
+          artElements: clearAllSelected(prev.artElements),
+          textElements: clearAllSelected(prev.textElements)
+        };
+
+        // 设置当前元素为选中状态
+        const currentElements = getElementArray(elementType);
+        const updatedElements = currentElements.map(el => ({
           ...el,
           isSelected: el.id === elementId
         }));
 
-      // 特别处理：如果是文本，确保所有碑都取消选中
-      const updatedMonuments = elementType === 'text' ? 
-        clearSelected(prev.monuments) : // 文本选中时，碑全部取消选中
-        (elementType === 'monument' ? setSelected(prev.monuments) : clearSelected(prev.monuments));
-        
+        // 特别处理：如果是文本，确保所有碑都取消选中
+        let updatedMonuments = prev.monuments;
+        if (elementType === 'text') {
+          updatedMonuments = clearAllSelected(prev.monuments);
+        } else if (elementType === 'monument') {
+          updatedMonuments = updatedElements;
+        }
 
-      // 获取选中元素的颜色，用于同步 MaterialPanel 显示
-      let selectedColor = prev.currentMaterial;
-      if (elementId) {
-        let selectedElement = null;
-        switch (elementType) {
-          case 'monument':
-            selectedElement = prev.monuments.find(el => el.id === elementId);
-            break;
-          case 'base':
-            selectedElement = prev.bases.find(el => el.id === elementId);
-            break;
-          case 'subBase':
-            selectedElement = prev.subBases.find(el => el.id === elementId);
-            break;
-          case 'vase':
-            selectedElement = prev.vases.find(el => el.id === elementId);
-            break;
-          default:
-            break;
+        // 获取选中元素的颜色
+        let selectedColor = prev.currentMaterial;
+        if (elementId) {
+          const selectedElement = updatedElements.find(el => el.id === elementId);
+          if (selectedElement && selectedElement.color) {
+            selectedColor = selectedElement.color;
+          }
         }
-        if (selectedElement && selectedElement.color) {
-          selectedColor = selectedElement.color;
-        }
+
+        return {
+          ...clearAllState,
+          [elementType === 'monument' ? 'monuments' : 
+          elementType === 'base' ? 'bases' :
+          elementType === 'subBase' ? 'subBases' :
+          elementType === 'vase' ? 'vases' :
+          elementType === 'art' ? 'artElements' : 'textElements']: updatedElements,
+          monuments: updatedMonuments,
+          currentMaterial: selectedColor
+        };
       }
-
-      return {
-      ...prev,
-      currentMaterial: selectedColor, 
-      monuments: updatedMonuments,
-      bases: elementType === 'base' ? setSelected(prev.bases) : clearSelected(prev.bases),
-      subBases: elementType === 'subBase' ? setSelected(prev.subBases) : clearSelected(prev.subBases),
-      vases: elementType === 'vase' ? setSelected(prev.vases) : clearSelected(prev.vases),
-      artElements: elementType === 'art' ? setSelected(prev.artElements) : clearSelected(prev.artElements),
-      textElements: elementType === 'text' ? setSelected(prev.textElements) : clearSelected(prev.textElements),
-    };
-  });
-}, [updateDesignState]);
+    });
+  }, [updateDesignState]);
 
   // 新增：取消所有选中
   const clearAllSelection = useCallback(() => {
