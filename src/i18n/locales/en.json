@@ -64,6 +64,7 @@
     "save": "Save",
     "generateOrder": "Order",
     "undo": "Undo",
+    "reset": "Reset",
     "redo": "Redo",
     "logout": "Logout",
     "tablet": "Tablet",

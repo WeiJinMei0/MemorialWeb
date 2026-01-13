@@ -26,6 +26,7 @@ import './DesignerPage.css';
 import OrderInfoModal from './Export/OrderInfoModal.jsx';
 import PrintPreviewModal from "./Export/PrintPreviewModal.jsx";
 import { PrinterOutlined } from '@ant-design/icons'; // 确保引入了打印图标
+import { AimOutlined } from '@ant-design/icons'; // 复位图标
 
 const { Sider, Content, Footer } = Layout;
 
@@ -133,6 +134,7 @@ const DesignerPage = () => {
     updateTextRotation,
     selectElement,
     clearAllSelection,
+    resetSelectedTabletPosition,
   } = useDesignState();
   
   
@@ -154,7 +156,44 @@ const DesignerPage = () => {
     return null;
   };
   
-  
+  // 添加处理函数
+  const handleResetPosition = useCallback(() => {
+    // 从 selectedElements 中提取选中的元素
+    const selectedTablets = selectedElements.filter(el => el.type === 'monument');
+    const selectedBases = selectedElements.filter(el => el.type === 'base');
+    const selectedSubBases = selectedElements.filter(el => el.type === 'subBase');
+    
+    // 验证选中条件
+    if (selectedTablets.length !== 1) {
+      message.warning('请选中一个墓碑进行操作');
+      return;
+    }
+    
+    if ((selectedBases.length !== 1 && selectedSubBases.length !== 1) || 
+        (selectedBases.length > 0 && selectedSubBases.length > 0)) {
+      message.warning('请同时选中一个底座或一个副底座（不能同时选中两者）');
+      return;
+    }
+    
+    // 检查选中的墓碑是否为Tablet类型
+    const selectedTabletId = selectedTablets[0].id;
+    const selectedTablet = designState.monuments.find(m => m.id === selectedTabletId);
+    
+    if (!selectedTablet || selectedTablet.family !== 'Tablet') {
+      message.warning('选中的墓碑必须是Tablet类型');
+      return;
+    }
+    
+    // 执行复位操作
+    try {
+      resetSelectedTabletPosition();
+      message.success('墓碑已复位到底座位置');
+    } catch (error) {
+      console.error('复位失败:', error);
+      message.error('复位失败，请重试');
+    }
+  }, [selectedElements, designState.monuments, resetSelectedTabletPosition, message]);
+
   const dimensionElements = useMemo(() => {
     const list = [];
   
@@ -1562,7 +1601,7 @@ const DesignerPage = () => {
   return (
     <Layout className="main-content-layout">
       {/* ✅ 新增：左上角简化版选中提示 */}
-      {selectedElements.length > 0 && (
+      {/* {selectedElements.length > 0 && (
         <div className="top-left-selection-hint">
           <div className="selection-hint-content">
             <span className="selection-count">
@@ -1578,7 +1617,7 @@ const DesignerPage = () => {
             </Button>
           </div>
         </div>
-      )}
+      )} */}
       <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={190} className="toolbar-sider">
         <Toolbar tools={tools} activeTool={activeTool} onToolSelect={handleToolSelect} />
         {!collapsed && (
@@ -1595,6 +1634,20 @@ const DesignerPage = () => {
                 {/* 撤销/重做/背景选择 */}
                 <Button icon={<UndoOutlined />} size="small" disabled={!canUndo} onClick={undo}>{t('designer.undo')}</Button>
                 <Button icon={<RedoOutlined />} size="small" disabled={!canRedo} onClick={redo}>{t('designer.redo')}</Button>
+                
+                {/* ✅ 新增复位按钮 */}
+                <Button 
+                  type="default"
+                  icon={<AimOutlined />}
+                  size="small"
+                  onClick={handleResetPosition}
+                  disabled={!(
+                    selectedElements.some(el => el.type === 'monument') && 
+                    (selectedElements.some(el => el.type === 'base') || selectedElements.some(el => el.type === 'subBase'))
+                  )}
+                >
+                  {t('designer.redo')}
+                </Button>
 
                 {/* 新增：视图旋转控制按钮 */}
                 <Button

@@ -123,10 +123,12 @@ const MonumentScene = forwardRef(({
       raycaster.setFromCamera(pointer, camera);
       const intersects = raycaster.intersectObjects(scene.children, true);
       const hit = intersects.find(i => i.object.isMesh && i.object.visible);
-      
+      // 只在未按 Ctrl 键且点击空白处时才清除选中
       if (!hit) {
+        const isCtrlPressed = event.ctrlKey || event.metaKey;
         // 点击空白处：如果没有按 Ctrl，则清除所有选中
-        if (!event.ctrlKey && !event.metaKey) {
+        if (!isCtrlPressed) {
+          // 点击空白处且未按 Ctrl：清除所有选中
           if (onSelectElement) onSelectElement(null, null, event);
           if (onArtElementSelect) onArtElementSelect(null);
           if (onTextSelect) onTextSelect(null);

@@ -221,11 +221,11 @@ const Model = forwardRef(({
           _originalPos.z
         );
         // CS新增日志输出拖拽前后位置对比
-        console.group(`【${elementId}】拖拽信息 =====`);
-        console.log('原始位置:', _originalPos.toArray());
-        console.log('拖拽后的位置:', newPosition.toArray());
-        console.log('groupRef.current.position:', groupRef.current.position);
-        console.groupEnd();
+        // console.group(`【${elementId}】拖拽信息 =====`);
+        // console.log('原始位置:', _originalPos.toArray());
+        // console.log('拖拽后的位置:', newPosition.toArray());
+        // console.log('groupRef.current.position:', groupRef.current.position);
+        // console.groupEnd();
         
         // 直接更新本地位置（不触发外部状态）
 
@@ -478,17 +478,17 @@ const Model = forwardRef(({
     groupRef.current.getWorldPosition(pivotWorld);
   
     // 5️⃣ 打印
-    console.group(`📦【模型位置校验】${elementId || modelPath}`);
-    // 模型原点（0,0,0）在整个世界坐标系中的最终位置
-    console.log('📍 模型原点在世界坐标中的最终位置:', pivotWorld.toArray());
+    // console.group(`📦【模型位置校验】${elementId || modelPath}`);
+    // // 模型原点（0,0,0）在整个世界坐标系中的最终位置
+    // console.log('📍 模型原点在世界坐标中的最终位置:', pivotWorld.toArray());
   
-    console.log('📐 模型尺寸 (X,Y,Z):', size.toArray());
-    console.log('⚪ 模型中心 (world):', center.toArray());
+    // console.log('📐 模型尺寸 (X,Y,Z):', size.toArray());
+    // console.log('⚪ 模型中心 (world):', center.toArray());
   
-    console.log('⬇️ 模型底部中心 (world):', bottomCenterWorld.toArray());
-    console.log('⬆️ 模型顶部中心 (world):', topCenterWorld.toArray());
+    // console.log('⬇️ 模型底部中心 (world):', bottomCenterWorld.toArray());
+    // console.log('⬆️ 模型顶部中心 (world):', topCenterWorld.toArray());
   
-    console.groupEnd();
+    // console.groupEnd();
   }, [model, localPosition]);
 
   // --- 动态贴图应用 ---

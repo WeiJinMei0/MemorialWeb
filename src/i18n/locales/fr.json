@@ -64,6 +64,7 @@
     "save": "Sauvegarder",
     "generateOrder": "Commande",
     "undo": "Annuler",
+    "reset": "Réinitialiser",
     "redo": "Rétablir",
     "logout": "Déconnexion",
     "tablet": "Tablette",

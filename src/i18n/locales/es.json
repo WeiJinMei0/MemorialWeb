@@ -64,6 +64,7 @@
     "save": "Guardar",
     "generateOrder": "Pedido",
     "undo": "Deshacer",
+    "reset": "Restablecer",
     "redo": "Rehacer",
     "logout": "Cerrar sesión",
     "tablet": "Tableta",
