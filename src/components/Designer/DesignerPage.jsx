@@ -85,6 +85,9 @@ const DesignerPage = () => {
   // 获取当前是否有元素被选中（用于某些判断）
   const hasSelectedElements = selectedElements.length > 0;
 
+  //  添加 useRef 和 useEffect
+  const ctrlKeyPressedRef = useRef(false);
+
   // 新增：旋转控制状态
   const [isViewRotatable, setIsViewRotatable] = useState(false);
 
@@ -137,6 +140,33 @@ const DesignerPage = () => {
     resetSelectedTabletPosition,
   } = useDesignState();
   
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // 处理 Ctrl 键
+      if (e.key === 'Control') {
+        ctrlKeyPressedRef.current = true;
+      }
+      // 处理 Mac 的 Command 键
+      if (e.key === 'Meta') {
+        ctrlKeyPressedRef.current = true;
+      }
+      // 可选：处理 Alt 键等其他修饰键
+    };
+    
+    const handleKeyUp = (e) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        ctrlKeyPressedRef.current = false;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
   
   const getSelectedElement = (designState) => {
     const sources = [
@@ -478,7 +508,6 @@ const DesignerPage = () => {
     setSelectedVaseId(null);
   }, [selectedVaseId, updateVaseElementState]);
 
-  // CS
   const handleSelectElement = useCallback((elementId, elementType, event) => {
     // 如果点击 null 或 undefined，清除所有选中
     if (!elementId || !elementType) {
@@ -493,7 +522,17 @@ const DesignerPage = () => {
     }
 
     // 获取是否按住了 Ctrl 键
-    const isCtrlPressed = event?.ctrlKey || event?.metaKey;
+    const isCtrlPressed = ctrlKeyPressedRef.current;
+    
+    // console.log('=== handleSelectElement 被调用 ===');
+    // console.log('elementId:', elementId);
+    // console.log('elementType:', elementType);
+    // console.log('isCtrlPressed:', isCtrlPressed);
+    // console.log('event对象:', event);
+    // console.log('event.ctrlKey:', event?.ctrlKey);
+    // console.log('event.metaKey:', event?.metaKey);
+    // console.log('当前 selectedElements（调用前）:', selectedElements);
+    // console.log('当前 selectedElements 长度:', selectedElements.length);
     
     const elementKey = `${elementType}:${elementId}`;
     
@@ -504,24 +543,29 @@ const DesignerPage = () => {
     
     // 更新本地选中状态
     setSelectedElements(prev => {
-      const elementExists = prev.some(el => el.id === elementId && el.type === elementType);
-      
+      // console.log('=== setSelectedElements 内部 ===');
+      // console.log('prev（之前的选中列表）:', prev);
+      // console.log('prev 长度:', prev.length);
+
+      const alreadySelected = prev.some(item => 
+        item.id === elementId && item.type === elementType
+      );
+      // console.log('alreadySelected（元素是否已存在）:', alreadySelected);
       if (isCtrlPressed) {
-        // Ctrl + 点击：切换选中状态
-        if (elementExists) {
-          // 如果已选中，则取消选中
-          return prev.filter(el => !(el.id === elementId && el.type === elementType));
-        } else {
-          // 如果未选中，则添加选中
-          return [...prev, { id: elementId, type: elementType }];
+        if (!alreadySelected) {
+          const result = [...prev, { id: elementId, type: elementType}];
+          // console.log('👉 多选：添加元素');
+          // console.log('Ctrl模式 - 最终结果:', result);
+          // console.log('Ctrl模式 - 最终结果长度:', result.length);
+          return result;
         }
+        // console.log('👉 多选：元素已存在，保持');
+        // console.log('Ctrl模式 - 最终结果:', prev);
+        // console.log('Ctrl模式 - 最终结果长度:', prev.length);
+        return prev;
+
       } else {
-        // 普通点击：单选（如果点击的不是已选中的元素）
-        if (elementExists && prev.length === 1) {
-          // 如果点击的是唯一已选中的元素，保持选中
-          return prev;
-        }
-        // 否则，单选该元素
+        // console.log('普通点击模式 - 单选:', [{ id: elementId, type: elementType }]);
         return [{ id: elementId, type: elementType }];
       }
     });
@@ -1601,7 +1645,7 @@ const DesignerPage = () => {
   return (
     <Layout className="main-content-layout">
       {/* ✅ 新增：左上角简化版选中提示 */}
-      {/* {selectedElements.length > 0 && (
+      {selectedElements.length > 0 && (
         <div className="top-left-selection-hint">
           <div className="selection-hint-content">
             <span className="selection-count">
@@ -1617,7 +1661,7 @@ const DesignerPage = () => {
             </Button>
           </div>
         </div>
-      )} */}
+      )}
       <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={190} className="toolbar-sider">
         <Toolbar tools={tools} activeTool={activeTool} onToolSelect={handleToolSelect} />
         {!collapsed && (
