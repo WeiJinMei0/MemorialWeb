@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Layout, Button, message, Space, Select, Tooltip, InputNumber, App, Popover, Input, Modal } from 'antd';
+import { Layout, Button, message, Space, Select, Tooltip, InputNumber, App, Popover, Input, Modal, Dropdown } from 'antd';
 import {
   UndoOutlined,
   RedoOutlined,
@@ -139,7 +139,7 @@ const DesignerPage = () => {
     clearAllSelection,
     resetSelectedTabletPosition,
   } = useDesignState();
-  
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       // 处理 Ctrl 键
@@ -152,22 +152,22 @@ const DesignerPage = () => {
       }
       // 可选：处理 Alt 键等其他修饰键
     };
-    
+
     const handleKeyUp = (e) => {
       if (e.key === 'Control' || e.key === 'Meta') {
         ctrlKeyPressedRef.current = false;
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
-  
+
   const getSelectedElement = (designState) => {
     const sources = [
       ['text', designState.texts],
@@ -177,7 +177,7 @@ const DesignerPage = () => {
       ['base', designState.bases],
       ['subBase', designState.subBases],
     ];
-  
+
     for (const [type, list] of sources) {
       if (!Array.isArray(list)) continue;
       const item = list.find(el => el.isSelected);
@@ -185,22 +185,22 @@ const DesignerPage = () => {
     }
     return null;
   };
-  
+
   // 添加处理函数
   const handleResetPosition = useCallback(() => {
     // console.log('=== 开始复位操作 ===');
     // console.log('当前选中的所有元素:', selectedElements);
     // console.log('designState.monuments:', designState.monuments);
-    
+
     // 从 selectedElements 中提取选中的元素
     const selectedTablets = selectedElements.filter(el => el.type === 'monument');
     const selectedBases = selectedElements.filter(el => el.type === 'base');
     const selectedSubBases = selectedElements.filter(el => el.type === 'subBase');
-    
+
     // console.log('选中的墓碑:', selectedTablets);
     // console.log('选中的底座:', selectedBases);
     // console.log('选中的副底座:', selectedSubBases);
-    
+
     // 检查墓碑的 isSelected 状态
     if (selectedTablets.length > 0) {
       const tabletId = selectedTablets[0].id;
@@ -209,41 +209,41 @@ const DesignerPage = () => {
       // console.log('墓碑的 isSelected:', tabletInState?.isSelected);
       // console.log('墓碑的 family:', tabletInState?.family);
     }
-    
+
     // 验证选中条件
     if (selectedTablets.length !== 1) {
       // console.warn('请选中一个墓碑进行操作', { selectedTablets });
       message.warning('请选中一个墓碑进行操作');
       return;
     }
-    
-    if ((selectedBases.length !== 1 && selectedSubBases.length !== 1) || 
-        (selectedBases.length > 0 && selectedSubBases.length > 0)) {
+
+    if ((selectedBases.length !== 1 && selectedSubBases.length !== 1) ||
+      (selectedBases.length > 0 && selectedSubBases.length > 0)) {
       // console.warn('请同时选中一个底座或一个副底座', { selectedBases, selectedSubBases });
       message.warning('请同时选中一个底座或一个副底座（不能同时选中两者）');
       return;
     }
-    
+
     // 检查选中的墓碑是否为Tablet类型
     const selectedTabletId = selectedTablets[0].id;
     const selectedTablet = designState.monuments.find(m => m.id === selectedTabletId);
-    
+
     // console.log('选中的墓碑详情:', selectedTablet);
-    
+
     if (!selectedTablet) {
       // console.error('墓碑不存在:', selectedTabletId);
       message.error('墓碑不存在');
       return;
     }
-    
+
     if (selectedTablet.family !== 'Tablet') {
       // console.warn('选中的墓碑不是Tablet类型:', selectedTablet.family);
       message.warning('选中的墓碑必须是Tablet类型');
       return;
     }
-    
+
     // console.log('✅ 所有条件满足，开始复位...');
-    
+
     // 执行复位操作
     try {
       resetSelectedTabletPosition();
@@ -254,22 +254,22 @@ const DesignerPage = () => {
     }
   }, [selectedElements, designState.monuments, resetSelectedTabletPosition, message]);
 
-  
+
   const dimensionElements = useMemo(() => {
     const list = [];
-  
+
     designState.monuments.forEach(el =>
       list.push({ element: el, type: 'monument' })
     );
-  
+
     designState.bases.forEach(el =>
       list.push({ element: el, type: 'base' })
     );
-  
+
     designState.subBases.forEach(el =>
       list.push({ element: el, type: 'subBase' })
     );
-  
+
     return list;
   }, [
     designState.monuments,
@@ -283,26 +283,26 @@ const DesignerPage = () => {
     if (!selectedModelId || !selectedModelType) {
       return dimensionElements;
     }
-  
+
     const selectedIndex = dimensionElements.findIndex(
       item =>
         item.element.id === selectedModelId &&
         item.type === selectedModelType
     );
-  
+
     // 选中的不是尺寸类产品（比如 Art / Text）
     if (selectedIndex === -1) {
       return dimensionElements;
     }
-  
+
     // 把选中的提到最前
     const selectedItem = dimensionElements[selectedIndex];
     const rest = dimensionElements.filter((_, i) => i !== selectedIndex);
-  
+
     return [selectedItem, ...rest];
   }, [dimensionElements, selectedModelId, selectedModelType]);
-  
-  
+
+
   const handleToggleRotatable = useCallback(() => {
     setIsViewRotatable(!isViewRotatable);
   }, [isViewRotatable]);
@@ -418,6 +418,23 @@ const DesignerPage = () => {
       return newOptions;
     });
   }, [user, message]); // 依赖 user 和 message
+
+  const confirmDeleteSavedItem = useCallback((item) => {
+    if (!item) return;
+
+    const label = item.type === 'text'
+      ? (item.content ? `"${item.content}"` : t('designer.library.deleteThisText'))
+      : (item.name || item.subclass || t('designer.library.deleteThisPattern'));
+
+    modal.confirm({
+      title: t('designer.library.deleteConfirmTitle'),
+      content: t('designer.library.deleteConfirmContent', { label }),
+      okText: t('common.delete'),
+      okButtonProps: { danger: true },
+      cancelText: t('common.cancel'),
+      onOk: () => removeItemFromArtOptions(item),
+    });
+  }, [modal, removeItemFromArtOptions, t]);
 
 
   // 加载最近保存的设计和Art Options
@@ -554,7 +571,7 @@ const DesignerPage = () => {
 
     // 获取是否按住了 Ctrl 键
     const isCtrlPressed = ctrlKeyPressedRef.current;
-    
+
     // console.log('=== handleSelectElement 被调用 ===');
     // console.log('elementId:', elementId);
     // console.log('elementType:', elementType);
@@ -564,27 +581,27 @@ const DesignerPage = () => {
     // console.log('event.metaKey:', event?.metaKey);
     // console.log('当前 selectedElements（调用前）:', selectedElements);
     // console.log('当前 selectedElements 长度:', selectedElements.length);
-    
+
     const elementKey = `${elementType}:${elementId}`;
-    
+
     if (selectElement) {
       // 调用 useDesignState 中的 selectElement，传入 Ctrl 键状态
       selectElement(elementId, elementType, isCtrlPressed);
     }
-    
+
     // 更新本地选中状态
     setSelectedElements(prev => {
       // console.log('=== setSelectedElements 内部 ===');
       // console.log('prev（之前的选中列表）:', prev);
       // console.log('prev 长度:', prev.length);
 
-      const alreadySelected = prev.some(item => 
+      const alreadySelected = prev.some(item =>
         item.id === elementId && item.type === elementType
       );
       // console.log('alreadySelected（元素是否已存在）:', alreadySelected);
       if (isCtrlPressed) {
         if (!alreadySelected) {
-          const result = [...prev, { id: elementId, type: elementType}];
+          const result = [...prev, { id: elementId, type: elementType }];
           // console.log('👉 多选：添加元素');
           // console.log('Ctrl模式 - 最终结果:', result);
           // console.log('Ctrl模式 - 最终结果长度:', result.length);
@@ -600,7 +617,7 @@ const DesignerPage = () => {
         return [{ id: elementId, type: elementType }];
       }
     });
-    
+
     // 清除其他类型元素的选中状态（保持类型互斥，可选）
     if (elementType !== 'art') handleArtElementSelect(null);
     if (elementType !== 'vase') handleCloseVaseEditor();
@@ -611,12 +628,12 @@ const DesignerPage = () => {
         setTextSelected(text.id, false);
       });
     }
-    
+
     // 同时更新旧的单一选中状态（用于兼容性）
     setSelectedModelId(elementId);
     setSelectedModelType(elementType);
   }, [selectElement, handleArtElementSelect, handleCloseVaseEditor, designState.textElements, setTextSelected]);
-      
+
   // handleToolSelect
   // 1. 修改 handleToolSelect 逻辑
   const handleToolSelect = (key) => {
@@ -883,7 +900,7 @@ const DesignerPage = () => {
     handleCloseVaseEditor();
     setSelectedModelId(null);
     setSelectedModelType(null);
-    
+
     message.success('文本添加成功');
   }, [designState.monuments, addText, selectElement, handleArtElementSelect, handleCloseVaseEditor]);
 
@@ -968,7 +985,7 @@ const DesignerPage = () => {
         // ... (获取 targetMonumentId 的逻辑保持不变)
         const targetMonumentId = designState.monuments.length > 0 ? designState.monuments[0].id : null;
         if (itemData.type === 'text' && !targetMonumentId) {
-          message.error('请先添加一个主碑才能添加文字');
+          message.error(t('designer.library.needMonumentForText'));
           return;
         }
 
@@ -980,22 +997,17 @@ const DesignerPage = () => {
 
         if (itemData.type === 'text') {
           addText(itemToAdd);
-          message.success(`已添加保存的文字: "${itemData.content}"`);
+          message.success(t('designer.library.addedText', { content: itemData.content }));
         } else {
           addArt(itemToAdd);
-          message.success(`已添加保存的图案: ${itemData.name || itemData.subclass}`);
+          message.success(t('designer.library.addedArt', { name: itemData.name || itemData.subclass }));
         }
 
-        // --- 【在这里添加修改】 ---
-        // 复用后，从素材库中移除该项目
-        removeItemFromArtOptions(itemData);
-        // --- 【修改结束】 ---
       }
     } catch (error) {
       console.error('拖拽添加失败:', error);
     }
-    // 3. 将 removeItemFromArtOptions 添加到依赖项数组中
-  }, [addArt, addText, designState.monuments, removeItemFromArtOptions]);
+  }, [addArt, addText, designState.monuments, message, t]);
 
   const handleArtOptionSlotDragOver = useCallback((e, slotIndex) => {
     e.preventDefault();
@@ -1042,14 +1054,14 @@ const DesignerPage = () => {
 
           return filteredOptions;
         });
-        message.success('艺术图案已保存到素材库');
+        message.success(t('designer.library.saveArtSuccess'));
       }
     } catch (error) {
       console.error('拖拽保存失败:', error);
-      message.error('保存失败');
+      message.error(t('designer.library.saveFailed'));
     }
     setDraggedArt(null);
-  }, [user, designState.artElements]);
+  }, [designState.artElements, t, user]);
 
   // 【已修改】：更新 handleSavedItemClick
   const handleSavedItemClick = useCallback((savedItem) => {
@@ -1057,7 +1069,7 @@ const DesignerPage = () => {
     // ... (获取 targetMonumentId 的逻辑保持不变)
     const targetMonumentId = designState.monuments.length > 0 ? designState.monuments[0].id : null;
     if (savedItem.type === 'text' && !targetMonumentId) {
-      message.error('请先添加一个主碑才能添加文字');
+      message.error(t('designer.library.needMonumentForText'));
       return;
     }
 
@@ -1069,19 +1081,13 @@ const DesignerPage = () => {
 
     if (savedItem.type === 'text') {
       addText(itemToAdd);
-      message.success(`已添加保存的文字: "${itemToAdd.content}"`);
+      message.success(t('designer.library.addedText', { content: itemToAdd.content }));
     } else {
       addArt(itemToAdd);
-      message.success(`已添加保存的图案: ${savedItem.name || savedItem.subclass}`);
+      message.success(t('designer.library.addedArt', { name: savedItem.name || savedItem.subclass }));
     }
 
-    // --- 【在这里添加修改】 ---
-    // 复用后，从素材库中移除该项目
-    removeItemFromArtOptions(savedItem);
-    // --- 【修改结束】 ---
-
-    // 3. 将 removeItemFromArtOptions 添加到依赖项数组中
-  }, [addArt, addText, designState.monuments, removeItemFromArtOptions]);
+  }, [addArt, addText, designState.monuments, message, t]);
 
   // 修改 handleSaveArtToOptions (当在 ArtEditorPanel 中点击保存时)
   const handleSaveArtToOptions = useCallback(async (artElement) => {
@@ -1089,7 +1095,7 @@ const DesignerPage = () => {
     const emptySlot = Array.from({ length: MAX_RECENTLY_SAVED }, (_, i) => i)
       .find(i => !usedSlots.includes(i));
     if (emptySlot === undefined) {
-      message.warning('素材库已满');
+      message.warning(t('designer.library.full'));
       return;
     }
     try {
@@ -1128,12 +1134,12 @@ const DesignerPage = () => {
 
         return newOptions;
       });
-      message.success('艺术图案已保存到素材库');
+      message.success(t('designer.library.saveArtSuccess'));
     } catch (error) {
       console.error('保存艺术图案失败:', error);
-      message.error('保存失败');
+      message.error(t('designer.library.saveFailed'));
     }
-  }, [savedArtOptions, user, designState.artElements]);
+  }, [designState.artElements, savedArtOptions, t, user]);
 
   // 20. 新增 handleSaveTextToOptions (当在 TextEditor 中点击保存时)
   const handleSaveTextToOptions = useCallback(async (textElement) => {
@@ -1142,7 +1148,7 @@ const DesignerPage = () => {
       .find(i => !usedSlots.includes(i));
 
     if (emptySlot === undefined) {
-      message.warning('素材库已满');
+      message.warning(t('designer.library.full'));
       return;
     }
 
@@ -1168,12 +1174,12 @@ const DesignerPage = () => {
 
         return newOptions;
       });
-      message.success('文字已保存到素材库');
+      message.success(t('designer.library.saveTextSuccess'));
     } catch (error) {
       console.error('保存文字失败:', error);
-      message.error('保存失败');
+      message.error(t('designer.library.saveFailed'));
     }
-  }, [savedArtOptions, user]);
+  }, [savedArtOptions, t, user]);
 
   // 1. 新增：处理文字旋转 90 度
   const handleRotateText90 = useCallback(() => {
@@ -1522,7 +1528,7 @@ const DesignerPage = () => {
 
     return (
       <div className={`dimension-control ${isSelected ? 'dimension-control--selected' : ''}`}>
-      {/* <div className="dimension-control"> */}
+        {/* <div className="dimension-control"> */}
         <label>{label}</label>
         <div className="dimension-inputs">
           {['length', 'width', 'height'].map((dim) => (
@@ -1587,33 +1593,33 @@ const DesignerPage = () => {
       // Ctrl+A: 全选
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         e.preventDefault();
-        
+
         // 收集所有可选中元素
         const allElements = [
           ...designState.monuments.map(m => ({ id: m.id, type: 'monument' })),
           ...designState.bases.map(b => ({ id: b.id, type: 'base' })),
           ...designState.subBases.map(sb => ({ id: sb.id, type: 'subBase' })),
         ];
-        
+
         setSelectedElements(allElements);
-        
+
         // 同时更新每个元素的 isSelected 状态
         allElements.forEach(({ id, type }) => {
           if (selectElement) {
             selectElement(id, type, true); // 使用多选模式
           }
         });
-        
+
         message.success(`已选中 ${allElements.length} 个元素`);
       }
-      
+
       // Esc: 取消所有选中
       if (e.key === 'Escape') {
         e.preventDefault();
         if (selectedElements.length > 0) {
           setSelectedElements([]);
           message.info('已清除所有选中');
-          
+
           // 同时清除设计状态中的选中状态
           if (selectElement) {
             // 清除所有元素的选中状态
@@ -1624,7 +1630,7 @@ const DesignerPage = () => {
         }
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [designState, selectElement]);
@@ -1643,10 +1649,10 @@ const DesignerPage = () => {
           selectedElements.forEach(({ id, type }) => {
             deleteElement(id, type);
           });
-          
+
           // 清除选中状态
           setSelectedElements([]);
-          
+
           // 根据删除的元素类型清除相应的选中状态
           if (selectedElements.some(el => el.type === 'art')) {
             handleArtElementSelect(null);
@@ -1670,7 +1676,7 @@ const DesignerPage = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [designState, deleteElement, selectedElements, handleArtElementSelect, handleCloseVaseEditor]);
-    
+
 
   // --- 渲染 ---
   return (
@@ -1709,15 +1715,15 @@ const DesignerPage = () => {
                 {/* 撤销/重做/背景选择 */}
                 <Button icon={<UndoOutlined />} size="small" disabled={!canUndo} onClick={undo}>{t('designer.undo')}</Button>
                 <Button icon={<RedoOutlined />} size="small" disabled={!canRedo} onClick={redo}>{t('designer.redo')}</Button>
-                
+
                 {/* ✅ 新增复位按钮 */}
-                <Button 
+                <Button
                   type="default"
                   icon={<AimOutlined />}
                   size="small"
                   onClick={handleResetPosition}
                   disabled={!(
-                    selectedElements.some(el => el.type === 'monument') && 
+                    selectedElements.some(el => el.type === 'monument') &&
                     (selectedElements.some(el => el.type === 'base') || selectedElements.some(el => el.type === 'subBase'))
                   )}
                 >
@@ -1808,7 +1814,7 @@ const DesignerPage = () => {
                 onUpdateVaseElementState={updateVaseElementState}
 
                 // 添加新的多选状态
-                selectedElements={selectedElements} 
+                selectedElements={selectedElements}
                 // 保持旧的单一选中状态（用于向后兼容）
                 selectedModelId={selectedModelId}
                 selectedModelType={selectedModelType}
@@ -1882,34 +1888,34 @@ const DesignerPage = () => {
                       type === 'monument'
                         ? t('designer.tablet')
                         : type === 'base'
-                        ? t('designer.base')
-                        : t('designer.subBase')
+                          ? t('designer.base')
+                          : t('designer.subBase')
                     }
-                    isSelected={selectedElements.some(el => 
+                    isSelected={selectedElements.some(el =>
                       el.id === element.id && el.type === type
                     )}
                   />
                 ))}
               </div>
               <div className="base-buttons-container">
-                  <Space>
-                    <Button size="small" onClick={addTablet}>
-                      {t('designer.addTablet')}
-                    </Button>
-                    <Button size="small" onClick={addBase}>{t('designer.addBase')}</Button>
-                    <Button size="small" onClick={addSubBase}>{t('designer.addSubBase')}</Button>
-                    <div style={{ marginTop: '11px' }}>
-                      <p>{t('designer.format')}</p>
-                    </div>
-                    <select
-                      value={selectedUnit || 'inches'}
-                      onChange={(e) => setSelectedUnit(e.target.value)}
-                      id="size-selection"
-                    >
-                      <option value="inches">{t('designer.Inches')}</option>
-                      <option value="feet">{t('designer.Feet')}</option>
-                    </select>
-                  </Space>
+                <Space>
+                  <Button size="small" onClick={addTablet}>
+                    {t('designer.addTablet')}
+                  </Button>
+                  <Button size="small" onClick={addBase}>{t('designer.addBase')}</Button>
+                  <Button size="small" onClick={addSubBase}>{t('designer.addSubBase')}</Button>
+                  <div style={{ marginTop: '11px' }}>
+                    <p>{t('designer.format')}</p>
+                  </div>
+                  <select
+                    value={selectedUnit || 'inches'}
+                    onChange={(e) => setSelectedUnit(e.target.value)}
+                    id="size-selection"
+                  >
+                    <option value="inches">{t('designer.Inches')}</option>
+                    <option value="feet">{t('designer.Feet')}</option>
+                  </select>
+                </Space>
               </div>
             </div>
 
@@ -1971,58 +1977,85 @@ const DesignerPage = () => {
                       onDragOver={(e) => handleArtOptionSlotDragOver(e, i)}
                       onDragLeave={handleArtOptionSlotDragLeave}
                       onDrop={(e) => handleArtOptionSlotDrop(e, i)}
-                      title={savedItem ? (savedItem.type === 'text' ? `点击复用文字: "${savedItem.content}"` : `点击复用图案: ${savedItem.name}`) : '可将图案拖拽至此保存'}
+                      title={savedItem
+                        ? (savedItem.type === 'text'
+                          ? `${t('designer.library.slotReuseTextTitle', { content: savedItem.content })} ${t('designer.library.hintRightClickDelete')}`
+                          : `${t('designer.library.slotReuseArtTitle', { name: savedItem.name || savedItem.subclass })} ${t('designer.library.hintRightClickDelete')}`)
+                        : t('designer.library.slotEmptyTitle')}
                     >
                       {/* 27. 检查 savedItem 是否存在 */}
                       {savedItem ? (
 
                         // 28. 如果是文字，渲染文字卡片
                         savedItem.type === 'text' ? (
-                          <div
-                            className="saved-item-slot-text"
-                            draggable={true}
-                            onDragStart={(e) => handleSavedItemDragStart(e, savedItem)}
-                            onClick={() => handleSavedItemClick(savedItem)}
-                            title={`点击复用文字: "${savedItem.content}"`}
+                          <Dropdown
+                            trigger={['contextMenu']}
+                            menu={{
+                              items: [{ key: 'delete', label: t('common.delete') }],
+                              onClick: ({ key }) => {
+                                if (key === 'delete') confirmDeleteSavedItem(savedItem);
+                              },
+                            }}
                           >
-                            <span
-                              className="saved-item-text-content"
-                              style={textPreviewStyle} // <-- 4. 在这里应用样式
+                            <div
+                              className="saved-item-slot-text"
+                              draggable={true}
+                              onDragStart={(e) => handleSavedItemDragStart(e, savedItem)}
+                              onClick={() => handleSavedItemClick(savedItem)}
+                              onContextMenu={(e) => e.preventDefault()}
+                              title={`${t('designer.library.slotReuseTextTitle', { content: savedItem.content })} ${t('designer.library.hintRightClickDelete')}`}
                             >
-                              {savedItem.content.length > 20 ? savedItem.content.substring(0, 18) + '...' : savedItem.content}
-                            </span>
-                            <span className="saved-item-text-label">文字</span>
-                          </div>
+                              <span
+                                className="saved-item-text-content"
+                                style={textPreviewStyle} // <-- 4. 在这里应用样式
+                              >
+                                {savedItem.content.length > 20 ? savedItem.content.substring(0, 18) + '...' : savedItem.content}
+                              </span>
+                              <span className="saved-item-text-label">{t('designer.library.textLabel')}</span>
+                            </div>
+                          </Dropdown>
                         ) : (
 
                           // 29. 否则，渲染艺术图案卡片 (旧逻辑)
-                          <Popover
-                            placement="top"
-                            title={null}
-                            content={
-                              <div className="popover-preview-content">
+                          <Dropdown
+                            trigger={['contextMenu']}
+                            menu={{
+                              items: [{ key: 'delete', label: t('common.delete') }],
+                              onClick: ({ key }) => {
+                                if (key === 'delete') confirmDeleteSavedItem(savedItem);
+                              },
+                            }}
+                          >
+                            <span style={{ display: 'block', width: '100%', height: '100%' }} onContextMenu={(e) => e.preventDefault()}>
+                              <Popover
+                                placement="top"
+                                title={null}
+                                content={
+                                  <div className="popover-preview-content">
+                                    <img
+                                      src={savedItem.modifiedImageData || savedItem.thumbnail || savedItem.imagePath || '/images/placeholder.png'}
+                                      alt={savedItem.name || savedItem.subclass}
+                                      className="popover-preview-img"
+                                      style={thumbStyle}
+                                    />
+                                    <p className="popover-preview-name">{savedItem.name || savedItem.subclass}</p>
+                                    <p className="popover-preview-hint">{t('designer.library.popoverHintWithDelete')}</p>
+                                  </div>
+                                }
+                              >
                                 <img
                                   src={savedItem.modifiedImageData || savedItem.thumbnail || savedItem.imagePath || '/images/placeholder.png'}
                                   alt={savedItem.name || savedItem.subclass}
-                                  className="popover-preview-img"
+                                  className="saved-art-thumb"
+                                  draggable={true}
+                                  onDragStart={(e) => handleSavedItemDragStart(e, savedItem)} // 30. 更新 handler
+                                  onClick={() => handleSavedItemClick(savedItem)} // 30. 更新 handler
+                                  title={t('designer.library.popoverHintWithDelete')}
                                   style={thumbStyle}
                                 />
-                                <p className="popover-preview-name">{savedItem.name || savedItem.subclass}</p>
-                                <p className="popover-preview-hint">拖拽到场景或点击复用</p>
-                              </div>
-                            }
-                          >
-                            <img
-                              src={savedItem.modifiedImageData || savedItem.thumbnail || savedItem.imagePath || '/images/placeholder.png'}
-                              alt={savedItem.name || savedItem.subclass}
-                              className="saved-art-thumb"
-                              draggable={true}
-                              onDragStart={(e) => handleSavedItemDragStart(e, savedItem)} // 30. 更新 handler
-                              onClick={() => handleSavedItemClick(savedItem)} // 30. 更新 handler
-                              title="拖拽到场景或点击复用"
-                              style={thumbStyle}
-                            />
-                          </Popover>
+                              </Popover>
+                            </span>
+                          </Dropdown>
                         )
                       ) : (
                         // 31. 渲染空插槽

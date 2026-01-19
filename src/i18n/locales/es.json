@@ -85,7 +85,26 @@
     "printDesign": "Imprimir diseño",
     "emailDownload": "Email/Descargar",
     "artOptions": "Opciones de arte",
-    "recentlySaved": "Guardado recientemente"
+    "recentlySaved": "Guardado recientemente",
+    "library": {
+      "full": "La biblioteca está llena",
+      "saveArtSuccess": "Patrón guardado en la biblioteca",
+      "saveTextSuccess": "Texto guardado en la biblioteca",
+      "saveFailed": "Error al guardar",
+      "addedText": "Texto guardado agregado: \"{{content}}\"",
+      "addedArt": "Patrón guardado agregado: {{name}}",
+      "needMonumentForText": "Primero agregue un monumento principal para añadir texto",
+      "slotEmptyTitle": "Arrastre un elemento aquí para guardar",
+      "slotReuseTextTitle": "Haga clic para reutilizar el texto: \"{{content}}\"",
+      "slotReuseArtTitle": "Haga clic para reutilizar el patrón: {{name}}",
+      "hintRightClickDelete": "(clic derecho para eliminar)",
+      "popoverHintWithDelete": "Arrastre a la escena o haga clic para reutilizar (clic derecho para eliminar)",
+      "textLabel": "Texto",
+      "deleteConfirmTitle": "¿Eliminar de la biblioteca?",
+      "deleteConfirmContent": "¿Seguro que desea eliminar {{label}}?",
+      "deleteThisText": "este texto",
+      "deleteThisPattern": "este patrón"
+    }
   },
   "savedDesigns": {
     "pageTitle": "Diseños guardados",

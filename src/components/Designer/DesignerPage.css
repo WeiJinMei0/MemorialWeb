@@ -202,7 +202,7 @@
   max-height: 60vh;
   background: white;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 100 !important;
 }
 
@@ -475,13 +475,18 @@
 /* 让页脚主容器横向排列 */
 .footer-content-wrapper {
   display: flex;
-  justify-content: center; /* 居中排列 */
-  align-items: stretch; /* 让子元素高度一致 */
-  gap: 12px; /* 减少间距，使更紧凑 */
+  justify-content: center;
+  /* 居中排列 */
+  align-items: stretch;
+  /* 让子元素高度一致 */
+  gap: 12px;
+  /* 减少间距，使更紧凑 */
   width: 100%;
   height: 100%;
-  max-width: 1200px; /* 限制最大宽度 */
-  margin: 0 auto; /* 水平居中 */
+  max-width: 1200px;
+  /* 限制最大宽度 */
+  margin: 0 auto;
+  /* 水平居中 */
 }
 
 /* 限制左侧控制区域的宽度，让右侧有空间 */
@@ -556,6 +561,15 @@
   object-fit: contain;
   margin-bottom: 8px;
   border-radius: 4px;
+  /* 让透明/白色图案在预览中可见：棋盘格背景 */
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #c8c8c8 25%, transparent 25%),
+    linear-gradient(-45deg, #c8c8c8 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #c8c8c8 75%),
+    linear-gradient(-45deg, transparent 75%, #c8c8c8 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
 }
 
 .popover-preview-name {
@@ -785,7 +799,15 @@
 /* 有艺术图案的插槽 */
 .art-option-slot.has-art {
   border: 2px solid #1890ff;
+  /* 让透明/白色图案在插槽中可见：棋盘格背景 */
   background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #c8c8c8 25%, transparent 25%),
+    linear-gradient(-45deg, #c8c8c8 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #c8c8c8 75%),
+    linear-gradient(-45deg, transparent 75%, #c8c8c8 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
   padding: 2px;
 }
 
@@ -803,6 +825,15 @@
   border-radius: 2px;
   cursor: pointer;
   transition: transform 0.2s;
+  /* 防止透明/白色图案在缩略图中“消失” */
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #c8c8c8 25%, transparent 25%),
+    linear-gradient(-45deg, #c8c8c8 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #c8c8c8 75%),
+    linear-gradient(-45deg, transparent 75%, #c8c8c8 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
 }
 
 .saved-art-thumb:hover {
@@ -1000,7 +1031,8 @@
 
 
 .dimension-control--selected {
-  background-color: rgba(24, 144, 255, 0.12); /* Ant Design 主蓝 */
+  background-color: rgba(24, 144, 255, 0.12);
+  /* Ant Design 主蓝 */
   box-shadow: inset 0 0 0 1px #1890ff;
 }
 
@@ -1031,26 +1063,28 @@ body.ctrl-pressed {
 
 /* 左上角选中提示 - 简化版 */
 .top-left-selection-hint {
-  position: fixed; /* 使用 fixed 让他相对于视口 */
+  position: fixed;
+  /* 使用 fixed 让他相对于视口 */
   top: 80px;
   right: 200px;
   left: auto;
-  
-  z-index: 10000; /* 提高z-index确保在最上层 */
+
+  z-index: 10000;
+  /* 提高z-index确保在最上层 */
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-radius: 12px;
-  box-shadow: 
+  box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.1),
     0 2px 8px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(0, 0, 0, 0.08);
   min-width: 200px;
-  
+
   /* 现代动画 */
   animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  
+
   /* 确保内容不会超出 */
   max-width: calc(100vw - 48px);
   box-sizing: border-box;
@@ -1062,6 +1096,7 @@ body.ctrl-pressed {
     opacity: 0;
     transform: translateX(30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -1070,7 +1105,7 @@ body.ctrl-pressed {
 
 /* 悬停效果 */
 .top-left-selection-hint:hover {
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.15),
     0 4px 16px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
@@ -1133,6 +1168,7 @@ body.ctrl-pressed {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1175,7 +1211,7 @@ body.ctrl-pressed {
     left: 10px;
     min-width: 150px;
   }
-  
+
   .selection-hint-content {
     padding: 6px 10px;
     gap: 8px;

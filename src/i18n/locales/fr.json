@@ -86,7 +86,26 @@
     "emailDownload": "Email/Télécharger",
     "artOptions": "Options d'art",
     "recentlySaved": "Récemment sauvegardé",
-    "Grid": "Grille"
+    "Grid": "Grille",
+    "library": {
+      "full": "La bibliothèque est pleine",
+      "saveArtSuccess": "Motif enregistré dans la bibliothèque",
+      "saveTextSuccess": "Texte enregistré dans la bibliothèque",
+      "saveFailed": "Échec de l’enregistrement",
+      "addedText": "Texte enregistré ajouté : \"{{content}}\"",
+      "addedArt": "Motif enregistré ajouté : {{name}}",
+      "needMonumentForText": "Veuillez d’abord ajouter un monument principal avant d’ajouter du texte",
+      "slotEmptyTitle": "Faites glisser un élément ici pour l’enregistrer",
+      "slotReuseTextTitle": "Cliquez pour réutiliser le texte : \"{{content}}\"",
+      "slotReuseArtTitle": "Cliquez pour réutiliser le motif : {{name}}",
+      "hintRightClickDelete": "(clic droit pour supprimer)",
+      "popoverHintWithDelete": "Faites glisser vers la scène ou cliquez pour réutiliser (clic droit pour supprimer)",
+      "textLabel": "Texte",
+      "deleteConfirmTitle": "Supprimer de la bibliothèque ?",
+      "deleteConfirmContent": "Êtes-vous sûr de vouloir supprimer {{label}} ?",
+      "deleteThisText": "ce texte",
+      "deleteThisPattern": "ce motif"
+    }
   },
   "savedDesigns": {
     "pageTitle": "Conceptions sauvegardées",
@@ -255,6 +274,7 @@
     "close": "Fermer",
     "save": "Sauvegarder",
     "cancel": "Annuler",
+    "delete": "Supprimer",
     "delete": "Supprimer",
     "confirm": "Confirmer",
     "loading": "Chargement...",

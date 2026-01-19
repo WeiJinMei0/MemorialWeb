@@ -89,7 +89,26 @@
     "Grid": "Grid",
     "lockView": "L",
     "rotateView": "R",
-    "frontView": "S"
+    "frontView": "S",
+    "library": {
+      "full": "Library is full",
+      "saveArtSuccess": "Pattern saved to library",
+      "saveTextSuccess": "Text saved to library",
+      "saveFailed": "Save failed",
+      "addedText": "Added saved text: \"{{content}}\"",
+      "addedArt": "Added saved pattern: {{name}}",
+      "needMonumentForText": "Please add a main monument before adding text",
+      "slotEmptyTitle": "Drag an item here to save",
+      "slotReuseTextTitle": "Click to reuse text: \"{{content}}\"",
+      "slotReuseArtTitle": "Click to reuse pattern: {{name}}",
+      "hintRightClickDelete": "(right-click to delete)",
+      "popoverHintWithDelete": "Drag to scene or click to reuse (right-click to delete)",
+      "textLabel": "Text",
+      "deleteConfirmTitle": "Remove from library?",
+      "deleteConfirmContent": "Are you sure you want to delete {{label}}?",
+      "deleteThisText": "this text",
+      "deleteThisPattern": "this pattern"
+    }
   },
   "savedDesigns": {
     "pageTitle": "Saved Designs",
