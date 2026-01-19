@@ -104,6 +104,8 @@ const ArtEditorPanel = ({
   const currentLineAlpha = art.properties?.lineAlpha ?? 1.0;
   const isTransparent = fillColor === 'transparent' || fillColor === 'rgba(0, 0, 0, 0)';
   const currentFillColor = isTransparent ? 'transparent' : (fillColor || '#4285F4');
+  const hasSavedFillColor = art.properties?.fillColor != null;
+  const insertDefaultFillColor = hasSavedFillColor ? currentFillColor : '#FFFFFF';
   const isFrost = fillColor === 'frost';
 
   // 'keepColor' | 'insert' | 'specialFilling'
@@ -116,7 +118,7 @@ const ArtEditorPanel = ({
       lineAlpha: currentLineAlpha
     },
     insert: {
-      fillColor: currentFillColor,
+      fillColor: insertDefaultFillColor,
       isFrost: isFrost,
       isPartialFill: isPartialFill
     },
@@ -137,7 +139,7 @@ const ArtEditorPanel = ({
         lineAlpha: currentLineAlpha
       },
       insert: {
-        fillColor: currentFillColor,
+        fillColor: insertDefaultFillColor,
         isFrost: isFrost,
         isPartialFill: isPartialFill
       },
