@@ -496,6 +496,9 @@ const DesignerPage = () => {
   // handleArtElementSelect
   const handleArtElementSelect = useCallback((artId) => {
     if (artId !== null) {
+      setSelectedElements([]);
+      // 取消文本选中
+      handleTextSelect(null);
       // setIsTextEditing(false);
       // setCurrentTextId(null);
       // setSelectedVaseId(null); // 取消选中花瓶
@@ -526,6 +529,9 @@ const DesignerPage = () => {
 
   const handleVaseElementSelect = useCallback((vaseId) => {
     if (vaseId !== null) {
+      setSelectedElements([]);
+      // 取消文本选中
+      handleTextSelect(null);
       // setIsTextEditing(false);
       // setCurrentTextId(null);
       // handleArtElementSelect(null); // 取消选中艺术图案
@@ -566,6 +572,8 @@ const DesignerPage = () => {
         designState.bases.forEach(b => selectElement(b.id, 'base', false));
         designState.subBases.forEach(sb => selectElement(sb.id, 'subBase', false));
       }
+      // 取消文本选中
+      handleTextSelect(null);
       return;
     }
 
@@ -639,6 +647,7 @@ const DesignerPage = () => {
   const handleToolSelect = (key) => {
     handleArtElementSelect(null);
     handleCloseVaseEditor();
+    handleTextSelect(null); // 清除文本选中状态
 
     // 如果点击的是 Text 工具
     if (key === 'text') {
@@ -915,39 +924,36 @@ const DesignerPage = () => {
     // 1. 互斥逻辑：如果选中了文字，就取消选中其他元素
     setSelectedModelId(null);
     setSelectedModelType(null);
-    if (selectElement) {
-      selectElement(textId, 'text');
-    }
     handleArtElementSelect(null);
     handleCloseVaseEditor();
+    // 清除所有其他选中状态
+    if (clearAllSelection) clearAllSelection();
 
     // 2. 更新当前选中的文字 ID
     setCurrentTextId(textId);
-
-    setActiveTool('text');
     if (textId) {
       setIsTextEditing(true);
       setTextSelected(textId, true);
       setActiveTool('text');
+      setSelectedElements([]);
     } else {
+      // 如果没有文本被选中，关闭文本工具
       setIsTextEditing(false);
-      setActiveTool(prevTool => prevTool === 'text' ? null : prevTool);
+      setActiveTool(null);
+      // 清除所有文本的选中状态
+      designState.textElements.forEach(text => {
+        setTextSelected(text.id, false);
+      });
+      // 同时清除本地选中状态
+      setCurrentTextId(null);
     }
-  }, [handleArtElementSelect, handleCloseVaseEditor, setTextSelected, selectElement]);
+  }, [handleArtElementSelect, handleCloseVaseEditor, clearAllSelection, designState.textElements, setTextSelected]);
 
   // --- 【新增】: 关闭文字编辑器的处理函数 ---
   const handleCloseTextEditor = useCallback(() => {
-    // 1. 关闭工具栏
-    setActiveTool(null);
-    // 2. 退出编辑模式
-    setIsTextEditing(false);
-    // 3. 清除当前选中的文字 ID
-    setCurrentTextId(null);
-    // 4. 清除 3D 场景中的选中状态 (移除坐标轴)
-    designState.textElements.forEach(text => {
-      setTextSelected(text.id, false);
-    });
-  }, [setActiveTool, setIsTextEditing, setCurrentTextId, designState.textElements, setTextSelected]);
+     // 清除文本选中状态
+    handleTextSelect(null);
+  }, [handleTextSelect]);
 
   // // Art Options 拖拽处理函数
   // const handleArtDragStart = useCallback((e, artElement) => {

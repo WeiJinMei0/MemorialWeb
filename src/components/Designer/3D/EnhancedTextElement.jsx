@@ -20,6 +20,20 @@ const DEFAULT_FONT_OPTION = {
   cssFamily: 'serif' 
 };
 
+/**
+ * 计算字符宽度（近似值）
+ */
+const calculateCharWidth = (char, fontSize) => {
+  // 字符宽度映射（相对值）
+  const widthMap = {
+    'i': 0.3, 'l': 0.3, 'I': 0.4, '1': 0.4, '!': 0.3,
+    '.': 0.2, ',': 0.2, ':': 0.2, ';': 0.2,
+    't': 0.4, 'f': 0.4, 'r': 0.5, 'j': 0.3,
+    'm': 0.9, 'w': 0.9, 'M': 1.0, 'W': 1.0,
+    ' ': 0.3, // 空格
+  };
+  return (widthMap[char] || 0.7) * fontSize;
+};
 
 // 高清
 function shapeToPath(shape, offsetX, offsetY) {
@@ -79,14 +93,14 @@ const useSVGTexture = (textContent, options = {}) => {
         textContent,
         fontSize * textureScale,
         { 
-          letterSpacing: kerning*10, // 应用字间距
+          letterSpacing: kerning, // 应用字间距
         }
       );
 
       const geometry = new THREE.ShapeGeometry(shapes);
       geometry.computeBoundingBox();
 
-      const box = geometry.boundingBox;
+      const box                           = geometry.boundingBox;
 
       const textWidth  = box.max.x - box.min.x;
       const textHeight = box.max.y - box.min.y;
@@ -520,7 +534,7 @@ const EnhancedTextElement = ({
       // 延迟设置焦点状态，确保DOM已更新
       const timer = setTimeout(() => {
         setInputHasFocus(true);
-      }, 100);
+      }, 10);
       return () => clearTimeout(timer);
     } else {
       setInputHasFocus(false);
@@ -551,26 +565,43 @@ const EnhancedTextElement = ({
     const content = text.content || 'Enter Text';
     const lines = textDirection === 'horizontal' ? content.split('\n') : content.split('');
     let maxWidth = 0;
-    lines.forEach(line => {
-      const w = line.length * fontSize * charWidth + (line.length * fontSize * (text.kerning || 0) * 0.001);
-      if (w > maxWidth) maxWidth = w;
-    });
-    const totalHeight = lines.length * fontSize * (text.lineSpacing || 1.2);
-    // 计算边界 (假设文字中心在原点附近)    
+    let totalHeight = 0;
+    
+    if (text.alignment === 'justify' && textDirection === 'horizontal') {
+      // 对于两端对齐，计算最大行宽
+      lines.forEach(line => {
+        if (line.trim() === '') return;
+        let lineWidth = 0;
+        for (let i = 0; i < line.length; i++) {
+          lineWidth += calculateCharWidth(line[i], fontSize);
+        }
+        lineWidth += (line.length - 1) * fontSize * (text.kerning || 0) * 0.001;
+        maxWidth = Math.max(maxWidth, lineWidth);
+      });
+    } else {
+      // 其他对齐方式
+      lines.forEach(line => {
+        const w = line.length * fontSize * 0.6 + (line.length * fontSize * (text.kerning || 0) * 0.001);
+        if (w > maxWidth) maxWidth = w;
+      });
+    }
+    
+    totalHeight = lines.length * fontSize * (text.lineSpacing || 1.2);
+    
+    // 计算边界
     const halfW = maxWidth / 2;
     const halfH = totalHeight / 2;
-    // --- 调整这里来控制 UI 距离 ---    
-    const paddingX = 0.15; // 左右额外的间距    
-    const paddingY = 0.10; // 上下额外的间距
+    const paddingX = 0.15;
+    const paddingY = 0.10;
+    
     setUiPos({
-      // 左上角：向左上偏移      
       topLeft: [-halfW - paddingX, halfH + paddingY, 0],
-      // 右上角：向右上偏移      
       topRight: [halfW + paddingX, halfH + paddingY, 0],
-      // 底部中心：向下偏移，确保不遮挡      
-      bottomCenter: [0.1, -halfH - 0.02, 0]
+      bottomCenter: [0.1, -halfH - 0.02, 0],
+      width: maxWidth,
+      height: totalHeight
     });
-  }, [text.content, text.size, text.kerning, text.lineSpacing, textDirection]);
+  }, [text.content, text.size, text.kerning, text.lineSpacing, textDirection, text.alignment]);
 
 
   // 内容变化后重新计算包围盒
@@ -707,11 +738,13 @@ const EnhancedTextElement = ({
   //  对齐偏移计算 (保留 left, center, right)
   const lineRefs = useRef([]);
   const [lineOffsets, setLineOffsets] = useState([]);
+  const [justifySpacing, setJustifySpacing] = useState([]); // 新增：存储两端对齐的额外间距
 
   // 更新行偏移计算
   useEffect(() => {
     if (!text.content) {
       setLineOffsets([]);
+      setJustifySpacing([]);
       return;
     }
 
@@ -722,6 +755,7 @@ const EnhancedTextElement = ({
     
     if (lines.length === 0) {
       setLineOffsets([]);
+      setJustifySpacing([]);
       return;
     }
 
@@ -733,19 +767,28 @@ const EnhancedTextElement = ({
     const CHAR_WIDTH_FACTOR = 0.6;
     const CHAR_HEIGHT_FACTOR = 1.0;
     
-    // 计算每行的尺寸
+     // 计算每行的尺寸
     const lineDimensions = lines.map(line => {
       if (textDirection === 'horizontal') {
-        // 水平文本：计算宽度
-        const charCount = line.length || 1;
-        const width = charCount * fontSize * CHAR_WIDTH_FACTOR + 
-                     (charCount - 1) * fontSize * kerning;
-        return { width, height: fontSize * CHAR_HEIGHT_FACTOR };
+        // 计算每行的实际宽度（考虑字符宽度差异）
+        let actualWidth = 0;
+        if (text.alignment === 'justify') {
+          // 对于两端对齐，需要计算实际字符宽度
+          for (let i = 0; i < line.length; i++) {
+            actualWidth += calculateCharWidth(line[i], fontSize);
+          }
+          actualWidth += (line.length - 1) * fontSize * kerning;
+        } else {
+          // 其他对齐方式使用近似值
+          const charCount = line.length || 1;
+          actualWidth = charCount * fontSize * CHAR_WIDTH_FACTOR +
+            (charCount - 1) * fontSize * kerning;
+        }
+        return { width: actualWidth, height: fontSize * CHAR_HEIGHT_FACTOR };
       } else {
-        // 垂直文本：计算高度
         const charCount = line.length || 1;
-        const height = charCount * fontSize * CHAR_HEIGHT_FACTOR + 
-                      (charCount - 1) * fontSize * (text.lineSpacing || 1.2);
+        const height = charCount * fontSize * CHAR_HEIGHT_FACTOR +
+          (charCount - 1) * fontSize * (text.lineSpacing || 1.2);
         return { width: fontSize * CHAR_WIDTH_FACTOR, height };
       }
     });
@@ -758,13 +801,17 @@ const EnhancedTextElement = ({
       maxDimension = Math.max(...lineDimensions.map(d => d.height));
     }
 
-    // 根据对齐方式计算偏移量
-    const newOffsets = lines.map((line, index) => {
+    // 根据对齐方式计算偏移量和两端对齐的额外间距
+    const newOffsets = [];
+    const newJustifySpacing = [];
+
+    lines.forEach((line, index) => {
       const dim = lineDimensions[index];
-      
+
       if (textDirection === 'horizontal') {
-        // 水平文本：计算X轴偏移
         let x = 0;
+        let justifyExtra = 0;
+
         switch (text.alignment) {
           case 'left':
             x = -maxDimension / 2 + dim.width / 2;
@@ -773,17 +820,30 @@ const EnhancedTextElement = ({
             x = maxDimension / 2 - dim.width / 2;
             break;
           case 'justify':
-            // 两端对齐：左对齐，后面会有特殊处理
-            x = -maxDimension / 2 + dim.width / 2;
+            // 两端对齐：计算额外间距
+            if (line.trim() === '') {
+              // 空行不需要两端对齐
+              x = -maxDimension / 2;
+              justifyExtra = 0;
+            } else if (line.length > 1) {
+              // 计算额外间距
+              const totalGapSpace = maxDimension - dim.width;
+              justifyExtra = totalGapSpace / (line.length - 1);
+              x = -maxDimension / 2;
+            } else {
+              // 只有一个字符，居中显示
+              x = 0;
+              justifyExtra = 0;
+            }
             break;
           case 'center':
           default:
             x = 0;
             break;
         }
-        return { x, y: 0 };
+        newOffsets.push({ x, y: 0 });
+        newJustifySpacing.push(justifyExtra);
       } else {
-        // 垂直文本：计算Y轴偏移
         let y = 0;
         switch (text.alignment) {
           case 'left':
@@ -793,6 +853,7 @@ const EnhancedTextElement = ({
             y = -maxDimension / 2 + dim.height / 2;
             break;
           case 'justify':
+            // 垂直文本的两端对齐暂不支持，使用左对齐
             y = maxDimension / 2 - dim.height / 2;
             break;
           case 'center':
@@ -800,11 +861,13 @@ const EnhancedTextElement = ({
             y = 0;
             break;
         }
-        return { x: 0, y };
+        newOffsets.push({ x: 0, y });
+        newJustifySpacing.push(0);
       }
     });
 
     setLineOffsets(newOffsets);
+    setJustifySpacing(newJustifySpacing);
   }, [text.content, text.size, text.kerning, text.lineSpacing, text.alignment, textDirection]);
 
   const lines = useMemo(() => {
@@ -898,6 +961,63 @@ const EnhancedTextElement = ({
     });
   };
 
+  // 渲染两端对齐的文本行
+  const renderJustifiedLine = (line, lineIndex, positionX, positionY) => {
+    const fontSize = text.size * 0.0254;
+    const kerning = (text.kerning || 0) * 0.001;
+    const extraSpacing = justifySpacing[lineIndex] || 0;
+
+    // 检查整行是否包含非英文字符
+    const hasNonEnglish = /[^A-Za-z0-9\u0020-\u007E]/.test(line);
+    let lineFontFamily = text.font || 'Cambria_Regular';
+    if (hasNonEnglish) {
+      const firstNonEnChar = line.match(/[^A-Za-z0-9\u0020-\u007E]/)?.[0];
+      if (firstNonEnChar) {
+        const lang = detectCharLanguage(firstNonEnChar);
+        const fallbackFamily = getFontFamilyForLanguage(text.font, lang);
+        lineFontFamily = fallbackFamily || 'Cambria_Regular';
+      }
+    }
+
+    if (line.trim() === '') {
+      // 空行不需要渲染
+      return null;
+    }
+
+    return (
+      <group key={lineIndex} position={[positionX, positionY, 0]}>
+        {line.split('').map((char, charIndex) => {
+          // 计算字符位置
+          let x = 0;
+          for (let i = 0; i < charIndex; i++) {
+            x += calculateCharWidth(line[i], fontSize);
+            x += fontSize * kerning;
+            if (i < charIndex - 1) {
+              x += extraSpacing;
+            }
+          }
+          x += calculateCharWidth(char, fontSize) / 2;
+
+          return (
+            <group key={charIndex} position={[x, 0, 0]}>
+              <Text3D
+                font={localGetFontPath(lineFontFamily, char)}
+                size={fontSize}
+                height={text.thickness || 0.02}
+                material={textMaterial}
+                bevelEnabled
+                bevelSize={0.002}
+                bevelThickness={0.002}
+              >
+                {char}
+              </Text3D>
+            </group>
+          );
+        })}
+      </group>
+    );
+  };
+
   const renderNormalText = () => {
     const fontSize = text.size * 0.0254;
     const lineGap = fontSize * (text.lineSpacing || 1.2);
@@ -927,16 +1047,19 @@ const EnhancedTextElement = ({
             );
           }
 
+          // 如果是两端对齐且水平文本，使用特殊渲染
+          if (text.alignment === 'justify' && textDirection === 'horizontal') {
+            return renderJustifiedLine(ln, idx, positionX, positionY);
+          }
+
           // 检查整行是否包含非英文字符
           const hasNonEnglish = /[^A-Za-z0-9\u0020-\u007E]/.test(ln);
           let lineFontFamily = text.font || 'Cambria_Regular';
           if (hasNonEnglish) {
-            // 检查当前字体是否支持该字符类型（如中文/韩文）
-            // 取第一个非英文字符，检测其语言
             const firstNonEnChar = ln.match(/[^A-Za-z0-9\u0020-\u007E]/)?.[0];
             if (firstNonEnChar) {
               const lang = detectCharLanguage(firstNonEnChar);
-              const fallbackFamily = getFontFamilyForLanguage(text.font, lang)
+              const fallbackFamily = getFontFamilyForLanguage(text.font, lang);
               lineFontFamily = fallbackFamily || 'Cambria_Regular';
             }
           }
@@ -972,13 +1095,13 @@ const EnhancedTextElement = ({
               >
                 {ln}
               </Text3D>
-
             </group>
           );
         })}
       </group>
     );
   };
+
 
   
   const renderTextContent = () => {
@@ -1302,7 +1425,7 @@ const EnhancedTextElement = ({
         </Html>
 
         {/* 底部：根据焦点状态显示不同的按钮 */}
-        <Html position={uiPos.bottomCenter} center zIndexRange={[100, 0]}>
+        {/* <Html position={uiPos.bottomCenter} center zIndexRange={[20001, 20002]} >
           <div style={{ transform: 'translate(-50%, 50%)' }}>
             <div
               style={{
@@ -1310,7 +1433,8 @@ const EnhancedTextElement = ({
                 padding: '4px 12px',
                 fontSize: '14px',
                 gap: '6px',
-                background: inputHasFocus ? '#2F4F4F' : '#556B2F'
+                background: inputHasFocus ? '#2F4F4F' : '#556B2F',
+                cursor: 'pointer'  // 确保明确设置
               }}
               onClick={handleDone}
               onPointerDown={(e) => e.stopPropagation()}
@@ -1326,10 +1450,57 @@ const EnhancedTextElement = ({
               )}
             </div>
           </div>
-        </Html>
+        </Html> */}
       </>
     );
   }, [isSelected, isTextEditing, uiPos, text.content, inputHasFocus, t]);
+  useEffect(() => {
+  // 使用ref来跟踪是否正在拖拽
+  const isDraggingRef = { current: false };
+  
+  const handleMouseDown = () => {
+    // 延迟设置拖拽标志
+    setTimeout(() => {
+      isDraggingRef.current = true;
+    }, 50);
+  };
+  
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+  };
+  
+  const handleClick = (e) => {
+    // 如果正在拖拽，不处理点击
+    if (isDraggingRef.current) {
+      return;
+    }
+    
+    // 检查点击是否在canvas上
+    const clickedOnCanvas = e.target.tagName === 'CANVAS';
+    const clickedOnText = e.composedPath().some(element => {
+      return element.classList && element.classList.contains('text-element');
+    });
+    
+    if (clickedOnCanvas && !clickedOnText && isSelected && isTextEditing) {
+      if (onTextSelect) {
+        onTextSelect(null);
+      }
+    }
+  };
+  
+  // 监听全局鼠标事件来检测拖拽
+  document.addEventListener('mousedown', handleMouseDown);
+  document.addEventListener('mouseup', handleMouseUp);
+  document.addEventListener('click', handleClick);
+  
+  return () => {
+    document.removeEventListener('mousedown', handleMouseDown);
+    document.removeEventListener('mouseup', handleMouseUp);
+    document.removeEventListener('click', handleClick);
+  };
+}, [isSelected, isTextEditing, onTextSelect]);
+  
+
 
   return (
     <>
