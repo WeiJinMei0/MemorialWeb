@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { List, Card, Button, Empty, message, App, Image, Tag, Input } from 'antd';
+import { List, Card, Button, Empty, App, Image, Tag, Input } from 'antd';
 import { EyeOutlined, DeleteOutlined, ExclamationCircleOutlined, SyncOutlined, EditOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -17,7 +17,7 @@ const SavedDesignsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { modal } = App.useApp();
+  const { modal, message } = App.useApp();
 
   // Load designs from cache, sync from server if needed
   useEffect(() => {

@@ -78,6 +78,21 @@ class DesignCache {
       return this.cache.designs;
     }
 
+    // Prevent concurrent sync requests
+    if (this.isSyncing) {
+      // Wait for current sync to complete and return cached data
+      return new Promise((resolve) => {
+        const checkSync = setInterval(() => {
+          if (!this.isSyncing) {
+            clearInterval(checkSync);
+            resolve(this.cache.designs);
+          }
+        }, 100);
+      });
+    }
+
+    this.isSyncing = true;
+
     try {
       // Fetch all designs from server
       const response = await designService.list({ page: 1, pageSize: 1000 });
@@ -102,6 +117,8 @@ class DesignCache {
       console.error('Failed to sync from server:', error);
       // Return cached data on error
       return this.cache.designs;
+    } finally {
+      this.isSyncing = false;
     }
   }
 
