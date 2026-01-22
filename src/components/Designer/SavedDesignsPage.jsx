@@ -24,7 +24,7 @@ const SavedDesignsPage = () => {
     const fetchDesigns = async () => {
       try {
         setLoading(true);
-        designCache.init();
+        await designCache.init();
         
         // First show cached data immediately
         const cachedDesigns = designCache.getDesigns();

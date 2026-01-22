@@ -449,7 +449,7 @@ const DesignerPage = () => {
       try {
         if (user?.id) {
           // Initialize cache and sync from server on first load
-          designCache.init();
+          await designCache.init();
           const designs = await designCache.syncFromServer();
           
           // Get recent designs from cache
