@@ -687,12 +687,34 @@ export const useDesignState = () => {
     });
   }, [addHistory]);
 
-  // --- 这是您文件中的 loadDesign (现在它被正确包含了) ---
+  // --- loadDesign: Load design with default values for missing fields ---
   const loadDesign = useCallback((designToLoad) => {
-    const parsedDesign = JSON.parse(JSON.stringify(designToLoad));
-    setDesignState(parsedDesign);
-    historyRef.current = [parsedDesign];
-    historyIndexRef.current = 0;
+    try {
+      const parsedDesign = JSON.parse(JSON.stringify(designToLoad));
+      
+      // Ensure all required fields have default values
+      const safeDesign = {
+        monuments: parsedDesign.monuments || [],
+        bases: parsedDesign.bases || [],
+        subBases: parsedDesign.subBases || [],
+        vases: parsedDesign.vases || [],
+        artElements: parsedDesign.artElements || [],
+        textElements: parsedDesign.textElements || parsedDesign.texts || [],
+        currentMaterial: parsedDesign.currentMaterial || 'Black',
+        // Keep any additional fields from the loaded design
+        ...parsedDesign
+      };
+      
+      setDesignState(safeDesign);
+      historyRef.current = [safeDesign];
+      historyIndexRef.current = 0;
+    } catch (error) {
+      console.error('Error loading design:', error);
+      // If loading fails, reset to initial state
+      setDesignState(initialDesignState);
+      historyRef.current = [JSON.parse(JSON.stringify(initialDesignState))];
+      historyIndexRef.current = 0;
+    }
   }, []);
 
 
