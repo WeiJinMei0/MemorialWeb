@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE } from '../config';
+import designCache from '../services/designCache';
 
 const AuthContext = createContext();
 
@@ -10,8 +12,6 @@ export const useAuth = () => {
   }
   return context;
 };
-
-const API_BASE = 'http://124.222.179.227:8080/api';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
@@ -51,6 +51,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // Clear design cache before logout
+    designCache.clearCache();
+    
     setUser(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');

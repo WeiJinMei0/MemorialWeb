@@ -358,17 +358,17 @@ const MonumentScene = forwardRef(({
     captureThumbnail: () => {
       return new Promise((resolve) => {
         const canvas = gl.domElement;
-        canvas.toBlob((blob) => {
-          resolve(URL.createObjectURL(blob));
-        }, 'image/png', 1.0);
+        // Return base64 data URL instead of blob URL for persistent storage
+        const dataURL = canvas.toDataURL('image/png', 0.8);
+        resolve(dataURL);
       });
     },
     captureProof: () => {
       return new Promise((resolve) => {
         const canvas = gl.domElement;
-        canvas.toBlob((blob) => {
-          resolve(URL.createObjectURL(blob));
-        }, 'image/png', 1.0);
+        // Return base64 data URL for proof images
+        const dataURL = canvas.toDataURL('image/png', 1.0);
+        resolve(dataURL);
       });
     },
     getArtCanvasData: () => {

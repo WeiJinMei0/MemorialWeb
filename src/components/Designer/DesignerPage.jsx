@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Layout, Button, message, Space, Select, Tooltip, InputNumber, App, Popover, Input, Modal, Dropdown } from 'antd';
+import { Layout, Button, Space, Select, Tooltip, InputNumber, App, Popover, Input, Modal, Dropdown } from 'antd';
 import {
   UndoOutlined,
   RedoOutlined,
@@ -26,7 +26,9 @@ import './DesignerPage.css';
 import OrderInfoModal from './Export/OrderInfoModal.jsx';
 import PrintPreviewModal from "./Export/PrintPreviewModal.jsx";
 import { PrinterOutlined } from '@ant-design/icons'; // 确保引入了打印图标
-import { AimOutlined } from '@ant-design/icons'; // 复位图标
+import { AimOutlined, CopyOutlined, DownOutlined } from '@ant-design/icons'; // 复位图标
+import designService from '../../services/designService';
+import designCache from '../../services/designCache'; // Design cache manager
 
 const { Sider, Content, Footer } = Layout;
 
@@ -40,7 +42,7 @@ const DesignerPage = () => {
   const navigate = useNavigate();
   const sceneRef = useRef();
   const { user } = useAuth();
-  const { modal } = App.useApp();
+  const { modal, message } = App.useApp();
 
   const [collapsed, setCollapsed] = useState(false);
   const [activeTool, setActiveTool] = useState(null);
@@ -90,6 +92,10 @@ const DesignerPage = () => {
 
   // 新增：旋转控制状态
   const [isViewRotatable, setIsViewRotatable] = useState(false);
+
+  // Current design info (for loaded designs)
+  const [currentDesignId, setCurrentDesignId] = useState(null);
+  const [currentDesignName, setCurrentDesignName] = useState(null);
 
   const BACKGROUND_OPTIONS = useMemo(() => [
     { value: 'transparent', label: t('backgrounds.transparent'), url: null },
@@ -437,31 +443,61 @@ const DesignerPage = () => {
   }, [modal, removeItemFromArtOptions, t]);
 
 
-  // 加载最近保存的设计和Art Options
+  // Load recent designs and Art Options using cache
   useEffect(() => {
-    try {
-      const allDesigns = JSON.parse(localStorage.getItem('savedDesigns') || '[]');
-      const userDesigns = allDesigns
-        .filter(design => design.userId === user?.id)
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, MAX_RECENTLY_SAVED);
-      setRecentlySaved(userDesigns);
+    const loadRecentDesigns = async () => {
+      try {
+        if (user?.id) {
+          // Initialize cache and sync from server on first load
+          designCache.init();
+          const designs = await designCache.syncFromServer();
+          
+          // Get recent designs from cache
+          const recentDesigns = designs.slice(0, MAX_RECENTLY_SAVED).map(item => ({
+            id: item.id,
+            name: item.name,
+            thumbnail: item.thumbnail,
+            timestamp: item.timestamp,
+            isSynced: item.isSynced
+          }));
+          setRecentlySaved(recentDesigns);
+        }
 
-      // 加载保存的Art Options
-      const savedItemsData = JSON.parse(localStorage.getItem('savedItems') || '[]');
-      const userItems = savedItemsData.filter(item => item.userId === user?.id);
-      setSavedArtOptions(userItems); // 状态名不变，但内容已更新
-    } catch (error) {
-      console.error("Failed to load recently saved designs:", error);
-    }
+        // Load saved Art Options (still using localStorage)
+        const savedItemsData = JSON.parse(localStorage.getItem('savedItems') || '[]');
+        const userItems = savedItemsData.filter(item => item.userId === user?.id);
+        setSavedArtOptions(userItems);
+      } catch (error) {
+        console.error("Failed to load recently saved designs:", error);
+        // Fallback to cache if server fails
+        const cachedDesigns = designCache.getDesigns();
+        if (cachedDesigns.length > 0) {
+          setRecentlySaved(cachedDesigns.slice(0, MAX_RECENTLY_SAVED));
+        }
+      }
+    };
+
+    loadRecentDesigns();
   }, [user]);
 
   // --- 【关键修改】 ---
   // 此 useEffect 负责在加载时设置设计状态
   useEffect(() => {
     if (location.state?.loadedDesign) {
-      loadDesign(location.state.loadedDesign);
-      message.success(`成功加载设计: ${location.state.loadedDesign.name}`);
+      const designToLoad = location.state.loadedDesign;
+      
+      // Validate design data before loading
+      if (designToLoad && (designToLoad.monuments || designToLoad.bases || designToLoad.artElements)) {
+        loadDesign(designToLoad);
+        // Set current design info
+        setCurrentDesignId(designToLoad.id || null);
+        setCurrentDesignName(designToLoad.name || null);
+        // Note: Success message already shown by SavedDesignsPage
+      } else {
+        console.error('Invalid loadedDesign data:', designToLoad);
+        message.error('Failed to load design: Invalid data format');
+      }
+      
       // 使用 navigate 清除 state，防止刷新时重新加载
       navigate(location.pathname, { replace: true, state: {} });
     } else {
@@ -469,17 +505,42 @@ const DesignerPage = () => {
       // (这个检查现在是安全的，因为它只会在 effect 运行时触发)
       if (designState.monuments.length === 0 && designState.bases.length === 0 && designState.subBases.length === 0 && loadDefaultTablet) {
         loadDefaultTablet();
+        // Clear design info for new design
+        setCurrentDesignId(null);
+        setCurrentDesignName(null);
       }
     }
     // 【修复】: 移除了 'designState' 依赖，以防止无限循环
   }, [location, loadDesign, loadDefaultTablet, navigate]);
   // --- 【关键修改结束】 ---
 
-  // 【新功能】：添加 handleLoadDesign 函数
-  const handleLoadDesign = (designToLoad) => {
-    if (designToLoad) {
-      loadDesign(designToLoad); // 使用 useDesignState 中的 loadDesign 函数
-      message.success(`成功加载设计: ${designToLoad.name}`);
+  // handleLoadDesign - Load design from cache first, fallback to server
+  const handleLoadDesign = async (designToLoad) => {
+    if (!designToLoad || !designToLoad.id) {
+      message.error('Invalid design data');
+      return;
+    }
+
+    try {
+      message.loading({ content: 'Loading design...', key: 'loading' });
+      
+      // Try to load from cache first
+      const fullDesignData = await designCache.getDetail(designToLoad.id);
+      
+      // Validate design data has required fields
+      if (fullDesignData && (fullDesignData.monuments || fullDesignData.bases || fullDesignData.artElements)) {
+        loadDesign(fullDesignData); // Use loadDesign from useDesignState
+        // Set current design info
+        setCurrentDesignId(fullDesignData.id || designToLoad.id);
+        setCurrentDesignName(fullDesignData.name || designToLoad.name);
+        message.success({ content: `Design loaded: ${fullDesignData.name}`, key: 'loading' });
+      } else {
+        console.error('Invalid design data:', fullDesignData);
+        message.error({ content: 'Invalid design data format', key: 'loading' });
+      }
+    } catch (error) {
+      console.error('Failed to load design:', error);
+      message.error({ content: 'Failed to load design, please try again', key: 'loading' });
     }
   };
 
@@ -775,58 +836,144 @@ const DesignerPage = () => {
     flipElement(vaseId, axis, 'vase');
   }, [flipElement]);
 
-  // handleSaveDesign (包含之前的修复)
-  const handleSaveDesign = useCallback(() => {
-    let designName = `${t('modals.saveDefaultName')}_${new Date().toLocaleDateString()}`;
+  // Helper function to prepare design data for saving
+  const prepareDesignData = useCallback(async () => {
+    const artCanvasData = await sceneRef.current?.getArtCanvasData?.();
+    const stateToSave = JSON.parse(JSON.stringify(designState));
+
+    if (artCanvasData) {
+      stateToSave.artElements = stateToSave.artElements.map(art => {
+        if (artCanvasData[art.id]) {
+          return { ...art, modifiedImageData: artCanvasData[art.id] };
+        }
+        return art;
+      });
+    }
+
+    const thumbnail = await sceneRef.current?.captureThumbnail?.();
+    return { stateToSave, thumbnail };
+  }, [designState]);
+
+  // handleSaveDesign - Update existing design or create new one
+  const handleSaveDesign = useCallback(async () => {
+    // If we have a current design, update it directly without asking for name
+    if (currentDesignId && currentDesignName) {
+      // Show saving message
+      message.loading({ content: 'Saving...', key: 'saveDesign', duration: 0 });
+
+      try {
+        const { stateToSave, thumbnail } = await prepareDesignData();
+
+        // Update existing design
+        await designService.update(currentDesignId, {
+          name: currentDesignName,
+          type: 'memorial',
+          data: stateToSave,
+          previewUrl: thumbnail
+        });
+
+        // Update cache
+        if (designCache.cache.detailMap[currentDesignId]) {
+          designCache.cache.detailMap[currentDesignId] = {
+            ...designCache.cache.detailMap[currentDesignId],
+            ...stateToSave,
+            thumbnail
+          };
+        }
+        const listIndex = designCache.cache.designs.findIndex(d => d.id === currentDesignId);
+        if (listIndex >= 0) {
+          designCache.cache.designs[listIndex].thumbnail = thumbnail;
+          designCache.cache.designs[listIndex].timestamp = new Date().toISOString();
+        }
+        designCache.persistCache();
+
+        // Update recent designs list
+        const cachedDesigns = designCache.getDesigns();
+        setRecentlySaved(cachedDesigns.slice(0, MAX_RECENTLY_SAVED).map(item => ({
+          id: item.id,
+          name: item.name,
+          thumbnail: item.thumbnail,
+          timestamp: item.timestamp,
+          isSynced: item.isSynced
+        })));
+
+        // Show success message
+        message.success({ content: 'Saved successfully!', key: 'saveDesign', duration: 2 });
+      } catch (error) {
+        console.error('Failed to save design:', error);
+        message.error({ content: 'Failed to save. Please try again.', key: 'saveDesign', duration: 3 });
+      }
+    } else {
+      // No current design, create new one with name prompt
+      handleSaveAsNew();
+    }
+  }, [currentDesignId, currentDesignName, prepareDesignData]);
+
+  // handleSaveAsNew - Always create a new design (Save As / Save Copy)
+  const handleSaveAsNew = useCallback(() => {
+    let designName = currentDesignName 
+      ? `${currentDesignName} (Copy)` 
+      : `Design_${new Date().toLocaleDateString()}`;
+    
     modal.confirm({
-      title: t('modals.saveTitle'),
+      title: currentDesignId ? 'Save as Copy' : 'Save Design',
       icon: <SaveOutlined />,
       content: (
         <div>
-          <p style={{ marginTop: '8px' }}>{t('modals.saveContentLabel')}</p>
-          <Input placeholder={t('modals.savePlaceholder')} defaultValue={designName} onChange={(e) => { designName = e.target.value; }} />
+          <p style={{ marginTop: '8px' }}>Enter design name:</p>
+          <Input placeholder="Design name" defaultValue={designName} onChange={(e) => { designName = e.target.value; }} />
         </div>
       ),
-      okText: t('modals.saveOkText'),
-      cancelText: t('modals.saveCancelText'),
+      okText: 'Save',
+      cancelText: 'Cancel',
+      centered: true,
       async onOk() {
         if (!designName || designName.trim() === '') {
-          message.error(t('modals.saveErrorNameEmpty'));
+          message.error('Name cannot be empty');
           return Promise.reject(new Error('Name is empty'));
         }
+        
+        // Show saving message
+        message.loading({ content: 'Saving...', key: 'saveDesign', duration: 0 });
+
         try {
-          message.loading({ content: t('modals.saveMessageSaving'), key: 'saving' });
+          const { stateToSave, thumbnail } = await prepareDesignData();
 
-          const artCanvasData = await sceneRef.current?.getArtCanvasData?.();
-          const stateToSave = JSON.parse(JSON.stringify(designState));
+          // Remove id to force create new design (not update)
+          const newDesignData = { ...stateToSave };
+          delete newDesignData.id;
 
-          if (artCanvasData) {
-            stateToSave.artElements = stateToSave.artElements.map(art => {
-              if (artCanvasData[art.id]) {
-                return { ...art, modifiedImageData: artCanvasData[art.id] };
-              }
-              return art;
-            });
-          }
-
-          const designData = {
-            ...stateToSave,
+          // Create new design
+          const { localId } = await designCache.saveDesign({
+            ...newDesignData,
             name: designName,
-            thumbnail: await sceneRef.current?.captureThumbnail?.(),
-            userId: user?.id,
-            timestamp: new Date().toISOString()
-          };
-          const savedDesigns = JSON.parse(localStorage.getItem('savedDesigns') || '[]');
-          savedDesigns.push(designData);
-          localStorage.setItem('savedDesigns', JSON.stringify(savedDesigns));
-          setRecentlySaved(prev => [designData, ...prev].slice(0, MAX_RECENTLY_SAVED));
-          message.success({ content: t('modals.saveMessageSuccess'), key: 'saving' });
+            type: 'memorial',
+            thumbnail: thumbnail
+          });
+
+          // Update current design info
+          setCurrentDesignId(localId);
+          setCurrentDesignName(designName);
+
+          // Update recent designs list
+          const cachedDesigns = designCache.getDesigns();
+          setRecentlySaved(cachedDesigns.slice(0, MAX_RECENTLY_SAVED).map(item => ({
+            id: item.id,
+            name: item.name,
+            thumbnail: item.thumbnail,
+            timestamp: item.timestamp,
+            isSynced: item.isSynced
+          })));
+
+          // Show success message
+          message.success({ content: 'Saved successfully!', key: 'saveDesign', duration: 2 });
         } catch (error) {
-          message.error({ content: t('modals.saveMessageError'), key: 'saving' });
+          console.error('Failed to save design:', error);
+          message.error({ content: 'Failed to save. Please try again.', key: 'saveDesign', duration: 3 });
         }
       },
     });
-  }, [designState, user, modal, t]);
+  }, [currentDesignId, currentDesignName, prepareDesignData, modal]);
 
 
   // handleBackgroundChange
@@ -1759,8 +1906,23 @@ const DesignerPage = () => {
                     {BACKGROUND_OPTIONS.map(bg => (<Select.Option key={bg.value} value={bg.value}>{bg.label}</Select.Option>))}
                   </Select>
                 </div>
-                {/* 1. 保存设计 (Save Design) */}
+                {/* 1. 保存设计 (Save Design) with dropdown for Save as Copy */}
                 <Button type="primary" icon={<SaveOutlined />} size="small" onClick={handleSaveDesign}>{t('designer.save')}</Button>
+                <Dropdown
+                  menu={{
+                    items: [
+                      {
+                        key: 'saveAsCopy',
+                        label: 'Save as Copy',
+                        icon: <CopyOutlined />,
+                        onClick: handleSaveAsNew
+                      }
+                    ]
+                  }}
+                  placement="bottomRight"
+                >
+                  <Button type="primary" size="small" icon={<DownOutlined />} style={{ padding: '0 8px' }} />
+                </Dropdown>
 
                 {/* 2. 打印设计 (Print Design - 新增) */}
                 <Button type="default" icon={<PrinterOutlined />} size="small" onClick={handlePrintDesign}>{t('designer.printDesign')}</Button>
@@ -1770,6 +1932,13 @@ const DesignerPage = () => {
 
                 {/* 4. 邮件/下载 (Email/Download - 新增) */}
                 <Button type="default" icon={<SaveOutlined />} size="small" onClick={handleEmailDownload}>{t('designer.emailDownload')}</Button>
+
+                {/* Display current design name */}
+                {currentDesignName && (
+                  <Button type="text" size="small" style={{ marginLeft: '8px', cursor: 'default' }}>
+                    Design: {currentDesignName}
+                  </Button>
+                )}
               </Space.Compact>
             </div>
             <div className="scene-wrapper">
