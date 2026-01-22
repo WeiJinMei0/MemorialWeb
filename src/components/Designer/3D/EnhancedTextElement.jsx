@@ -73,11 +73,14 @@ const useSVGTexture = (textContent, options = {}) => {
     let revokedUrl = null;
 
     loader.load(realFontOption.path, (font) => {
+      const letterSpacing = kerning; // 转换为相对值
       /* 1️⃣ 生成 shapes（真实字体几何） */
       const shapes = font.generateShapes(
         textContent,
         fontSize * textureScale,
-        { letterSpacing: kerning }
+        { 
+          letterSpacing: kerning*10, // 应用字间距
+        }
       );
 
       const geometry = new THREE.ShapeGeometry(shapes);
@@ -229,7 +232,7 @@ const useSVGTexture = (textContent, options = {}) => {
       if (result?.texture) result.texture.dispose();
       if (revokedUrl) URL.revokeObjectURL(revokedUrl);
     };
-  }, [textContent, fontSize, fillColor, fontOption, padding]);
+  }, [textContent, fontSize, fillColor, fontOption, padding, kerning]);
 
   return result;
 };
@@ -247,7 +250,7 @@ function VcutLineMesh({
     fillColor: vcutColor,
     fontSize,
     fontOption,
-    kerning
+    kerning: kerning
   });
 
   if (!result) return null;
@@ -276,12 +279,14 @@ function VcutCurvedGlyph({
   fontOption,
   position,
   rotationZ,
-  vcutColor
+  vcutColor,
+  kerning
 }) {
   const result = useSVGTexture(char, {
     fillColor: vcutColor,
     fontSize,
-    fontOption
+    fontOption,
+    kerning: kerning
   });
 
   if (!result) return null;
@@ -427,17 +432,23 @@ const HiddenTextarea = ({
           width: '100%',
           height: '100%',
           position: 'absolute',
-          top: 0,
-          left: -100,
-          opacity: 0.01,
-          border: 'none',
+          top: 50,
+          left: 150,
+          opacity: 1,
+          border: '2px solid #1890ff',
           outline: 'none',
           resize: 'none',
-          background: 'transparent',
-          color: 'transparent',
-          caretColor: 'transparent',
+          background: 'rgba(255, 255, 255, 0.95)',
+          color: '#333333',
+          caretColor: '#1890ff',
           fontSize: '16px',
-          zIndex: 999999
+          fontFamily: 'Arial, sans-serif',
+          lineHeight: '1.4',
+          borderRadius: '6px',
+          padding: '10px 12px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          transition: 'all 0.2s ease',
+          zIndex: 10000
         }}
         autoFocus
       />
@@ -487,7 +498,7 @@ const EnhancedTextElement = ({
   // --- 光标和焦点状态 ---
   const [cursorIndex, setCursorIndex] = useState(0);
   const [showCursor, setShowCursor] = useState(true);
-  const [inputHasFocus, setInputHasFocus] = useState(false); // 新增：输入框焦点状态
+  const [inputHasFocus, setInputHasFocus] = useState(true); // 新增：输入框焦点状态
 
   // UI 边界状态
   const [uiPos, setUiPos] = useState({
@@ -503,25 +514,23 @@ const EnhancedTextElement = ({
     setInputHasFocus(hasFocus);
   };
 
-  // 分离：只用于3D文本渲染的内容
+  // 当文本被选中且处于编辑状态时，自动聚焦
+  useEffect(() => {
+    if (isSelected && isTextEditing) {
+      // 延迟设置焦点状态，确保DOM已更新
+      const timer = setTimeout(() => {
+        setInputHasFocus(true);
+      }, 100);
+      return () => clearTimeout(timer);
+    } else {
+      setInputHasFocus(false);
+    }
+  }, [isSelected, isTextEditing]);
+
+  // Text3D渲染的内容 - 永远不包含光标
   const textContentFor3D = useMemo(() => {
-    const rawText = text.content || '';
-
-    if (!isSelected || !isTextEditing) {
-      return rawText || 'Enter Text';
-    }
-
-    // 只有当输入框有焦点且showCursor为true时才显示光标
-    if (!inputHasFocus || !showCursor) {
-      return rawText || 'Enter Text';
-    }
-
-    const safeIndex = Math.min(Math.max(0, cursorIndex), rawText.length);
-    const before = rawText.slice(0, safeIndex);
-    const after = rawText.slice(safeIndex);
-
-    return before + '|' + after;
-  }, [text.content, isSelected, isTextEditing, inputHasFocus, showCursor, cursorIndex]);
+    return text.content || 'Enter Text';
+  }, [text.content]);
 
   // 分离：用于UI包围盒计算的内容（不需要光标）
   const textContentForBounds = useMemo(() => {
@@ -701,63 +710,102 @@ const EnhancedTextElement = ({
 
   // 更新行偏移计算
   useEffect(() => {
-    const refs = lineRefs.current;
-    if (!refs || refs.length === 0) return;
-
-    if (textDirection === 'horizontal') {
-      const metrics = refs.map((mesh) => {
-        if (!mesh || !mesh.geometry) return { width: 0, centerX: 0 };
-        mesh.geometry.computeBoundingBox();
-        const bb = mesh.geometry.boundingBox;
-        if (!bb) return { width: 0, centerX: 0 };
-        return {
-          width: bb.max.x - bb.min.x,
-          centerX: (bb.max.x + bb.min.x) / 2
-        };
-      });
-
-      const maxWidth = metrics.reduce((m, v) => Math.max(m, v.width), 0);
-      const newOffsets = metrics.map((m) => {
-        let desiredCenter = 0;
-        if (text.alignment === 'left') {
-          desiredCenter = -maxWidth / 2 + m.width / 2;
-        } else if (text.alignment === 'right') {
-          desiredCenter = maxWidth / 2 - m.width / 2;
-        } else {
-          desiredCenter = 0;
-        }
-        const x = desiredCenter - m.centerX;
-        return { x };
-      });
-      setLineOffsets(newOffsets);
-    } else {
-      const metrics = refs.map((mesh) => {
-        if (!mesh || !mesh.geometry) return { height: 0, centerY: 0 };
-        mesh.geometry.computeBoundingBox();
-        const bb = mesh.geometry.boundingBox;
-        if (!bb) return { height: 0, centerY: 0 };
-        return {
-          height: bb.max.y - bb.min.y,
-          centerY: (bb.max.y + bb.min.y) / 2
-        };
-      });
-
-      const maxHeight = metrics.reduce((m, v) => Math.max(m, v.height), 0);
-      const newOffsets = metrics.map((m) => {
-        let desiredY = 0;
-        if (text.alignment === 'left') {
-          desiredY = -maxHeight / 2 + m.height / 2;
-        } else if (text.alignment === 'right') {
-          desiredY = maxHeight / 2 - m.height / 2;
-        } else {
-          desiredY = 0;
-        }
-        const y = desiredY - m.centerY;
-        return { y };
-      });
-      setLineOffsets(newOffsets);
+    if (!text.content) {
+      setLineOffsets([]);
+      return;
     }
-  }, [textContentFor3D, text.size, text.kerning, text.lineSpacing, text.alignment, textDirection]);
+
+    const content = text.content || 'Enter Text';
+    const lines = textDirection === 'horizontal' 
+      ? content.split('\n') 
+      : content.split('');
+    
+    if (lines.length === 0) {
+      setLineOffsets([]);
+      return;
+    }
+
+    // 估算每行的宽度（对于水平文本）或高度（对于垂直文本）
+    const fontSize = text.size * 0.0254;
+    const kerning = (text.kerning || 0) * 0.001;
+    
+    // 字符宽度估算系数（可根据字体调整）
+    const CHAR_WIDTH_FACTOR = 0.6;
+    const CHAR_HEIGHT_FACTOR = 1.0;
+    
+    // 计算每行的尺寸
+    const lineDimensions = lines.map(line => {
+      if (textDirection === 'horizontal') {
+        // 水平文本：计算宽度
+        const charCount = line.length || 1;
+        const width = charCount * fontSize * CHAR_WIDTH_FACTOR + 
+                     (charCount - 1) * fontSize * kerning;
+        return { width, height: fontSize * CHAR_HEIGHT_FACTOR };
+      } else {
+        // 垂直文本：计算高度
+        const charCount = line.length || 1;
+        const height = charCount * fontSize * CHAR_HEIGHT_FACTOR + 
+                      (charCount - 1) * fontSize * (text.lineSpacing || 1.2);
+        return { width: fontSize * CHAR_WIDTH_FACTOR, height };
+      }
+    });
+
+    // 找出最大宽度（水平）或最大高度（垂直）
+    let maxDimension = 0;
+    if (textDirection === 'horizontal') {
+      maxDimension = Math.max(...lineDimensions.map(d => d.width));
+    } else {
+      maxDimension = Math.max(...lineDimensions.map(d => d.height));
+    }
+
+    // 根据对齐方式计算偏移量
+    const newOffsets = lines.map((line, index) => {
+      const dim = lineDimensions[index];
+      
+      if (textDirection === 'horizontal') {
+        // 水平文本：计算X轴偏移
+        let x = 0;
+        switch (text.alignment) {
+          case 'left':
+            x = -maxDimension / 2 + dim.width / 2;
+            break;
+          case 'right':
+            x = maxDimension / 2 - dim.width / 2;
+            break;
+          case 'justify':
+            // 两端对齐：左对齐，后面会有特殊处理
+            x = -maxDimension / 2 + dim.width / 2;
+            break;
+          case 'center':
+          default:
+            x = 0;
+            break;
+        }
+        return { x, y: 0 };
+      } else {
+        // 垂直文本：计算Y轴偏移
+        let y = 0;
+        switch (text.alignment) {
+          case 'left':
+            y = maxDimension / 2 - dim.height / 2;
+            break;
+          case 'right':
+            y = -maxDimension / 2 + dim.height / 2;
+            break;
+          case 'justify':
+            y = maxDimension / 2 - dim.height / 2;
+            break;
+          case 'center':
+          default:
+            y = 0;
+            break;
+        }
+        return { x: 0, y };
+      }
+    });
+
+    setLineOffsets(newOffsets);
+  }, [text.content, text.size, text.kerning, text.lineSpacing, text.alignment, textDirection]);
 
   const lines = useMemo(() => {
     const content = text.content || 'Enter Text';
@@ -826,6 +874,7 @@ const EnhancedTextElement = ({
             vcutColor={text.vcutColor}
             position={[x, y, 0]}
             rotationZ={rotationZ}
+            kerning={(text.kerning || 0) * 0.001}
           />
         );
       }
@@ -837,6 +886,7 @@ const EnhancedTextElement = ({
             height={text.thickness || 0.02}
             material={textMaterial}
             renderOrder={TEXT_RENDER_ORDER}
+            letterSpacing={(text.kerning || 0) * 0.001}
             bevelEnabled
             bevelSize={0.002}
             bevelThickness={0.002}
@@ -930,6 +980,7 @@ const EnhancedTextElement = ({
     );
   };
 
+  
   const renderTextContent = () => {
     return Math.abs(text.curveAmount) > 0 ? renderCurvedText() : renderNormalText();
   };
@@ -1209,21 +1260,26 @@ const EnhancedTextElement = ({
     return (
       <>
         {/* 1. 隐形输入组件 */}
-        <Html
-          position={uiPos.bottomCenter}
-          //zIndexRange={[999, 0]}
-          zIndexRange={[1, 100]}  // 最低层级
-          style={{ pointerEvents: 'none' }}
-        >
-          <HiddenTextarea
-            initialValue={text.content}
-            onUpdate={handleInputUpdate}
-            onCursorChange={handleCursorChange}
-            onFocusChange={handleFocusChange}
-          />
-        </Html>
+        {/* 编辑状态下显示文本输入框 */}
+        {isTextEditing && inputHasFocus && (
+          <Html
+            position={uiPos.bottomCenter}
+            zIndexRange={[10000, 20000]}
+            style={{ 
+              pointerEvents: 'auto',
+              transform: 'translate(-50%, -50%)'
+            }}
+          >
+            <HiddenTextarea
+              initialValue={text.content}
+              onUpdate={handleInputUpdate}
+              onCursorChange={handleCursorChange}
+              onFocusChange={handleFocusChange}
+            />
+          </Html>
+        )}
 
-        {/* 2. 左上角：旋转 */}
+        {/* 左上角：旋转 */}
         <Html position={uiPos.topLeft} center zIndexRange={[1000, 2000]}>
           <div
             style={{ ...btnStyle, width: 28, height: 28 }}
@@ -1234,7 +1290,7 @@ const EnhancedTextElement = ({
           </div>
         </Html>
 
-        {/* 3. 右上角：删除 */}
+        {/* 右上角：删除 */}
         <Html position={uiPos.topRight} center zIndexRange={[1000, 2000]}>
           <div
             style={{ ...btnStyle, width: 28, height: 28, background: '#8B0000' }}
@@ -1245,7 +1301,7 @@ const EnhancedTextElement = ({
           </div>
         </Html>
 
-        {/* 4. 底部：根据焦点状态显示不同的按钮 */}
+        {/* 底部：根据焦点状态显示不同的按钮 */}
         <Html position={uiPos.bottomCenter} center zIndexRange={[100, 0]}>
           <div style={{ transform: 'translate(-50%, 50%)' }}>
             <div
@@ -1254,7 +1310,7 @@ const EnhancedTextElement = ({
                 padding: '4px 12px',
                 fontSize: '14px',
                 gap: '6px',
-                background: inputHasFocus ? '#2F4F4F' : '#556B2F' // 根据焦点状态改变颜色
+                background: inputHasFocus ? '#2F4F4F' : '#556B2F'
               }}
               onClick={handleDone}
               onPointerDown={(e) => e.stopPropagation()}
@@ -1273,7 +1329,7 @@ const EnhancedTextElement = ({
         </Html>
       </>
     );
-  }, [isSelected, isTextEditing, uiPos, text.content, inputHasFocus]); // 依赖 inputHasFocus
+  }, [isSelected, isTextEditing, uiPos, text.content, inputHasFocus, t]);
 
   return (
     <>

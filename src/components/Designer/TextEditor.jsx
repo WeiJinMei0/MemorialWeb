@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, Suspense, useMemo, Component } from 'react';
 import { Button, Input, Select, Slider, Space, Divider, ColorPicker, Card, message, Tooltip, Popover, Radio, Row, Col } from 'antd';
-import { PlusOutlined, CheckOutlined, AlignLeftOutlined, AlignCenterOutlined, AlignRightOutlined, SaveOutlined, CloseOutlined, BoldOutlined, ItalicOutlined, LayoutOutlined, VerticalAlignTopOutlined } from '@ant-design/icons';
+import { PlusOutlined, CheckOutlined, AlignLeftOutlined, AlignCenterOutlined, AlignRightOutlined, MenuOutlined, SaveOutlined, CloseOutlined, BoldOutlined, ItalicOutlined, LayoutOutlined, VerticalAlignTopOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Canvas } from '@react-three/fiber';
 import { Text3D } from '@react-three/drei';
@@ -552,6 +552,11 @@ const TextEditor = ({
               style={getButtonStyle(textProperties.alignment === 'right')}
               icon={<AlignRightOutlined />}
               onClick={() => handlePropertyChange('alignment', 'right')}
+            />
+            <Button
+              style={getButtonStyle(textProperties.alignment === 'justify')}
+              icon={<MenuOutlined />}
+              onClick={() => handlePropertyChange('alignment', 'justify')}
             />
             <Button
               style={{ ...getButtonStyle(false), width: '40px', flex: 'none' }}
