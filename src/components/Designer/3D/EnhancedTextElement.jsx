@@ -569,6 +569,41 @@ function VcutCurvedGlyph({
   );
 }
 
+// 单个字符的 VCut 渲染组件（用于两端对齐）
+function VcutJustifiedChar({
+  char,
+  fontSize,
+  fontOption,
+  position,
+  vcutColor
+}) {
+  const result = useSVGTexture(char, {
+    fillColor: vcutColor,
+    fontSize,
+    fontOption,
+    kerning: 0 // 单字符不需要 kerning
+  });
+
+  if (!result) return null;
+
+  const { texture, widthPx, heightPx } = result;
+  const scale = 0.001;
+
+  return (
+    <mesh position={position}>
+      <planeGeometry args={[widthPx * scale, heightPx * scale]} />
+      <meshBasicMaterial
+        map={texture}
+        transparent
+        side={THREE.DoubleSide}
+        toneMapped={false}
+        depthWrite={true}
+        color={0xffffff}
+      />
+    </mesh>
+  );
+}
+
 
 
 /**
@@ -1231,23 +1266,50 @@ const EnhancedTextElement = ({
       return null;
     }
 
+    // 如果只有一个字符，直接居中渲染
+    if (line.length === 1) {
+      return (
+        <group key={lineIndex} position={[positionX, positionY, 0]}>
+          <Text3D
+            font={localGetFontPath(lineFontFamily, line)}
+            size={fontSize}
+            height={text.thickness || 0.02}
+            material={textMaterial}
+            bevelEnabled
+            bevelSize={0.002}
+            bevelThickness={0.002}
+          >
+            {line}
+          </Text3D>
+        </group>
+      );
+    }
+
     return (
       <group key={lineIndex} position={[positionX, positionY, 0]}>
         {line.split('').map((char, charIndex) => {
-          // 计算字符位置
+          // 计算字符位置：从左到右累加每个字符的宽度和间距
           let x = 0;
           for (let i = 0; i < charIndex; i++) {
             x += calculateCharWidth(line[i], fontSize);
-            x += fontSize * kerning;
-            if (i < charIndex - 1) {
-              x += extraSpacing;
-            }
+            x += fontSize * kerning; // 基础字间距
+            x += extraSpacing; // 两端对齐的额外间距
           }
-          x += calculateCharWidth(char, fontSize) / 2;
+          // 不再添加半个字符宽度的偏移，让字符从左边界开始排列
 
           return (
             <group key={charIndex} position={[x, 0, 0]}>
               <Text3D
+                ref={(el) => {
+                  if (!el || !el.geometry) return;
+                  el.geometry.computeBoundingBox();
+                  const box = el.geometry.boundingBox;
+                  if (box) {
+                    // 只修正 Y 轴居中，X 轴保持左对齐
+                    const centerY = (box.max.y + box.min.y) / 2;
+                    el.geometry.translate(0, -centerY, 0);
+                  }
+                }}
                 font={localGetFontPath(lineFontFamily, char)}
                 size={fontSize}
                 height={text.thickness || 0.02}
@@ -1265,10 +1327,62 @@ const EnhancedTextElement = ({
     );
   };
 
+  // 渲染两端对齐的 VCut 文本行
+  const renderVcutJustifiedLine = (line, lineIndex, positionX, positionY) => {
+    const fontSize = text.size * 0.0254;
+    const kerning = (text.kerning || 0) * 0.001;
+    const extraSpacing = justifySpacing[lineIndex] || 0;
+    const fontOption = lineFontOptions[lineIndex] || DEFAULT_FONT_OPTION;
+
+    if (line.trim() === '') {
+      return null;
+    }
+
+    // 如果只有一个字符，直接居中渲染
+    if (line.length === 1) {
+      return (
+        <VcutJustifiedChar
+          key={lineIndex}
+          char={line}
+          fontSize={fontSize * 1000}
+          fontOption={fontOption}
+          vcutColor={text.vcutColor}
+          position={[positionX, positionY, 0]}
+        />
+      );
+    }
+
+    return (
+      <group key={lineIndex} position={[positionX, positionY, 0]}>
+        {line.split('').map((char, charIndex) => {
+          // 计算字符位置
+          let x = 0;
+          for (let i = 0; i < charIndex; i++) {
+            x += calculateCharWidth(line[i], fontSize);
+            x += fontSize * kerning;
+            x += extraSpacing;
+          }
+
+          return (
+            <VcutJustifiedChar
+              key={charIndex}
+              char={char}
+              fontSize={fontSize * 1000}
+              fontOption={fontOption}
+              vcutColor={text.vcutColor}
+              position={[x, 0, 0]}
+            />
+          );
+        })}
+      </group>
+    );
+  };
+
   const renderNormalText = () => {
     const fontSize = text.size * 0.0254;
     const lineGap = fontSize * (text.lineSpacing || 1.2);
     const isVcut = text.engraveType === 'vcut';
+    const isJustify = text.alignment === 'justify' && textDirection === 'horizontal';
 
     return (
       <group>
@@ -1278,8 +1392,13 @@ const EnhancedTextElement = ({
           const positionX = textDirection === 'horizontal' ? offsetX : offsetY;
           const positionY = textDirection === 'horizontal' ? -idx * lineGap : -idx * lineGap + offsetX;
 
-          // vcut 模式使用 SVG 内阴影
+          // vcut 模式
           if (isVcut) {
+            // 两端对齐需要逐字符渲染
+            if (isJustify) {
+              return renderVcutJustifiedLine(ln, idx, positionX, positionY);
+            }
+            // 非两端对齐使用整行 SVG 渲染
             const fontOption = lineFontOptions[idx] || DEFAULT_FONT_OPTION;
             return (
               <VcutLineMesh
@@ -1295,7 +1414,7 @@ const EnhancedTextElement = ({
           }
 
           // 如果是两端对齐且水平文本，使用特殊渲染
-          if (text.alignment === 'justify' && textDirection === 'horizontal') {
+          if (isJustify) {
             return renderJustifiedLine(ln, idx, positionX, positionY);
           }
 
