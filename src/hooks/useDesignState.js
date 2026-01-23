@@ -1431,6 +1431,7 @@ export const useDesignState = () => {
         switch (elementType) {
           case 'vase': return prev.vases;
           case 'art': return prev.artElements;
+          case 'text': return prev.textElements;
           default: return [];
         }
       };
@@ -1439,6 +1440,7 @@ export const useDesignState = () => {
         switch (elementType) {
           case 'vase': return { vases: elements };
           case 'art': return { artElements: elements };
+          case 'text': return { textElements: elements };
           default: return {};
         }
       };
@@ -1451,6 +1453,8 @@ export const useDesignState = () => {
         ...elementToDuplicate,
         ...overrides,
         id: `${elementType}-${Date.now()}`,
+        // 对于文本，确保 monumentId 被正确复制
+        monumentId: elementType === 'text' ? (overrides.monumentId || elementToDuplicate.monumentId) : elementToDuplicate.monumentId,
         position: [
           elementToDuplicate.position[0] + 1,
           elementToDuplicate.position[1], // 您的版本有 0.1Y 偏移
