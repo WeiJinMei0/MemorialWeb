@@ -575,7 +575,8 @@ function VcutJustifiedChar({
   fontSize,
   fontOption,
   position,
-  vcutColor
+  vcutColor,
+  baselineAlign = false // 是否底部对齐
 }) {
   const result = useSVGTexture(char, {
     fillColor: vcutColor,
@@ -589,8 +590,12 @@ function VcutJustifiedChar({
   const { texture, widthPx, heightPx } = result;
   const scale = 0.001;
 
+  // 计算实际位置：如果需要底部对齐，向上偏移半个高度
+  const [x, y, z] = position;
+  const adjustedY = baselineAlign ? y + (heightPx * scale) / 2 : y;
+
   return (
-    <mesh position={position}>
+    <mesh position={[x, adjustedY, z]}>
       <planeGeometry args={[widthPx * scale, heightPx * scale]} />
       <meshBasicMaterial
         map={texture}
@@ -1297,31 +1302,35 @@ const EnhancedTextElement = ({
           }
           // 不再添加半个字符宽度的偏移，让字符从左边界开始排列
 
-          return (
-            <group key={charIndex} position={[x, 0, 0]}>
-              <Text3D
-                ref={(el) => {
-                  if (!el || !el.geometry) return;
-                  el.geometry.computeBoundingBox();
-                  const box = el.geometry.boundingBox;
-                  if (box) {
-                    // 只修正 Y 轴居中，X 轴保持左对齐
-                    const centerY = (box.max.y + box.min.y) / 2;
-                    el.geometry.translate(0, -centerY, 0);
-                  }
-                }}
-                font={localGetFontPath(lineFontFamily, char)}
-                size={fontSize}
-                height={text.thickness || 0.02}
-                material={textMaterial}
-                bevelEnabled
-                bevelSize={0.002}
-                bevelThickness={0.002}
-              >
-                {char}
-              </Text3D>
-            </group>
-          );
+           return (
+             <group key={charIndex} position={[x, 0, 0]}>
+               <Text3D
+                 ref={(el) => {
+                   if (!el || !el.geometry) return;
+                   // 防止重复 translate 导致累积偏移
+                   if (el.geometry.userData?.baselineAligned) return;
+                   
+                   el.geometry.computeBoundingBox();
+                   const box = el.geometry.boundingBox;
+                   if (box) {
+                     // 底部对齐（基线对齐）：所有字符的底部对齐到同一水平线
+                     // 使用 -box.min.y 而不是居中，确保不同高度的字符底部对齐
+                     el.geometry.translate(0, -box.min.y, 0);
+                     el.geometry.userData = { ...el.geometry.userData, baselineAligned: true };
+                   }
+                 }}
+                 font={localGetFontPath(lineFontFamily, char)}
+                 size={fontSize}
+                 height={text.thickness || 0.02}
+                 material={textMaterial}
+                 bevelEnabled
+                 bevelSize={0.002}
+                 bevelThickness={0.002}
+               >
+                 {char}
+               </Text3D>
+             </group>
+           );
         })}
       </group>
     );
@@ -1348,6 +1357,7 @@ const EnhancedTextElement = ({
           fontOption={fontOption}
           vcutColor={text.vcutColor}
           position={[positionX, positionY, 0]}
+          baselineAlign={true}
         />
       );
     }
@@ -1371,6 +1381,7 @@ const EnhancedTextElement = ({
               fontOption={fontOption}
               vcutColor={text.vcutColor}
               position={[x, 0, 0]}
+              baselineAlign={true}
             />
           );
         })}
@@ -1558,6 +1569,9 @@ const EnhancedTextElement = ({
                   if (!el) return;
                   lineRefs.current[idx] = el;
                   if (el.geometry) {
+                    // 防止重复 translate 导致累积偏移
+                    if (el.geometry.userData?.centered) return;
+                    
                     el.geometry.computeBoundingBox();
                     const box = el.geometry.boundingBox;
                     const center = new THREE.Vector3();
@@ -1569,6 +1583,7 @@ const EnhancedTextElement = ({
                       0
                     );
                     el.geometry.computeBoundingSphere();
+                    el.geometry.userData = { ...el.geometry.userData, centered: true };
                   }
                 }}
                 font={localGetFontPath(lineFontFamily, ln)}
