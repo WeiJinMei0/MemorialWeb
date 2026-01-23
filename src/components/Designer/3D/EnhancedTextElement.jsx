@@ -1152,12 +1152,12 @@ const EnhancedTextElement = ({
     setJustifySpacing(newJustifySpacing);
   }, [text.content, text.size, text.kerning, text.lineSpacing, text.alignment, textDirection]);
 
+  // 垂直模式下仍然按换行符分割，保留多行结构
+  // 每一行内的字符将在渲染时垂直排列
   const lines = useMemo(() => {
     const content = text.content || 'Enter Text';
-    return textDirection === 'horizontal'
-      ? content.split('\n')
-      : content.split('');
-  }, [text.content, textDirection]);
+    return content.split('\n');
+  }, [text.content]);
 
   const lineFontFamilies = useMemo(() => {
     return lines.map((ln) => {
@@ -1378,19 +1378,140 @@ const EnhancedTextElement = ({
     );
   };
 
+  // 渲染垂直文本的单列（每个字符垂直排列）
+  // alignment: 'left'=顶部对齐, 'right'=底部对齐, 'center'=垂直居中, 'justify'=两端对齐
+  const renderVerticalColumn = (columnText, columnIndex, columnX, isVcut, lineFontFamily, maxColumnHeight, alignment) => {
+    const fontSize = text.size * 0.0254;
+    const charGap = fontSize * (text.lineSpacing || 1.2); // 字符间垂直间距
+    const fontOption = lineFontOptions[columnIndex] || DEFAULT_FONT_OPTION;
+    const charCount = columnText.length;
+
+    // 计算当前列的自然高度
+    const naturalHeight = charCount > 0 ? (charCount - 1) * charGap : 0;
+
+    // 根据对齐方式计算起始位置和字符间距
+    let startY = 0;
+    let effectiveCharGap = charGap;
+
+    switch (alignment) {
+      case 'left': // 顶部对齐
+        startY = maxColumnHeight / 2;
+        break;
+      case 'right': // 底部对齐
+        startY = maxColumnHeight / 2 - (maxColumnHeight - naturalHeight);
+        break;
+      case 'justify': // 两端对齐
+        if (charCount > 1) {
+          startY = maxColumnHeight / 2;
+          effectiveCharGap = maxColumnHeight / (charCount - 1);
+        } else {
+          startY = 0; // 只有一个字符时居中
+        }
+        break;
+      case 'center': // 垂直居中
+      default:
+        startY = naturalHeight / 2;
+        break;
+    }
+
+    return (
+      <group key={columnIndex} position={[columnX, 0, 0]}>
+        {columnText.split('').map((char, charIdx) => {
+          const charY = startY - charIdx * effectiveCharGap;
+
+          if (isVcut) {
+            return (
+              <VcutJustifiedChar
+                key={charIdx}
+                char={char}
+                fontSize={fontSize * 1000}
+                fontOption={fontOption}
+                vcutColor={text.vcutColor}
+                position={[0, charY, 0]}
+              />
+            );
+          }
+
+          return (
+            <group key={charIdx} position={[0, charY, 0]}>
+              <Text3D
+                ref={(el) => {
+                  if (!el || !el.geometry) return;
+                  el.geometry.computeBoundingBox();
+                  const box = el.geometry.boundingBox;
+                  if (box) {
+                    const centerX = (box.max.x + box.min.x) / 2;
+                    const centerY = (box.max.y + box.min.y) / 2;
+                    el.geometry.translate(-centerX, -centerY, 0);
+                  }
+                }}
+                font={localGetFontPath(lineFontFamily, char)}
+                size={fontSize}
+                height={text.thickness || 0.02}
+                material={textMaterial}
+                bevelEnabled
+                bevelSize={0.002}
+                bevelThickness={0.002}
+              >
+                {char}
+              </Text3D>
+            </group>
+          );
+        })}
+      </group>
+    );
+  };
+
   const renderNormalText = () => {
     const fontSize = text.size * 0.0254;
     const lineGap = fontSize * (text.lineSpacing || 1.2);
     const isVcut = text.engraveType === 'vcut';
     const isJustify = text.alignment === 'justify' && textDirection === 'horizontal';
 
+    // 垂直模式：每行变成一列，列内字符垂直排列，列从右向左排列（中文传统阅读顺序）
+    if (textDirection === 'vertical') {
+      const columnGap = fontSize * 1.5; // 列间距
+      const charGap = fontSize * (text.lineSpacing || 1.2);
+      const totalColumns = lines.length;
+      
+      // 计算所有列中最多字符数，用于统一对齐
+      const maxCharCount = Math.max(...lines.map(ln => ln.length), 1);
+      // 最大列高度（用于对齐计算）
+      const maxColumnHeight = (maxCharCount - 1) * charGap;
+      
+      // 计算起始 X 位置（使所有列水平居中，从右向左排列）
+      const startX = (totalColumns - 1) * columnGap / 2;
+
+      return (
+        <group>
+          {lines.map((ln, idx) => {
+            // 检查整列是否包含非英文字符
+            const hasNonEnglish = /[^A-Za-z0-9\u0020-\u007E]/.test(ln);
+            let lineFontFamily = text.font || 'Cambria_Regular';
+            if (hasNonEnglish) {
+              const firstNonEnChar = ln.match(/[^A-Za-z0-9\u0020-\u007E]/)?.[0];
+              if (firstNonEnChar) {
+                const lang = detectCharLanguage(firstNonEnChar);
+                const fallbackFamily = getFontFamilyForLanguage(text.font, lang);
+                lineFontFamily = fallbackFamily || 'Cambria_Regular';
+              }
+            }
+
+            // 从右向左排列列
+            const columnX = startX - idx * columnGap;
+            return renderVerticalColumn(ln, idx, columnX, isVcut, lineFontFamily, maxColumnHeight, text.alignment);
+          })}
+        </group>
+      );
+    }
+
+    // 水平模式保持不变
     return (
       <group>
         {lines.map((ln, idx) => {
           const offsetX = lineOffsets[idx]?.x || 0;
-          const offsetY = lineOffsets[idx]?.y || 0;
-          const positionX = textDirection === 'horizontal' ? offsetX : offsetY;
-          const positionY = textDirection === 'horizontal' ? -idx * lineGap : -idx * lineGap + offsetX;
+          const positionX = offsetX;
+          const positionY = -idx * lineGap;
 
           // vcut 模式
           if (isVcut) {
