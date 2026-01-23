@@ -1183,12 +1183,13 @@ const EnhancedTextElement = ({
   // 渲染函数：弯曲文字
   const renderCurvedText = () => {
     if (!textContentFor3D) return null;
-    const characters = textContentFor3D.split('');
     const fontSize = text.size * 0.0254;
     const kerningUnit = (text.kerning || 0) * 0.001;
     const curveAmount = text.curveAmount || 0;
     const curveDirection = curveAmount >= 0 ? 1 : -1;
     const curveIntensity = Math.min(Math.abs(curveAmount) / 100, 0.8);
+    const lineGap = fontSize * (text.lineSpacing || 1.2);
+    const alignment = text.alignment || 'center';
 
     const calculateCharacterWidth = (char) => {
       if (char === '|') return 0.05;
@@ -1196,53 +1197,118 @@ const EnhancedTextElement = ({
       return widthMap[char] || 0.7;
     };
 
-    const charWidths = characters.map(char => calculateCharacterWidth(char) * fontSize);
-    const totalWidth = charWidths.reduce((a, b) => a + b, 0) + (Math.max(0, characters.length - 1) * fontSize * kerningUnit);
+    // 按换行符分割成多行
+    const curvedLines = textContentFor3D.split('\n');
+    const totalLines = curvedLines.length;
+    
+    // 计算整体高度，用于垂直居中
+    const totalHeight = (totalLines - 1) * lineGap;
+
+    // 找出最长行的宽度，用于计算统一的弧度
+    let maxLineWidth = 0;
+    curvedLines.forEach(lineText => {
+      if (!lineText) return;
+      const characters = lineText.split('');
+      const charWidths = characters.map(char => calculateCharacterWidth(char) * fontSize);
+      const lineWidth = charWidths.reduce((a, b) => a + b, 0) + (Math.max(0, characters.length - 1) * fontSize * kerningUnit);
+      if (lineWidth > maxLineWidth) maxLineWidth = lineWidth;
+    });
 
     const minArcAngle = Math.PI * 0.2;
     const maxArcAngle = Math.PI * 1.2;
     const arcAngle = curveIntensity > 0 ? (minArcAngle + (maxArcAngle - minArcAngle) * curveIntensity) : 0;
-    const radius = arcAngle > 1e-6 ? Math.max(totalWidth / arcAngle, totalWidth * 0.5) : 1e6;
+    const radius = arcAngle > 1e-6 ? Math.max(maxLineWidth / arcAngle, maxLineWidth * 0.5) : 1e6;
 
-    let currentAngle = -arcAngle / 2;
-    const baseOffsetY = -fontSize * 0.5;
+    return curvedLines.map((lineText, lineIndex) => {
+      if (!lineText) return null; // 空行跳过
+      
+      const characters = lineText.split('');
+      const charWidths = characters.map(char => calculateCharacterWidth(char) * fontSize);
+      const totalWidth = charWidths.reduce((a, b) => a + b, 0) + (Math.max(0, characters.length - 1) * fontSize * kerningUnit);
 
-    return characters.map((char, index) => {
-      const rotationZ = -currentAngle * curveDirection;
-      const x = Math.sin(currentAngle) * radius;
-      const y = (Math.cos(currentAngle) - 1) * radius * curveDirection + baseOffsetY;
-      const charW = charWidths[index];
-      currentAngle += (charW + fontSize * kerningUnit) / radius;
+      // 计算该行在弧上占用的角度
+      const lineArcAngle = totalWidth / radius;
 
-      if (text.engraveType === 'vcut') {
-        return (
-          <VcutCurvedGlyph
-            key={index}
-            char={char}
-            fontSize={fontSize * 1000}
-            fontOption={FONT_OPTIONS.find(f => f.name === text.font)}
-            vcutColor={text.vcutColor}
-            position={[x, y, 0]}
-            rotationZ={rotationZ}
-            kerning={(text.kerning || 0)}
-          />
-        );
+      // 根据对齐方式计算起始角度和额外间距
+      let startAngle;
+      let extraKerning = 0; // 两端对齐时的额外字符间距
+
+      switch (alignment) {
+        case 'left':
+          // 左对齐：从弧的左端开始
+          startAngle = -arcAngle / 2;
+          break;
+        case 'right':
+          // 右对齐：在弧的右端结束
+          startAngle = arcAngle / 2 - lineArcAngle;
+          break;
+        case 'justify':
+          // 两端对齐：字符均匀分布在整个弧上
+          if (characters.length > 1) {
+            startAngle = -arcAngle / 2;
+            // 计算需要填充的额外角度
+            const extraAngle = arcAngle - lineArcAngle;
+            // 将额外角度转换为额外的字符间距
+            extraKerning = (extraAngle * radius) / (characters.length - 1);
+          } else {
+            // 单字符时居中
+            startAngle = -lineArcAngle / 2;
+          }
+          break;
+        case 'center':
+        default:
+          // 居中对齐：文本在弧的中心
+          startAngle = -lineArcAngle / 2;
+          break;
       }
+
+      let currentAngle = startAngle;
+      // 计算该行的 Y 偏移（从上到下排列，居中对齐）
+      const lineOffsetY = totalHeight / 2 - lineIndex * lineGap;
+      const baseOffsetY = -fontSize * 0.5 + lineOffsetY;
+
       return (
-        <group key={index} position={[x, y, 0]} rotation={[0, 0, rotationZ]}>
-          <Text3D
-            font={localGetFontPath(text.font, char)}
-            size={fontSize}
-            height={text.thickness || 0.02}
-            material={textMaterial}
-            renderOrder={TEXT_RENDER_ORDER}
-            letterSpacing={(text.kerning || 0) * 0.001}
-            bevelEnabled
-            bevelSize={0.002}
-            bevelThickness={0.002}
-          >
-            {char}
-          </Text3D>
+        <group key={`line-${lineIndex}`}>
+          {characters.map((char, charIndex) => {
+            const rotationZ = -currentAngle * curveDirection;
+            const x = Math.sin(currentAngle) * radius;
+            const y = (Math.cos(currentAngle) - 1) * radius * curveDirection + baseOffsetY;
+            const charW = charWidths[charIndex];
+            // 累加角度：字符宽度 + 基础字间距 + 两端对齐的额外间距
+            currentAngle += (charW + fontSize * kerningUnit + extraKerning) / radius;
+
+            if (text.engraveType === 'vcut') {
+              return (
+                <VcutCurvedGlyph
+                  key={`${lineIndex}-${charIndex}`}
+                  char={char}
+                  fontSize={fontSize * 1000}
+                  fontOption={FONT_OPTIONS.find(f => f.name === text.font)}
+                  vcutColor={text.vcutColor}
+                  position={[x, y, 0]}
+                  rotationZ={rotationZ}
+                  kerning={(text.kerning || 0)}
+                />
+              );
+            }
+            return (
+              <group key={`${lineIndex}-${charIndex}`} position={[x, y, 0]} rotation={[0, 0, rotationZ]}>
+                <Text3D
+                  font={localGetFontPath(text.font, char)}
+                  size={fontSize}
+                  height={text.thickness || 0.02}
+                  material={textMaterial}
+                  renderOrder={TEXT_RENDER_ORDER}
+                  letterSpacing={(text.kerning || 0) * 0.001}
+                  bevelEnabled
+                  bevelSize={0.002}
+                  bevelThickness={0.002}
+                >
+                  {char}
+                </Text3D>
+              </group>
+            );
+          })}
         </group>
       );
     });
