@@ -1147,10 +1147,10 @@ const EnhancedTextElement = ({
     e.stopPropagation();
     if (onDuplicateElement) {
       // 在原文字位置基础上稍微偏移，避免重叠
-      const offsetX = 0.15; // 向右偏移0.15米
+      const offsetY = 0.1; // 向右偏移0.15米
       const newPosition = [
-        text.position[0] + offsetX,
-        text.position[1],
+        text.position[0],
+        text.position[1]-offsetY,
         text.position[2]
       ];
       
@@ -1448,7 +1448,6 @@ const EnhancedTextElement = ({
             style={{ ...btnStyle, width: 28, height: 28, background: '#4a4a3b' }}
             onClick={handleDuplicate}
             onPointerDown={(e) => e.stopPropagation()}
-            title={t('textEditor.duplicate')}
           >
             <CopyOutlined />
           </div>

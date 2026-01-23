@@ -1449,18 +1449,38 @@ export const useDesignState = () => {
       const elementToDuplicate = elements.find(el => el.id === elementId);
       if (!elementToDuplicate) return prev;
 
+      // 根据元素类型确定位置
+      let newPosition;
+      
+      if (elementType === 'text') {
+        // 文本元素：使用传入的位置进行替换
+        if (overrides.position && Array.isArray(overrides.position)) {
+          newPosition = overrides.position;
+        } else {
+          // 如果没有传入位置，使用默认偏移（向右偏移0.15米）
+          newPosition = [
+            elementToDuplicate.position?.[0] || 0,
+            (elementToDuplicate.position?.[1] || 0) - 0.1,
+            elementToDuplicate.position?.[2] || 0
+          ];
+        }
+      } else {
+        // 其他元素（花瓶和艺术图案）：使用默认的位置偏移
+        newPosition = [
+          (elementToDuplicate.position?.[0] || 0) + 1,
+          elementToDuplicate.position?.[1] || 0,
+          elementToDuplicate.position?.[2] || 0
+        ];
+      }
+
       const duplicatedElement = {
         ...elementToDuplicate,
         ...overrides,
         id: `${elementType}-${Date.now()}`,
         // 对于文本，确保 monumentId 被正确复制
         monumentId: elementType === 'text' ? (overrides.monumentId || elementToDuplicate.monumentId) : elementToDuplicate.monumentId,
-        position: [
-          elementToDuplicate.position[0] + 1,
-          elementToDuplicate.position[1], // 您的版本有 0.1Y 偏移
-          elementToDuplicate.position[2]
-        ]
-      };
+        position: newPosition,
+        };
 
       return { ...prev, ...setElements([...elements, duplicatedElement]) };
     });
