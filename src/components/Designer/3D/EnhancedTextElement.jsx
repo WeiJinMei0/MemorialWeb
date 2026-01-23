@@ -12,6 +12,7 @@ import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
 
 extend({ TextGeometry });
 
+
 const DEFAULT_FONT_OPTION = {
   family: 'Cambria', 
   variant: 'regular', 
@@ -35,28 +36,6 @@ const calculateCharWidth = (char, fontSize) => {
   return (widthMap[char] || 0.7) * fontSize;
 };
 
-// 高清
-function shapeToPath(shape, offsetX, offsetY) {
-  let d = '';
-
-  // 外轮廓
-  const contour = shape.getPoints();
-  contour.forEach((p, i) => {
-    d += `${i === 0 ? 'M' : 'L'}${p.x + offsetX},${p.y + offsetY} `;
-  });
-  d += 'Z ';
-
-  // 内部洞
-  shape.holes.forEach(hole => {
-    const pts = hole.getPoints();
-    pts.forEach((p, i) => {
-      d += `${i === 0 ? 'M' : 'L'}${p.x + offsetX},${p.y + offsetY} `;
-    });
-    d += 'Z ';
-  });
-
-  return d;
-}
 
 
 const useSVGTexture = (textContent, options = {}) => {
@@ -64,189 +43,457 @@ const useSVGTexture = (textContent, options = {}) => {
     fillColor = '#5D4037',
     fontSize = 64,
     fontOption,
-    fontWeight = '900', // 仅用于语义，不再参与测量
+    fontWeight = '900',
     padding = 20,
-    kerning = 0,
+    kerning = 0, // 字间距，单位：像素（相对于基础 fontSize）
   } = options;
-
-  const textureScale = 4; // 提高清晰度
-  const textureScale2 = 1; 
+  const textureScale = 4;
   const [result, setResult] = useState(null);
 
-  const BASE_FONT_SIZE = 76; 
+  const BASE_FONT_SIZE = 76;
   const shadowScale = fontSize / BASE_FONT_SIZE / 4;
+
+  // 改进的 shapeToPath 函数，更安全地处理曲线
+  const shapeToPath = useCallback((shape, offsetX, offsetY) => {
+    let d = '';
+
+    // 处理主轮廓
+    if (shape.curves && shape.curves.length > 0) {
+      shape.curves.forEach((curve, i) => {
+        if (!curve.v1 || isNaN(curve.v1.x) || isNaN(curve.v1.y)) {
+          return;
+        }
+
+        const startX = curve.v1.x + offsetX;
+        const startY = curve.v1.y + offsetY;
+
+        if (i === 0) {
+          d += `M${startX},${startY} `;
+        }
+
+        if (curve.isLineCurve && curve.v2) {
+          const endX = curve.v2.x + offsetX;
+          const endY = curve.v2.y + offsetY;
+          if (!isNaN(endX) && !isNaN(endY)) {
+            d += `L${endX},${endY} `;
+          }
+        } else if (curve.isQuadraticBezierCurve && curve.v2) {
+          const cpX = curve.v1.x + offsetX;
+          const cpY = curve.v1.y + offsetY;
+          const endX = curve.v2.x + offsetX;
+          const endY = curve.v2.y + offsetY;
+          if (!isNaN(cpX) && !isNaN(cpY) && !isNaN(endX) && !isNaN(endY)) {
+            d += `Q${cpX},${cpY} ${endX},${endY} `;
+          }
+        } else if (curve.isCubicBezierCurve && curve.v2 && curve.v3) {
+          const cp1X = curve.v1.x + offsetX;
+          const cp1Y = curve.v1.y + offsetY;
+          const cp2X = curve.v2.x + offsetX;
+          const cp2Y = curve.v2.y + offsetY;
+          const endX = curve.v3.x + offsetX;
+          const endY = curve.v3.y + offsetY;
+          if (!isNaN(cp1X) && !isNaN(cp1Y) && !isNaN(cp2X) && !isNaN(cp2Y) && !isNaN(endX) && !isNaN(endY)) {
+            d += `C${cp1X},${cp1Y} ${cp2X},${cp2Y} ${endX},${endY} `;
+          }
+        }
+      });
+      
+      d += 'Z ';
+    }
+
+    // 处理孔洞
+    if (shape.holes && shape.holes.length > 0) {
+      shape.holes.forEach(hole => {
+        if (hole.curves && hole.curves.length > 0) {
+          hole.curves.forEach((curve, i) => {
+            if (!curve.v1 || isNaN(curve.v1.x) || isNaN(curve.v1.y)) {
+              return;
+            }
+
+            const startX = curve.v1.x + offsetX;
+            const startY = curve.v1.y + offsetY;
+
+            if (i === 0) {
+              d += `M${startX},${startY} `;
+            }
+
+            if (curve.isLineCurve && curve.v2) {
+              const endX = curve.v2.x + offsetX;
+              const endY = curve.v2.y + offsetY;
+              if (!isNaN(endX) && !isNaN(endY)) {
+                d += `L${endX},${endY} `;
+              }
+            } else if (curve.isQuadraticBezierCurve && curve.v2) {
+              const cpX = curve.v1.x + offsetX;
+              const cpY = curve.v1.y + offsetY;
+              const endX = curve.v2.x + offsetX;
+              const endY = curve.v2.y + offsetY;
+              if (!isNaN(cpX) && !isNaN(cpY) && !isNaN(endX) && !isNaN(endY)) {
+                d += `Q${cpX},${cpY} ${endX},${endY} `;
+              }
+            } else if (curve.isCubicBezierCurve && curve.v2 && curve.v3) {
+              const cp1X = curve.v1.x + offsetX;
+              const cp1Y = curve.v1.y + offsetY;
+              const cp2X = curve.v2.x + offsetX;
+              const cp2Y = curve.v2.y + offsetY;
+              const endX = curve.v3.x + offsetX;
+              const endY = curve.v3.y + offsetY;
+              if (!isNaN(cp1X) && !isNaN(cp1Y) && !isNaN(cp2X) && !isNaN(cp2Y) && !isNaN(endX) && !isNaN(endY)) {
+                d += `C${cp1X},${cp1Y} ${cp2X},${cp2Y} ${endX},${endY} `;
+              }
+            }
+          });
+          
+          d += 'Z ';
+        }
+      });
+    }
+
+    return d;
+  }, []);
+
   useEffect(() => {
     const realFontOption = fontOption?.path
       ? fontOption
       : DEFAULT_FONT_OPTION;
 
-    if (!textContent) return;
-
+    if (!textContent || textContent.trim() === '') {
+      setResult(null);
+      return;
+    }
 
     const loader = new FontLoader();
     let revokedUrl = null;
 
     loader.load(realFontOption.path, (font) => {
-      const letterSpacing = kerning; // 转换为相对值
-      /* 1️⃣ 生成 shapes（真实字体几何） */
-      const shapes = font.generateShapes(
-        textContent,
-        fontSize * textureScale,
-        { 
-          letterSpacing: kerning, // 应用字间距
-        }
-      );
-
-      const geometry = new THREE.ShapeGeometry(shapes);
-      geometry.computeBoundingBox();
-
-      const box                           = geometry.boundingBox;
-
-      const textWidth  = box.max.x - box.min.x;
-      const textHeight = box.max.y - box.min.y;
-
-      const pad = padding * textureScale;
-
-      const svgWidth  = Math.ceil(textWidth  + pad * 2);
-      const svgHeight = Math.ceil(textHeight + pad * 2);
-
-      /* 2️⃣ path 数据（注意：直接用 shapes，不重新算） */
-      let d = '';
-
-      shapes.forEach(shape => {
-        d += shapeToPath(
-          shape,
-          -box.min.x + pad,
-          -box.min.y + pad
-        );
-      });
-
-
-      geometry.dispose();
-
-      /* 3️⃣ SVG */
-      const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg"
-        width="${svgWidth}"
-        height="${svgHeight}"
-        viewBox="0 0 ${svgWidth} ${svgHeight}">
-        <defs>
-          <filter id="innerShadow"
-            x="-50%" y="-50%" width="200%" height="200%" filterUnits="userSpaceOnUse">
-
-            <feGaussianBlur
-              in="SourceAlpha"
-              stdDeviation="${16 * shadowScale}"
-              result="blur"/>
-
-            <feOffset
-              in="blur"
-              dx="${-20 * shadowScale}" 
-              dy="${20 * shadowScale}" 
-              result="darkOffset"/>
-
-            <feComposite
-              in="darkOffset"
-              in2="SourceAlpha"
-              operator="in"
-              result="darkCut"/>
-
-            <feFlood
-              flood-color="black"
-              flood-opacity="0.98"
-              result="floodDark"/>
-
-            <feComposite
-              in="floodDark"
-              in2="darkCut"
-              operator="in"
-              result="dark"/>
+      try {
+        // 字间距转换：相对于最终显示尺寸的像素值 → 纹理缩放后的像素值
+        const letterSpacing = kerning * textureScale;
+        const scaledFontSize = fontSize * textureScale;
         
-            <feOffset
-              in="blur"
-              dx="${24 * shadowScale}"
-              dy="${-20 * shadowScale}"
-              result="lightOffset"/>
+        // 逐个生成每个字符的形状，并计算偏移
+        let allShapes = [];
+        let currentX = 0; // 当前字符的起始X位置
 
-            <feComposite
-              in="lightOffset"
-              in2="SourceAlpha"
-              operator="in"
-              result="lightCut"/>
+        // 遍历每个字符
+        for (let i = 0; i < textContent.length; i++) {
+          const char = textContent[i];
+          if (char === ' ') {
+            // 空格处理：按字符宽度的比例计算
+            currentX += scaledFontSize * 0.6 + letterSpacing;
+            continue;
+          }
 
-            <feFlood
-              flood-color="${fillColor}"
-              flood-opacity="1"
-              result="floodLight"/>
+          // 生成单个字符的形状
+          const charShapes = font.generateShapes(
+            char,
+            scaledFontSize,
+            0,
+            { curveSegments: 12, bevelEnabled: false }
+          );
 
-            <feComposite
-              in="floodLight"
-              in2="lightCut"
-              operator="in"
-              result="light"/>
+          if (charShapes.length === 0) continue;
 
-            <feMerge>
-              <feMergeNode in="SourceGraphic"/>
-              <feMergeNode in="dark"/>        
-              <feMergeNode in="light"/>       
-            </feMerge>
-          </filter>
-        </defs>
-        <path
-          d="${d}"
-          fill="${fillColor}"
-          fill-opacity="1"
-          fill-rule="evenodd"
-          clip-rule="evenodd"
-          transform="translate(0, ${svgHeight}) scale(1,-1)"
-          filter="url(#innerShadow)"
-        />
-      </svg>
-      `;
+          // 计算当前字符的边界框
+          const tempGeometry = new THREE.ShapeGeometry(charShapes);
+          tempGeometry.computeBoundingBox();
+          const charBox = tempGeometry.boundingBox;
+          tempGeometry.dispose();
 
+          if (!charBox) continue;
 
-      /* 4️⃣ SVG → Canvas → Texture */
-      const img = new Image();
-      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      revokedUrl = url;
+          // 计算字符宽度（包含自身的边距）
+          const charWidth = charBox.max.x - charBox.min.x;
 
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width  = svgWidth;
-        canvas.height = svgHeight;
+          // 平移当前字符到正确位置（消除字符自身的偏移 + 当前X偏移）
+          const offsetShapes = charShapes.map(shape => {
+            const newShape = new THREE.Shape();
+            
+            // 复制并平移主轮廓曲线
+            if (shape.curves && shape.curves.length > 0) {
+              shape.curves.forEach((curve, idx) => {
+                if (!curve.v1) return;
+                
+                // 平移：消除字符自身的左偏移 + 当前累计的X偏移
+                const x1 = curve.v1.x - charBox.min.x + currentX;
+                const y1 = curve.v1.y - charBox.min.y; // Y轴保持对齐
+                
+                if (idx === 0) {
+                  newShape.moveTo(x1, y1);
+                }
 
-        const ctx = canvas.getContext('2d');
-        // 确保背景透明
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (curve.isLineCurve && curve.v2) {
+                  const x2 = curve.v2.x - charBox.min.x + currentX;
+                  const y2 = curve.v2.y - charBox.min.y;
+                  newShape.lineTo(x2, y2);
+                } else if (curve.isQuadraticBezierCurve && curve.v2) {
+                  const cpX = curve.v1.x - charBox.min.x + currentX;
+                  const cpY = curve.v1.y - charBox.min.y;
+                  const x2 = curve.v2.x - charBox.min.x + currentX;
+                  const y2 = curve.v2.y - charBox.min.y;
+                  newShape.quadraticCurveTo(cpX, cpY, x2, y2);
+                } else if (curve.isCubicBezierCurve && curve.v2 && curve.v3) {
+                  const cp1X = curve.v1.x - charBox.min.x + currentX;
+                  const cp1Y = curve.v1.y - charBox.min.y;
+                  const cp2X = curve.v2.x - charBox.min.x + currentX;
+                  const cp2Y = curve.v2.y - charBox.min.y;
+                  const x3 = curve.v3.x - charBox.min.x + currentX;
+                  const y3 = curve.v3.y - charBox.min.y;
+                  newShape.bezierCurveTo(cp1X, cp1Y, cp2X, cp2Y, x3, y3);
+                }
+              });
+            }
 
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0);
+            // 复制并平移孔洞
+            if (shape.holes && shape.holes.length > 0) {
+              shape.holes.forEach(hole => {
+                const newHole = new THREE.Path();
+                
+                if (hole.curves && hole.curves.length > 0) {
+                  hole.curves.forEach((curve, idx) => {
+                    if (!curve.v1) return;
+                    
+                    const x1 = curve.v1.x - charBox.min.x + currentX;
+                    const y1 = curve.v1.y - charBox.min.y;
+                    
+                    if (idx === 0) {
+                      newHole.moveTo(x1, y1);
+                    }
 
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.generateMipmaps = false;
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.needsUpdate = true;
+                    if (curve.isLineCurve && curve.v2) {
+                      const x2 = curve.v2.x - charBox.min.x + currentX;
+                      const y2 = curve.v2.y - charBox.min.y;
+                      newHole.lineTo(x2, y2);
+                    } else if (curve.isQuadraticBezierCurve && curve.v2) {
+                      const cpX = curve.v1.x - charBox.min.x + currentX;
+                      const cpY = curve.v1.y - charBox.min.y;
+                      const x2 = curve.v2.x - charBox.min.x + currentX;
+                      const y2 = curve.v2.y - charBox.min.y;
+                      newHole.quadraticCurveTo(cpX, cpY, x2, y2);
+                    } else if (curve.isCubicBezierCurve && curve.v2 && curve.v3) {
+                      const cp1X = curve.v1.x - charBox.min.x + currentX;
+                      const cp1Y = curve.v1.y - charBox.min.y;
+                      const cp2X = curve.v2.x - charBox.min.x + currentX;
+                      const cp2Y = curve.v2.y - charBox.min.y;
+                      const x3 = curve.v3.x - charBox.min.x + currentX;
+                      const y3 = curve.v3.y - charBox.min.y;
+                      newHole.bezierCurveTo(cp1X, cp1Y, cp2X, cp2Y, x3, y3);
+                    }
+                  });
+                }
+                
+                newShape.holes.push(newHole);
+              });
+            }
 
-        setResult({
-          texture,
-          widthPx: svgWidth / textureScale,
-          heightPx: svgHeight / textureScale,
-        });
+            return newShape;
+          });
 
-        URL.revokeObjectURL(url);
-      };
+          // 添加到总形状数组
+          allShapes = [...allShapes, ...offsetShapes];
 
-      img.src = url;
+          // 更新下一个字符的起始位置（字符宽度 + 字间距）
+          currentX += charWidth + letterSpacing;
+        }
+
+        // 处理所有字符的形状
+        processShapes(allShapes);
+
+      } catch (error) {
+        console.error('Error processing font shapes:', error);
+        setResult(null);
+      }
+    }, undefined, (error) => {
+      console.error('Error loading font:', error);
+      setResult(null);
     });
 
-    return () => {
-      if (result?.texture) result.texture.dispose();
-      if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+    // 处理形状并生成SVG的辅助函数
+    const processShapes = (shapes) => {
+      if (!shapes || shapes.length === 0) {
+        setResult(null);
+        return;
+      }
+
+      try {
+        // 创建几何体计算边界
+        const geometry = new THREE.ShapeGeometry(shapes);
+        geometry.computeBoundingBox();
+        const box = geometry.boundingBox;
+
+        // 检查边界是否有效
+        if (!box || 
+            isNaN(box.min.x) || isNaN(box.min.y) ||
+            isNaN(box.max.x) || isNaN(box.max.y)) {
+          console.warn('Invalid bounding box, using default values');
+          box.min = new THREE.Vector3(-50, -50, 0);
+          box.max = new THREE.Vector3(50, 50, 0);
+        }
+
+        const textWidth = Math.max(box.max.x - box.min.x, 1);
+        const textHeight = Math.max(box.max.y - box.min.y, 1);
+
+        const pad = padding * textureScale;
+        const svgWidth = Math.ceil(textWidth + pad * 2);
+        const svgHeight = Math.ceil(textHeight + pad * 2);
+
+        /* 生成 SVG path 数据 */
+        let d = '';
+        shapes.forEach(shape => {
+          const pathData = shapeToPath(
+            shape,
+            -box.min.x + pad,
+            -box.min.y + pad
+          );
+          if (pathData && pathData.trim() !== '') {
+            d += pathData;
+          }
+        });
+
+        geometry.dispose();
+
+        // 如果没有有效的路径数据，创建默认的
+        if (!d || d.trim() === '') {
+          console.warn('No valid path data generated');
+          // 创建一个简单的矩形作为回退
+          d = `M${pad},${pad} L${svgWidth - pad},${pad} L${svgWidth - pad},${svgHeight - pad} L${pad},${svgHeight - pad} Z`;
+        }
+
+        /* 生成 SVG */
+        const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg"
+          width="${svgWidth}"
+          height="${svgHeight}"
+          viewBox="0 0 ${svgWidth} ${svgHeight}">
+          <defs>
+            <filter id="innerShadow"
+              x="-50%" y="-50%" width="200%" height="200%" filterUnits="userSpaceOnUse">
+
+              <feGaussianBlur
+                in="SourceAlpha"
+                stdDeviation="${16 * shadowScale}"
+                result="blur"/>
+
+              <feOffset
+                in="blur"
+                dx="${-20 * shadowScale}" 
+                dy="${20 * shadowScale}" 
+                result="darkOffset"/>
+
+              <feComposite
+                in="darkOffset"
+                in2="SourceAlpha"
+                operator="in"
+                result="darkCut"/>
+
+              <feFlood
+                flood-color="black"
+                flood-opacity="0.98"
+                result="floodDark"/>
+
+              <feComposite
+                in="floodDark"
+                in2="darkCut"
+                operator="in"
+                result="dark"/>
+          
+              <feOffset
+                in="blur"
+                dx="${24 * shadowScale}"
+                dy="${-20 * shadowScale}"
+                result="lightOffset"/>
+
+              <feComposite
+                in="lightOffset"
+                in2="SourceAlpha"
+                operator="in"
+                result="lightCut"/>
+
+              <feFlood
+                flood-color="${fillColor}"
+                flood-opacity="1"
+                result="floodLight"/>
+
+              <feComposite
+                in="floodLight"
+                in2="lightCut"
+                operator="in"
+                result="light"/>
+
+              <feMerge>
+                <feMergeNode in="SourceGraphic"/>
+                <feMergeNode in="dark"/>        
+                <feMergeNode in="light"/>       
+              </feMerge>
+            </filter>
+          </defs>
+          <path
+            d="${d}"
+            fill="${fillColor}"
+            fill-opacity="1"
+            fill-rule="evenodd"
+            clip-rule="evenodd"
+            transform="translate(0, ${svgHeight}) scale(1,-1)"
+            filter="url(#innerShadow)"
+          />
+        </svg>
+        `;
+
+        /* SVG → Canvas → Texture */
+        const img = new Image();
+        const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        revokedUrl = url;
+
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = svgWidth;
+          canvas.height = svgHeight;
+
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0);
+
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.generateMipmaps = false;
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.needsUpdate = true;
+
+          setResult({
+            texture,
+            widthPx: svgWidth / textureScale,
+            heightPx: svgHeight / textureScale,
+          });
+
+          URL.revokeObjectURL(url);
+        };
+
+        img.onerror = (error) => {
+          console.error('Error loading SVG image:', error);
+          setResult(null);
+          if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+        };
+
+        img.src = url;
+
+      } catch (error) {
+        console.error('Error in processShapes:', error);
+        setResult(null);
+      }
     };
-  }, [textContent, fontSize, fillColor, fontOption, padding, kerning]);
+
+    return () => {
+      if (result?.texture) {
+        result.texture.dispose();
+      }
+      if (revokedUrl) {
+        URL.revokeObjectURL(revokedUrl);
+      }
+    };
+  }, [textContent, fontSize, fillColor, fontOption, padding, kerning, shapeToPath, textureScale, shadowScale]);
 
   return result;
 };
@@ -937,7 +1184,7 @@ const EnhancedTextElement = ({
             vcutColor={text.vcutColor}
             position={[x, y, 0]}
             rotationZ={rotationZ}
-            kerning={(text.kerning || 0) * 0.001}
+            kerning={(text.kerning || 0)}
           />
         );
       }
@@ -1042,7 +1289,7 @@ const EnhancedTextElement = ({
                 vcutColor={text.vcutColor}
                 fontOption={fontOption}
                 position={[positionX, positionY, 0]}
-                kerning={(text.kerning || 0) * 0.001}
+                kerning={(text.kerning || 0)}
               />
             );
           }
@@ -1102,13 +1349,9 @@ const EnhancedTextElement = ({
     );
   };
 
-
-  
   const renderTextContent = () => {
     return Math.abs(text.curveAmount) > 0 ? renderCurvedText() : renderNormalText();
   };
-
-
 
   // 事件处理
 
@@ -1269,7 +1512,6 @@ const EnhancedTextElement = ({
       .applyQuaternion(worldQuaternion)
       .add(worldPosition);
 
-    // CS新增
     if (text.engraveType === 'vcut') {
 
       // 需要补偿的距离
