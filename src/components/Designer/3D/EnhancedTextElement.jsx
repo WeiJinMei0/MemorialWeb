@@ -6,7 +6,7 @@ import { Text3D, TransformControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { extend } from '@react-three/fiber';
-import { ReloadOutlined, DeleteOutlined, CheckOutlined, EditOutlined, } from '@ant-design/icons';
+import { ReloadOutlined, DeleteOutlined, CheckOutlined, EditOutlined, CopyOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
 
@@ -728,6 +728,7 @@ const EnhancedTextElement = ({
   onTextRotationChange,
   onTextSelect,
   onDeleteText,
+  onDuplicateElement,
   isSelected,
   isTextEditing,
   getFontPath,
@@ -808,14 +809,13 @@ const EnhancedTextElement = ({
   const recalculateBounds = useCallback(() => {
     // 简单的估算逻辑，用于定位 UI    
     const fontSize = text.size * 0.0254;
-    const charWidth = 0.6; // 估算平均字宽比例    
+    const charWidth = 0.6;
     const content = text.content || 'Enter Text';
     const lines = textDirection === 'horizontal' ? content.split('\n') : content.split('');
     let maxWidth = 0;
     let totalHeight = 0;
     
     if (text.alignment === 'justify' && textDirection === 'horizontal') {
-      // 对于两端对齐，计算最大行宽
       lines.forEach(line => {
         if (line.trim() === '') return;
         let lineWidth = 0;
@@ -826,7 +826,6 @@ const EnhancedTextElement = ({
         maxWidth = Math.max(maxWidth, lineWidth);
       });
     } else {
-      // 其他对齐方式
       lines.forEach(line => {
         const w = line.length * fontSize * 0.6 + (line.length * fontSize * (text.kerning || 0) * 0.001);
         if (w > maxWidth) maxWidth = w;
@@ -835,16 +834,17 @@ const EnhancedTextElement = ({
     
     totalHeight = lines.length * fontSize * (text.lineSpacing || 1.2);
     
-    // 计算边界
+    // 修改：减小padding，从0.15和0.10改为0.08和0.05
     const halfW = maxWidth / 2;
     const halfH = totalHeight / 2;
-    const paddingX = 0.15;
-    const paddingY = 0.10;
+    const paddingX = 0.04; // 减小水平padding
+    const paddingY = 0.04; // 减小垂直padding
     
     setUiPos({
       topLeft: [-halfW - paddingX, halfH + paddingY, 0],
       topRight: [halfW + paddingX, halfH + paddingY, 0],
-      bottomCenter: [0.1, -halfH - 0.02, 0],
+      bottomLeft: [-halfW - paddingX, -halfH - paddingY, 0], // 复制按钮位置
+      bottomCenter: [0, -halfH - 0.02, 0], // 调整完成按钮位置
       width: maxWidth,
       height: totalHeight
     });
@@ -1385,6 +1385,24 @@ const EnhancedTextElement = ({
     }
   };
 
+   // 新增：复制文字处理函数
+  const handleDuplicate = (e) => {
+    e.stopPropagation();
+    if (onDuplicateElement) {
+      // 在原文字位置基础上稍微偏移，避免重叠
+      const offsetX = 0.15; // 向右偏移0.15米
+      const newPosition = [
+        text.position[0] + offsetX,
+        text.position[1],
+        text.position[2]
+      ];
+      
+      onDuplicateElement(text.id, 'text', {
+        position: newPosition
+      });
+    }
+  };
+
   const handleDone = (e) => {
     e.stopPropagation();
     onTextSelect?.(null);
@@ -1663,6 +1681,18 @@ const EnhancedTextElement = ({
             onPointerDown={(e) => e.stopPropagation()}
           >
             <DeleteOutlined />
+          </div>
+        </Html>
+
+        {/* 左下角：复制按钮 */}
+        <Html position={uiPos.bottomLeft} center zIndexRange={[1000, 2000]}>
+          <div
+            style={{ ...btnStyle, width: 28, height: 28, background: '#4a4a3b' }}
+            onClick={handleDuplicate}
+            onPointerDown={(e) => e.stopPropagation()}
+            title={t('textEditor.duplicate')}
+          >
+            <CopyOutlined />
           </div>
         </Html>
 

@@ -676,6 +676,7 @@ const MonumentScene = forwardRef(({
             modelRefs={modelRefs}
             globalTransformMode={transformMode}
             surfaceZ={effectiveSurfaceZ}
+            onDuplicateElement={onDuplicateElement}
           />
         );
       })}
