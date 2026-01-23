@@ -2,11 +2,11 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo,useLayoutEffect } from 'react';
 import { getFontFamilyForLanguage,FONT_OPTIONS  } from '../../../hooks/useDesignState';
 import { useThree } from '@react-three/fiber';
-import { Text3D, TransformControls, Html } from '@react-three/drei';
+import { Text3D, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { extend } from '@react-three/fiber';
-import { ReloadOutlined, DeleteOutlined, CheckOutlined, EditOutlined, CopyOutlined } from '@ant-design/icons';
+import { ReloadOutlined, DeleteOutlined, CheckOutlined, EditOutlined, CopyOutlined, DragOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
 
@@ -778,11 +778,84 @@ const EnhancedTextElement = ({
   const groupRef = useRef();
 
 
-  const { controls } = useThree();
+  const { controls, camera, gl, raycaster } = useThree();
   const [isDragging, setIsDragging] = useState(false);
   const [monumentMaterial, setMonumentMaterial] = useState(null);
   const [hasInitPosition, setHasInitPosition] = useState(false);
   const rafWriteRef = useRef(null);
+
+  // 拖拽交互 Ref
+  const interactionRef = useRef({
+    isDragging: false,
+    startMouse: new THREE.Vector3(),
+    startPosition: new THREE.Vector3(),
+    planeZ: 0,
+  });
+
+  // 获取鼠标在平面上的世界坐标
+  const getMouseOnPlane = useCallback((clientX, clientY, z) => {
+    const rect = gl.domElement.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera({ x, y }, camera);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -z);
+    const target = new THREE.Vector3();
+    raycaster.ray.intersectPlane(plane, target);
+    return target;
+  }, [gl.domElement, camera, raycaster]);
+
+  // 拖拽时更新文本位置
+  const handlePointerMove = useCallback((e) => {
+    const { isDragging, startMouse, startPosition, planeZ } = interactionRef.current;
+    if (!isDragging || !groupRef.current) return;
+
+    const currentMouse = getMouseOnPlane(e.clientX, e.clientY, planeZ);
+    if (!currentMouse) return;
+
+    // 计算拖拽的偏移
+    const delta = currentMouse.clone().sub(startMouse);
+    groupRef.current.position.copy(startPosition.clone().add(delta));
+  }, [getMouseOnPlane]);
+
+  // 拖拽结束时写回状态
+  const handlePointerUp = useCallback(() => {
+    window.removeEventListener('pointermove', handlePointerMove);
+    window.removeEventListener('pointerup', handlePointerUp);
+
+    if (interactionRef.current.isDragging && groupRef.current) {
+      // 写回新位置到状态
+      writeBackPoseToState();
+      if (controls) controls.enabled = true;
+      setIsDragging(false);
+    }
+    interactionRef.current.isDragging = false;
+  }, [handlePointerMove, controls]);
+
+  // 拖拽开始
+  const startDragging = useCallback((clientX, clientY, fromButton = false) => {
+    // 如果来自按钮，允许拖拽；如果来自 invisible mesh，仅在非编辑模式时允许
+    if (!isSelected) return;
+    if (!fromButton && isTextEditing) return; // 非按钮来源时，编辑模式下不允许拖拽
+    if (!groupRef.current) return;
+
+    const worldZ = groupRef.current.position.z;
+    const mouseWorld = getMouseOnPlane(clientX, clientY, worldZ);
+    if (!mouseWorld) return;
+
+    interactionRef.current = {
+      isDragging: true,
+      startMouse: mouseWorld,
+      startPosition: groupRef.current.position.clone(),
+      planeZ: worldZ
+    };
+
+    if (controls) controls.enabled = false;
+    setIsDragging(true);
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  }, [isSelected, isTextEditing, getMouseOnPlane, handlePointerMove, handlePointerUp, controls]);
 
   const mode = globalTransformMode || 'translate';
   const textDirection = text.textDirection || 'horizontal';
@@ -869,17 +942,17 @@ const EnhancedTextElement = ({
     
     totalHeight = lines.length * fontSize * (text.lineSpacing || 1.2);
     
-    // 修改：减小padding，从0.15和0.10改为0.08和0.05
-    const halfW = maxWidth / 2;
-    const halfH = totalHeight / 2;
-    const paddingX = 0.04; // 减小水平padding
-    const paddingY = 0.04; // 减小垂直padding
+    // 使用固定的小 padding，不依赖文本大小
+    const halfW = maxWidth / 6;
+    const halfH = totalHeight / 6;
+    const fixedPadding = 0.08; // 固定的小填充
     
     setUiPos({
-      topLeft: [-halfW - paddingX, halfH + paddingY, 0],
-      topRight: [halfW + paddingX, halfH + paddingY, 0],
-      bottomLeft: [-halfW - paddingX, -halfH - paddingY, 0], // 复制按钮位置
-      bottomCenter: [0, -halfH - 0.02, 0], // 调整完成按钮位置
+      topLeft: [-halfW - fixedPadding, halfH + fixedPadding, 0],      // 左上角（旋转按钮）
+      topCenter: [0, halfH + fixedPadding, 0],                         // 上方正中间（拖拽按钮）
+      topRight: [halfW + fixedPadding, halfH + fixedPadding, 0],       // 右上角（删除按钮）
+      bottomLeft: [-halfW - fixedPadding, -halfH - fixedPadding, 0],   // 左下角（复制按钮）
+      bottomCenter: [0, -halfH - 0.02, 0],                             // 底部中间（输入框）
       width: maxWidth,
       height: totalHeight
     });
@@ -1882,9 +1955,8 @@ const EnhancedTextElement = ({
 
     return (
       <>
-        {/* 1. 隐形输入组件 */}
         {/* 编辑状态下显示文本输入框 */}
-        {isTextEditing && inputHasFocus && (
+        {inputHasFocus && (
           <Html
             position={uiPos.bottomCenter}
             zIndexRange={[10000, 20000]}
@@ -1902,18 +1974,38 @@ const EnhancedTextElement = ({
           </Html>
         )}
 
-        {/* 左上角：旋转 */}
+        {/* 左上角：旋转按钮 */}
         <Html position={uiPos.topLeft} center zIndexRange={[1000, 2000]}>
           <div
             style={{ ...btnStyle, width: 28, height: 28 }}
             onClick={handleRotate90}
             onPointerDown={(e) => e.stopPropagation()}
+            title="旋转90°"
           >
             <ReloadOutlined style={{ transform: 'scaleX(-1)' }} />
           </div>
         </Html>
 
-        {/* 右上角：删除 */}
+        {/* 上方正中间：拖拽图标 */}
+        <Html position={uiPos.topCenter} center zIndexRange={[1000, 2000]}>
+          <div
+            style={{ 
+              ...btnStyle, 
+              width: 28, 
+              height: 28,
+              background: '#556B2F',
+              cursor: 'grab'
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              startDragging(e.clientX, e.clientY, true);
+            }}
+          >
+            <DragOutlined style={{ color: 'white' }} />
+          </div>
+        </Html>
+
+        {/* 右上角：删除按钮 */}
         <Html position={uiPos.topRight} center zIndexRange={[1000, 2000]}>
           <div
             style={{ ...btnStyle, width: 28, height: 28, background: '#8B0000' }}
@@ -1930,41 +2022,14 @@ const EnhancedTextElement = ({
             style={{ ...btnStyle, width: 28, height: 28, background: '#4a4a3b' }}
             onClick={handleDuplicate}
             onPointerDown={(e) => e.stopPropagation()}
+            title="复制文本"
           >
             <CopyOutlined />
           </div>
         </Html>
-
-        {/* 底部：根据焦点状态显示不同的按钮 */}
-        {/* <Html position={uiPos.bottomCenter} center zIndexRange={[20001, 20002]} >
-          <div style={{ transform: 'translate(-50%, 50%)' }}>
-            <div
-              style={{
-                ...btnStyle,
-                padding: '4px 12px',
-                fontSize: '14px',
-                gap: '6px',
-                background: inputHasFocus ? '#2F4F4F' : '#556B2F',
-                cursor: 'pointer'  // 确保明确设置
-              }}
-              onClick={handleDone}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              {inputHasFocus ? (
-                <>
-                  <EditOutlined /> {t('textEditor.editing')}
-                </>
-              ) : (
-                <>
-                  <CheckOutlined />{t('textEditor.done')}
-                </>
-              )}
-            </div>
-          </div>
-        </Html> */}
       </>
     );
-  }, [isSelected, isTextEditing, uiPos, text.content, inputHasFocus, t]);
+  }, [isSelected, isTextEditing, uiPos, text.content, inputHasFocus, btnStyle]);
   useEffect(() => {
   // 使用ref来跟踪是否正在拖拽
   const isDraggingRef = { current: false };
@@ -2017,34 +2082,34 @@ const EnhancedTextElement = ({
     <>
       <group
         ref={groupRef}
-        onClick={handleGroupClick}
-        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          // 仅当未选中时，点击才选中；已选中时点击不再重复调用
+          if (!isSelected) {
+            e.stopPropagation();
+            handleGroupClick(e);
+          }
+        }}
         userData={{ isTextElement: true, textId: text.id }}
       >
-          {renderTextContent()}
+        {renderTextContent()}
         {controlButtons}
       </group>
 
-      {isSelected && isTextEditing && groupRef.current && (
-        <TransformControls
-          object={groupRef.current}
-          mode={mode}
-          space="local"
-          anchor="center"
-          showX={mode === 'translate'}
-          showY={mode === 'translate'}
-          showZ={mode === 'rotate'}
-          size={0.6}
-          onMouseDown={() => {
-            if (controls) controls.enabled = false;
-            setIsDragging(true);
+      {/* 拖拽触发区域：仅在选中但非编辑模式时显示（此时没有拖拽按钮） */}
+      {isSelected && !isTextEditing && (
+        <mesh
+          position={[0, 0, 0.01]}
+          userData={{ isDragHandle: true, textId: text.id }}
+          onPointerDown={(e) => {
+            if (e.button === 0) {
+              e.stopPropagation();
+              startDragging(e.clientX, e.clientY);
+            }
           }}
-          onMouseUp={() => {
-            writeBackPoseToState();
-            if (controls) controls.enabled = true;
-            setIsDragging(false);
-          }}
-        />
+        >
+          <planeGeometry args={[0.8, 0.8]} />
+          <meshStandardMaterial transparent opacity={0} />
+        </mesh>
       )}
     </>
   );

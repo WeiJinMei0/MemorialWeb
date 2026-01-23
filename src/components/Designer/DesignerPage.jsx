@@ -1056,15 +1056,13 @@ const DesignerPage = () => {
     handleCloseVaseEditor();
     setSelectedModelId(null);
     setSelectedModelType(null);
-
-    message.success('文本添加成功');
   }, [designState.monuments, addText, selectElement, handleArtElementSelect, handleCloseVaseEditor]);
 
   const handleDeleteText = useCallback((textId) => {
     deleteText(textId);
     setCurrentTextId(null);
     setIsTextEditing(false);
-    message.success('文字已删除');
+
   }, [deleteText]);
 
   const handleTextSelect = useCallback((textId) => {
