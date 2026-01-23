@@ -253,10 +253,10 @@ const DesignerPage = () => {
     // 执行复位操作
     try {
       resetSelectedTabletPosition();
-      message.success('墓碑已复位到底座位置');
+      // message.success('墓碑已复位到底座位置');
     } catch (error) {
       // console.error('复位失败:', error);
-      message.error('复位失败，请重试');
+      // message.error('复位失败，请重试');
     }
   }, [selectedElements, designState.monuments, resetSelectedTabletPosition, message]);
 
@@ -1763,7 +1763,7 @@ const DesignerPage = () => {
           }
         });
 
-        message.success(`已选中 ${allElements.length} 个元素`);
+        // message.success(`已选中 ${allElements.length} 个元素`);
       }
 
       // Esc: 取消所有选中
