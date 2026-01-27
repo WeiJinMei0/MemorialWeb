@@ -166,7 +166,10 @@ const InteractiveArtPlane = forwardRef(({
   onFlip,
   onMirrorCopy,
   onSave,
-  isPartialFill = false
+  isPartialFill = false,
+  onDragStart,
+  onDrag,
+  onDragEnd
 }, ref) => {
   const { camera, gl, raycaster } = useThree();
   const meshRef = useRef();
@@ -220,7 +223,8 @@ const InteractiveArtPlane = forwardRef(({
         scale: [mesh.scale.x, mesh.scale.y, mesh.scale.z],
         rotation: [mesh.rotation.x, mesh.rotation.y, mesh.rotation.z]
       };
-    }
+    },
+    getMesh: () => meshRef.current
   }), []);
 
   // 光标样式
@@ -468,6 +472,7 @@ const InteractiveArtPlane = forwardRef(({
     if (mode === 'move') {
       const delta = currentMouse.clone().sub(startMouse);
       mesh.position.copy(startPosition.clone().add(delta));
+      if (onDrag) onDrag(art.id, delta);
     }
     else if (mode === 'scale') {
       const center = startPosition;
@@ -547,11 +552,15 @@ const InteractiveArtPlane = forwardRef(({
         startRotation.z + deltaAngle
       );
     }
-  }, [getMouseOnPlane]);
+  }, [getMouseOnPlane, onDrag, art.id]);
 
   const handlePointerUp = useCallback(() => {
     window.removeEventListener('pointermove', handlePointerMove);
     window.removeEventListener('pointerup', handlePointerUp);
+
+    if (interactionRef.current.mode === 'move' && onDragEnd) {
+      onDragEnd(art.id);
+    }
 
     if (interactionRef.current.mode && meshRef.current) {
       onTransformEnd(art.id, {
@@ -561,7 +570,7 @@ const InteractiveArtPlane = forwardRef(({
       });
     }
     interactionRef.current.mode = null;
-  }, [art.id, onTransformEnd, handlePointerMove]);
+  }, [art.id, onTransformEnd, handlePointerMove, onDragEnd]);
 
   const startInteraction = useCallback((e, mode) => {
     if (!isSelected || !meshRef.current) return;
@@ -585,9 +594,13 @@ const InteractiveArtPlane = forwardRef(({
       planeZ: worldZ
     };
 
+    if (mode === 'move' && onDragStart) {
+      onDragStart(art.id);
+    }
+
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
-  }, [isSelected, isFillModeActive, isPartialFill, getMouseOnPlane, handlePointerMove, handlePointerUp]);
+  }, [isSelected, isFillModeActive, isPartialFill, getMouseOnPlane, handlePointerMove, handlePointerUp, onDragStart, art.id]);
 
   // --- 按钮处理 ---
   // 【性能优化】使用 useCallback 包装事件处理函数
@@ -694,7 +707,7 @@ const InteractiveArtPlane = forwardRef(({
           } else {
             if (!isSelected) {
               e.stopPropagation();
-              onSelect(art.id);
+              onSelect(art.id, e.nativeEvent);
             } else {
               startInteraction(e.nativeEvent, 'move');
             }

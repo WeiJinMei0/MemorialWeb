@@ -88,6 +88,7 @@ const MonumentScene = forwardRef(({
   const artPlaneRefs = useRef({});
   const vaseRefs = useRef({});
   const orbitControlsRef = useRef();
+  const dragStartPositionsRef = useRef({});
 
   // 新增：重置相机到正面视图的函数
   const resetCameraToFront = useCallback(() => {
@@ -325,8 +326,49 @@ const MonumentScene = forwardRef(({
     }
   }, [onSceneDrop]);
 
-  const handleSelectArtPlane = useCallback((artId) => {
-    onArtElementSelect(artId);
+  const handleArtDragStart = useCallback((elementId) => {
+    dragStartPositionsRef.current = {};
+    if (selectedElements && selectedElements.length > 0) {
+      selectedElements.forEach(el => {
+        if (el.type === 'art' && el.id !== elementId && artPlaneRefs.current[el.id]) {
+          const mesh = artPlaneRefs.current[el.id].getMesh();
+          if (mesh) {
+            dragStartPositionsRef.current[el.id] = mesh.position.clone();
+          }
+        }
+      });
+    }
+  }, [selectedElements]);
+
+  const handleArtDrag = useCallback((elementId, delta) => {
+    Object.entries(dragStartPositionsRef.current).forEach(([id, startPos]) => {
+      const ref = artPlaneRefs.current[id];
+      if (ref) {
+        const mesh = ref.getMesh();
+        if (mesh) {
+          mesh.position.copy(startPos.clone().add(delta));
+        }
+      }
+    });
+  }, []);
+
+  const handleArtDragEnd = useCallback((elementId) => {
+    Object.keys(dragStartPositionsRef.current).forEach(id => {
+      const ref = artPlaneRefs.current[id];
+      if (ref) {
+        const mesh = ref.getMesh();
+        if (mesh && onUpdateArtElementState) {
+          onUpdateArtElementState(id, {
+            position: mesh.position.toArray()
+          });
+        }
+      }
+    });
+    dragStartPositionsRef.current = {};
+  }, [onUpdateArtElementState]);
+
+  const handleSelectArtPlane = useCallback((artId, event) => {
+    onArtElementSelect(artId, event);
   }, [onArtElementSelect]);
 
   const handleSelectVase = useCallback((vaseId) => {
@@ -713,7 +755,11 @@ const MonumentScene = forwardRef(({
           key={art.id}
           ref={el => artPlaneRefs.current[art.id] = el}
           art={{ ...art, imagePath: art.imagePath }}
-          isSelected={selectedElementId === art.id}
+          isSelected={
+            selectedElements && selectedElements.length > 0
+              ? selectedElements.some(e => e.id === art.id && e.type === 'art')
+              : selectedElementId === art.id
+          }
           onSelect={handleSelectArtPlane}
           onTransformEnd={onUpdateArtElementState}
           transformMode={transformMode}
@@ -727,6 +773,9 @@ const MonumentScene = forwardRef(({
           monumentThickness={monumentThickness}
           onDelete={onDeleteElement}
           onFlip={onFlipElement}
+          onDragStart={handleArtDragStart}
+          onDrag={handleArtDrag}
+          onDragEnd={handleArtDragEnd}
           onMirrorCopy={(id, type) => {
             // 拦截复制操作，注入最新的 canvas 数据
             if (type === 'art') {
