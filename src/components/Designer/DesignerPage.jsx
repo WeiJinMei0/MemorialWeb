@@ -331,7 +331,7 @@ const DesignerPage = () => {
       if (currentDesignId && currentDesignName) {
         // 情况1：已加载的设计 → 直接更新，不弹窗
         message.loading({ content: 'Saving design...', key: 'autoSave', duration: 0 });
-        
+
         try {
           const { stateToSave, thumbnail } = await prepareDesignData();
 
@@ -369,7 +369,7 @@ const DesignerPage = () => {
         // 情况2：新设计 → 弹窗输入名称后保存
         await new Promise((resolve, reject) => {
           let inputName = `Design_${new Date().toLocaleDateString()}`;
-          
+
           modal.confirm({
             title: 'Save Design First',
             icon: <SaveOutlined />,
@@ -381,8 +381,8 @@ const DesignerPage = () => {
                 <p style={{ marginTop: '8px', marginBottom: '8px', fontSize: '12px', color: '#999' }}>
                   Design name:
                 </p>
-                <Input 
-                  placeholder="Enter design name" 
+                <Input
+                  placeholder="Enter design name"
                   defaultValue={inputName}
                   onChange={(e) => { inputName = e.target.value; }}
                   style={{ marginBottom: '16px' }}
@@ -400,7 +400,7 @@ const DesignerPage = () => {
               }
 
               message.loading({ content: 'Saving design...', key: 'autoSave', duration: 0 });
-              
+
               try {
                 const { stateToSave, thumbnail } = await prepareDesignData();
 
@@ -479,7 +479,7 @@ const DesignerPage = () => {
 
       // 保存订单到 localStorage，并清理过期数据
       const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-      
+
       // 保存前检查存储空间，如果接近限制则删除最旧的 10 个订单
       try {
         orders.push(orderData);
@@ -488,16 +488,16 @@ const DesignerPage = () => {
         if (quotaError.name === 'QuotaExceededError') {
           // 空间不足，删除最旧的订单
           console.warn('Storage quota exceeded, cleaning up old orders...');
-          
+
           // 按时间戳排序，删除最旧的 10 个订单
-          const sortedOrders = orders.sort((a, b) => 
+          const sortedOrders = orders.sort((a, b) =>
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
           );
           const cleanedOrders = sortedOrders.slice(10); // 保留最新的，删除最旧的 10 个
-          
+
           cleanedOrders.push(orderData);
           localStorage.setItem('orders', JSON.stringify(cleanedOrders));
-          
+
           message.warning('Old orders have been cleaned up to make space', 2);
         } else {
           throw quotaError;
@@ -596,7 +596,7 @@ const DesignerPage = () => {
           // Initialize cache and sync from server on first load
           await designCache.init();
           const designs = await designCache.syncFromServer();
-          
+
           // Get recent designs from cache
           const recentDesigns = designs.slice(0, MAX_RECENTLY_SAVED).map(item => ({
             id: item.id,
@@ -630,7 +630,7 @@ const DesignerPage = () => {
   useEffect(() => {
     if (location.state?.loadedDesign) {
       const designToLoad = location.state.loadedDesign;
-      
+
       // Validate design data before loading
       if (designToLoad && (designToLoad.monuments || designToLoad.bases || designToLoad.artElements)) {
         loadDesign(designToLoad);
@@ -642,7 +642,7 @@ const DesignerPage = () => {
         console.error('Invalid loadedDesign data:', designToLoad);
         message.error('Failed to load design: Invalid data format');
       }
-      
+
       // 使用 navigate 清除 state，防止刷新时重新加载
       navigate(location.pathname, { replace: true, state: {} });
     } else {
@@ -668,10 +668,10 @@ const DesignerPage = () => {
 
     try {
       message.loading({ content: 'Loading design...', key: 'loading' });
-      
+
       // Try to load from cache first
       const fullDesignData = await designCache.getDetail(designToLoad.id);
-      
+
       // Validate design data has required fields
       if (fullDesignData && (fullDesignData.monuments || fullDesignData.bases || fullDesignData.artElements)) {
         loadDesign(fullDesignData); // Use loadDesign from useDesignState
@@ -700,17 +700,28 @@ const DesignerPage = () => {
   ];
 
   // handleArtElementSelect
-  const handleArtElementSelect = useCallback((artId) => {
+  const handleArtElementSelect = useCallback((artId, event) => {
+    const isCtrlPressed = event?.ctrlKey || event?.metaKey || ctrlKeyPressedRef.current;
+
     if (artId !== null) {
-      setSelectedElements([]);
-      // 取消文本选中
-      handleTextSelect(null);
-      // setIsTextEditing(false);
-      // setCurrentTextId(null);
-      // setSelectedVaseId(null); // 取消选中花瓶
-      setSelectedModelId(null);
-      setSelectedModelType(null);
-      if (clearAllSelection) clearAllSelection();
+      if (isCtrlPressed) {
+        setSelectedElements(prev => {
+          const exists = prev.some(p => p.id === artId && p.type === 'art');
+          if (exists) return prev;
+          return [...prev, { id: artId, type: 'art' }];
+        });
+      } else {
+        setSelectedElements([{ id: artId, type: 'art' }]);
+        // 取消文本选中
+        handleTextSelect(null);
+        // setIsTextEditing(false);
+        // setCurrentTextId(null);
+        // setSelectedVaseId(null); // 取消选中花瓶
+        setSelectedModelId(null);
+        setSelectedModelType(null);
+        if (clearAllSelection) clearAllSelection();
+      }
+
       setActiveTool(null);
       setTransformMode('translate');
 
@@ -1065,10 +1076,10 @@ const DesignerPage = () => {
 
   // handleSaveAsNew - Always create a new design (Save As / Save Copy)
   const handleSaveAsNew = useCallback(() => {
-    let designName = currentDesignName 
-      ? `${currentDesignName} (Copy)` 
+    let designName = currentDesignName
+      ? `${currentDesignName} (Copy)`
       : `Design_${new Date().toLocaleDateString()}`;
-    
+
     modal.confirm({
       title: currentDesignId ? 'Save as Copy' : 'Save Design',
       icon: <SaveOutlined />,
@@ -1086,7 +1097,7 @@ const DesignerPage = () => {
           message.error('Name cannot be empty');
           return Promise.reject(new Error('Name is empty'));
         }
-        
+
         // Show saving message
         message.loading({ content: 'Saving...', key: 'saveDesign', duration: 0 });
 
@@ -1241,7 +1252,7 @@ const DesignerPage = () => {
 
   // --- 【新增】: 关闭文字编辑器的处理函数 ---
   const handleCloseTextEditor = useCallback(() => {
-     // 清除文本选中状态
+    // 清除文本选中状态
     handleTextSelect(null);
   }, [handleTextSelect]);
 
