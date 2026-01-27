@@ -217,13 +217,10 @@ const SavedDesignsPage = () => {
                 cover={ <Image alt={item.name} src={item.thumbnail || '/images/placeholder.png'} className="design-thumbnail" /> }
                 actions={[
                   <Button type="text" icon={<EyeOutlined />} key="load" size="small" onClick={() => handleLoadDesign(item)}>
-                    {t('savedDesigns.loadAction')}
                   </Button>,
                   <Button type="text" icon={<EditOutlined />} key="rename" size="small" onClick={() => handleRenameDesign(item)}>
-                    Rename
                   </Button>,
                   <Button type="text" danger icon={<DeleteOutlined />} key="delete" size="small" onClick={() => handleDeleteDesign(item.id)}>
-                    {t('savedDesigns.deleteButton')}
                   </Button>,
                 ]}
               >

@@ -322,52 +322,195 @@ const DesignerPage = () => {
   }, []);
 
   // --- 【修改】：点击 Order 弹出确认框，直接生成 ---
-  const handleGenerateOrder = useCallback(() => {
-    modal.confirm({
-      title: t('modals.orderTitle'), // "Confirm Generate Order?"
-      icon: <FileTextOutlined />,
-      content: t('modals.orderContent'), // "This will create a new order..."
-      okText: t('modals.orderOkText'),
-      cancelText: t('modals.orderCancelText'),
-      async onOk() {
+  const handleGenerateOrder = useCallback(async () => {
+    try {
+      // =========== Step 1: 保存设计 ===========
+      let designNameForSave = currentDesignName;
+      let saveSuccessful = false;
+
+      if (currentDesignId && currentDesignName) {
+        // 情况1：已加载的设计 → 直接更新，不弹窗
+        message.loading({ content: 'Saving design...', key: 'autoSave', duration: 0 });
+        
         try {
-          message.loading({ content: t('modals.orderMessageOrdering'), key: 'ordering' });
+          const { stateToSave, thumbnail } = await prepareDesignData();
 
-          // 1. 截图
-          let thumbnail = null;
-          if (sceneRef.current) {
-            thumbnail = await sceneRef.current.captureThumbnail();
+          // 更新现有设计
+          await designService.update(currentDesignId, {
+            name: currentDesignName,
+            type: 'memorial',
+            data: stateToSave,
+            previewUrl: thumbnail
+          });
+
+          // 更新缓存
+          if (designCache.cache.detailMap[currentDesignId]) {
+            designCache.cache.detailMap[currentDesignId] = {
+              ...designCache.cache.detailMap[currentDesignId],
+              ...stateToSave,
+              thumbnail
+            };
           }
+          const listIndex = designCache.cache.designs.findIndex(d => d.id === currentDesignId);
+          if (listIndex >= 0) {
+            designCache.cache.designs[listIndex].thumbnail = thumbnail;
+            designCache.cache.designs[listIndex].timestamp = new Date().toISOString();
+          }
+          designCache.persistCache();
 
-          // 2. 构造数据 (自动生成单号，Meta 留空)
-          const orderData = {
-            orderNumber: `ORD-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            userId: user?.id,
-            design: designState,
-            thumbnail: thumbnail,
-            status: 'Pending',
-            meta: {} // 初始为空，去 Order History 里编辑
-          };
-
-          // 3. 保存
-          const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-          orders.push(orderData);
-          localStorage.setItem('orders', JSON.stringify(orders));
-
-          message.success({ content: t('modals.orderMessageSuccess'), key: 'ordering' });
-
+          message.success({ content: 'Design saved!', key: 'autoSave', duration: 1 });
+          saveSuccessful = true;
         } catch (error) {
-          console.error(error);
-          message.error({ content: t('modals.orderMessageError'), key: 'ordering' });
+          console.error('Failed to save design:', error);
+          message.error({ content: 'Failed to save design', key: 'autoSave' });
+          return; // 如果保存失败，中止生成订单
         }
-      },
-    });
-  }, [designState, user, t, modal]);
+      } else {
+        // 情况2：新设计 → 弹窗输入名称后保存
+        await new Promise((resolve, reject) => {
+          let inputName = `Design_${new Date().toLocaleDateString()}`;
+          
+          modal.confirm({
+            title: 'Save Design First',
+            icon: <SaveOutlined />,
+            content: (
+              <div>
+                <p style={{ marginBottom: '16px', color: '#666' }}>
+                  Please save your design before generating an order.
+                </p>
+                <p style={{ marginTop: '8px', marginBottom: '8px', fontSize: '12px', color: '#999' }}>
+                  Design name:
+                </p>
+                <Input 
+                  placeholder="Enter design name" 
+                  defaultValue={inputName}
+                  onChange={(e) => { inputName = e.target.value; }}
+                  style={{ marginBottom: '16px' }}
+                />
+              </div>
+            ),
+            okText: 'Save & Generate Order',
+            cancelText: 'Cancel',
+            centered: true,
+            async onOk() {
+              if (!inputName || inputName.trim() === '') {
+                message.error('Design name cannot be empty');
+                reject(new Error('Name is empty'));
+                return;
+              }
 
+              message.loading({ content: 'Saving design...', key: 'autoSave', duration: 0 });
+              
+              try {
+                const { stateToSave, thumbnail } = await prepareDesignData();
 
+                // 创建新设计
+                const { localId } = await designCache.saveDesign({
+                  ...stateToSave,
+                  name: inputName,
+                  type: 'memorial',
+                  thumbnail: thumbnail
+                });
 
-  // 新增：Print Design 处理函数
+                // 更新当前设计信息
+                setCurrentDesignId(localId);
+                setCurrentDesignName(inputName);
+                designNameForSave = inputName;
+
+                // 更新最近保存的设计列表
+                const cachedDesigns = designCache.getDesigns();
+                setRecentlySaved(cachedDesigns.slice(0, MAX_RECENTLY_SAVED).map(item => ({
+                  id: item.id,
+                  name: item.name,
+                  thumbnail: item.thumbnail,
+                  timestamp: item.timestamp,
+                  isSynced: item.isSynced
+                })));
+
+                message.success({ content: 'Design saved!', key: 'autoSave', duration: 1 });
+                saveSuccessful = true;
+                resolve(); // 保存成功，继续
+              } catch (error) {
+                console.error('Failed to save design:', error);
+                message.error({ content: 'Failed to save design', key: 'autoSave' });
+                reject(error); // 保存失败，中止
+              }
+            },
+            onCancel() {
+              reject(new Error('User cancelled')); // 用户取消，中止生成订单
+            }
+          });
+        }).catch((error) => {
+          console.log('Design save cancelled or failed:', error.message);
+          return; // 保存失败或用户取消，中止
+        });
+      }
+
+      // =========== Step 2: 设计保存成功后，显示订单信息填写表单 ===========
+      // 此时设计已保存，现在显示 OrderInfoModal 让用户填写订单信息
+      if (saveSuccessful || (currentDesignId && currentDesignName)) {
+        setOrderModalType('order');
+        setOrderModalVisible(true);
+      }
+
+    } catch (error) {
+      console.error('Order generation error:', error);
+      message.error({ content: t('modals.orderMessageError'), key: 'ordering', duration: 3 });
+    }
+  }, [currentDesignId, currentDesignName, designState, user, t, modal, sceneRef]);
+
+  // 处理订单表单提交
+  const handleOrderSubmit = useCallback(async (formData) => {
+    try {
+      message.loading({ content: 'Creating order...', key: 'ordering', duration: 0 });
+
+      // 构造订单数据（不保存 design 和 thumbnail，只保存引用和元数据）
+      const orderData = {
+        orderNumber: `ORD-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        userId: user?.id,
+        designId: currentDesignId,
+        designName: currentDesignName,
+        status: 'Pending',
+        meta: formData // 将填写的订单表单数据保存到 meta
+      };
+
+      // 保存订单到 localStorage，并清理过期数据
+      const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+      
+      // 保存前检查存储空间，如果接近限制则删除最旧的 10 个订单
+      try {
+        orders.push(orderData);
+        localStorage.setItem('orders', JSON.stringify(orders));
+      } catch (quotaError) {
+        if (quotaError.name === 'QuotaExceededError') {
+          // 空间不足，删除最旧的订单
+          console.warn('Storage quota exceeded, cleaning up old orders...');
+          
+          // 按时间戳排序，删除最旧的 10 个订单
+          const sortedOrders = orders.sort((a, b) => 
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+          const cleanedOrders = sortedOrders.slice(10); // 保留最新的，删除最旧的 10 个
+          
+          cleanedOrders.push(orderData);
+          localStorage.setItem('orders', JSON.stringify(cleanedOrders));
+          
+          message.warning('Old orders have been cleaned up to make space', 2);
+        } else {
+          throw quotaError;
+        }
+      }
+
+      message.success({ content: 'Order created successfully!', key: 'ordering', duration: 2 });
+
+      // 关闭 modal
+      setOrderModalVisible(false);
+    } catch (error) {
+      console.error('Order submission error:', error);
+      message.error({ content: 'Failed to create order', key: 'ordering', duration: 3 });
+    }
+  }, [currentDesignId, currentDesignName, user, sceneRef]);
   const handlePrintDesign = useCallback(async () => {
     try {
       if (sceneRef.current) {
@@ -2290,6 +2433,7 @@ const DesignerPage = () => {
         visible={orderModalVisible}
         type={orderModalType}
         onCancel={() => setOrderModalVisible(false)}
+        onSubmit={handleOrderSubmit}
         designState={designState} // 传入当前设计数据
         proofImage={proofImage}   // 传入3D截图
       />

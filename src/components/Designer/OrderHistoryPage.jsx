@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Table, Button, Image, Tag, Empty, Input, Modal, Form, message } from 'antd';
+import { Table, Button, Image, Tag, Empty, Input, Modal, Form, message, App } from 'antd';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import OrderFormPDF from '../PDF/OrderFormPDF';
 import EditableOrderForm from './Export/EditableOrderForm'; // 引入新组件
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import designCache from '../../services/designCache';
 import './OrderHistoryPage.css';
 
 const { Search } = Input;
@@ -14,10 +15,12 @@ const OrderHistoryPage = () => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { t } = useTranslation();
+  const { modal } = App.useApp();
 
   // 编辑模态框状态
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [currentOrder, setCurrentOrder] = useState(null);
+  const [currentDesignState, setCurrentDesignState] = useState(null);
   const [form] = Form.useForm();
   // 用于保存当前的 PDF 数据（为了让 PDFDownloadLink 能够获取到最新的表单值）
   const [pdfData, setPdfData] = useState(null);
@@ -33,11 +36,29 @@ const OrderHistoryPage = () => {
   // 打开编辑弹窗
   const handleViewDetails = (order) => {
     setCurrentOrder(order);
-    // 将订单中已有的 meta 数据（如果有的话）或者设计数据转换后填充
-    // 注意：首次打开时，order.meta 可能只有简单的 contract#, cemetery 等
-    // 我们会在 EditableOrderForm 内部做数据合并
+    
+    // 从 designCache 中获取关联的设计数据
+    let designState = null;
+    if (order.designId) {
+      const designDetail = designCache.cache.detailMap[order.designId];
+      if (designDetail) {
+        designState = designDetail;
+      }
+    }
+    setCurrentDesignState(designState);
+    
+    // 将订单中已有的 meta 数据进行字段映射
+    // OrderInfoModal 使用 orderNumber，EditableOrderForm 使用 contractNo
+    let metaData = { ...order.meta };
+    if (metaData.orderNumber && !metaData.contractNo) {
+      metaData.contractNo = metaData.orderNumber;
+    }
+    
     setPdfData(order); // 初始化 PDF 数据
     setEditModalVisible(true);
+    
+    // 填充表单初始数据
+    form.setFieldsValue(metaData);
   };
 
   // 保存更改
@@ -70,16 +91,71 @@ const OrderHistoryPage = () => {
     });
   };
 
+  // 删除订单
+  const handleDeleteOrder = (orderNumber) => {
+    modal.confirm({
+      title: 'Delete Order',
+      content: 'Are you sure you want to delete this order? This action cannot be undone.',
+      okText: 'Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: () => {
+        try {
+          // 从 localStorage 中删除订单
+          const allOrders = JSON.parse(localStorage.getItem('orders') || '[]');
+          const filteredOrders = allOrders.filter(o => o.orderNumber !== orderNumber);
+          localStorage.setItem('orders', JSON.stringify(filteredOrders));
+          
+          // 更新本地状态
+          const updatedOrders = orders.filter(o => o.orderNumber !== orderNumber);
+          setOrders(updatedOrders);
+          
+          message.success('Order deleted successfully');
+        } catch (error) {
+          console.error('Error deleting order:', error);
+          message.error('Failed to delete order');
+        }
+      },
+    });
+  };
+
   const columns = [
-    { title: 'Order #', dataIndex: 'orderNumber', key: 'orderNumber' },
-    { title: 'Time', dataIndex: 'timestamp', render: ts => new Date(ts).toLocaleDateString() },
+    { 
+      title: 'Order #', 
+      dataIndex: 'orderNumber', 
+      key: 'orderNumber',
+      width: 200
+    },
+    { 
+      title: 'Time', 
+      dataIndex: 'timestamp', 
+      key: 'timestamp',
+      width: 150,
+      render: ts => new Date(ts).toLocaleDateString() 
+    },
+    {
+      title: 'CONTRACT NO.',
+      key: 'contractNo',
+      width: 200,
+      render: (_, record) => {
+        // 获取最新的 CONTRACT NO，从 meta.contractNo 或 meta.orderNumber
+        const contractNo = record.meta?.contractNo || record.meta?.orderNumber || '-';
+        return <span>{contractNo}</span>;
+      }
+    },
     {
       title: 'Action',
       key: 'action',
+      width: 150,
       render: (_, record) => (
-        <Button type="primary" size="small" onClick={() => handleViewDetails(record)}>
-          Edit / View Details
-        </Button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Button type="primary" size="small" onClick={() => handleViewDetails(record)}>
+            Edit / View Details
+          </Button>
+          <Button danger size="small" onClick={() => handleDeleteOrder(record.orderNumber)}>
+            Delete
+          </Button>
+        </div>
       ),
     },
   ];
@@ -106,7 +182,7 @@ const OrderHistoryPage = () => {
               key="download"
               document={
                 <OrderFormPDF
-                  designState={currentOrder.design}
+                  designState={currentDesignState}
                   // 将表单的最新数据传给 PDF
                   // 这里我们在点击 Save 时更新了 pdfData.meta
                   // 如果用户想不保存直接下载修改后的，需要监听 form 变化，这里简化为保存后下载
@@ -128,7 +204,7 @@ const OrderHistoryPage = () => {
           <EditableOrderForm
             form={form}
             initialData={currentOrder.meta}
-            designState={currentOrder.design}
+            designState={currentDesignState}
           />
         )}
       </Modal>
