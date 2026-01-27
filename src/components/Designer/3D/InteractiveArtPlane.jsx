@@ -211,7 +211,16 @@ const InteractiveArtPlane = forwardRef(({
   }, [gl.domElement, camera, raycaster]);
 
   useImperativeHandle(ref, () => ({
-    getCanvasDataURL: () => artCanvasRef.current?.canvas?.toDataURL('image/png')
+    getCanvasDataURL: () => artCanvasRef.current?.canvas?.toDataURL('image/png'),
+    getTransform: () => {
+      const mesh = meshRef.current;
+      if (!mesh) return null;
+      return {
+        position: [mesh.position.x, mesh.position.y, mesh.position.z],
+        scale: [mesh.scale.x, mesh.scale.y, mesh.scale.z],
+        rotation: [mesh.rotation.x, mesh.rotation.y, mesh.rotation.z]
+      };
+    }
   }), []);
 
   // 光标样式

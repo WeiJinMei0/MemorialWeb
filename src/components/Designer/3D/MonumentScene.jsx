@@ -119,7 +119,7 @@ const MonumentScene = forwardRef(({
     // 修改 handleGlobalClick 函数以支持 Ctrl 多选
     const handleGlobalClick = (event) => {
       if (event.target !== gl.domElement) return;
-      
+
       raycaster.setFromCamera(pointer, camera);
       const intersects = raycaster.intersectObjects(scene.children, true);
       const hit = intersects.find(i => i.object.isMesh && i.object.visible);
@@ -138,7 +138,7 @@ const MonumentScene = forwardRef(({
         // 查找点击的元素类型和ID
         let elementType = null;
         let elementId = null;
-        
+
         let obj = hit.object;
         while (obj) {
           if (obj.userData) {
@@ -166,7 +166,7 @@ const MonumentScene = forwardRef(({
           if (obj.parent === null || obj.parent === scene) break;
           obj = obj.parent;
         }
-        
+
         // 触发选中事件，传递事件对象以检测 Ctrl 键
         if (elementType && elementId) {
           switch (elementType) {
@@ -407,8 +407,8 @@ const MonumentScene = forwardRef(({
     const baseInitZ = 0;   // 底座默认的初始 Z 轴位置
 
     const subbaseInitX = 0;
-    const subbaseInitY = 0;  
-    const subbaseInitZ = 0;   
+    const subbaseInitY = 0;
+    const subbaseInitZ = 0;
 
 
     const tabletInitX = 0;
@@ -428,7 +428,7 @@ const MonumentScene = forwardRef(({
     const shouldInitSymmetric =
       tabletCount === 2 &&
       tabletList.every(t => hasValidPosition(t.position) && isAtDefaultPosition(t.position));
-    
+
     designState.monuments.forEach((monument) => {
       // 非Tablet 碑体
       if (monument.family !== 'Tablet') {
@@ -453,7 +453,7 @@ const MonumentScene = forwardRef(({
         positions[monument.id] = targetPosition;
         monument.position = targetPosition; // 写回设计状态
       }
-      else{
+      else {
         // 尊重已有位置（用户拖拽过）
         if (hasValidPosition(monument.position)) {
           positions[monument.id] = monument.position;
@@ -483,7 +483,7 @@ const MonumentScene = forwardRef(({
 
     return positions;
   }, [designState.subBases, designState.bases, designState.monuments]);
-  
+
   const handleModelLoad = (elementId, elementType, dimensions) => {
     if (onDimensionsChange) {
       onDimensionsChange(elementId, dimensions, elementType);
@@ -563,7 +563,7 @@ const MonumentScene = forwardRef(({
 
       <OrbitControls
         ref={orbitControlsRef}
-        enableRotate={isViewRotatable && 
+        enableRotate={isViewRotatable &&
           !selectedModelId &&       // ✅ 没有选中模型
           !selectedElementId &&     // ✅ 没有选中艺术图案
           !currentTextId &&         // ✅ 没有选中文字
@@ -592,7 +592,7 @@ const MonumentScene = forwardRef(({
           onFillClick={() => onModelFillClick(subBase.id, 'subBase')}
           isDraggable={true}
           // isSelected={selectedModelId === subBase.id && selectedModelType === 'subBase'}
-          isSelected={selectedElements.some(el => 
+          isSelected={selectedElements.some(el =>
             el.id === subBase.id && el.type === 'subBase'
           )}
           elementId={subBase.id}
@@ -617,7 +617,7 @@ const MonumentScene = forwardRef(({
           onFillClick={() => onModelFillClick(base.id, 'base')}
           isDraggable={true}
           // isSelected={selectedModelId === base.id && selectedModelType === 'base'}
-          isSelected={selectedElements.some(el => 
+          isSelected={selectedElements.some(el =>
             el.id === base.id && el.type === 'base'
           )}
           elementId={base.id}
@@ -643,7 +643,7 @@ const MonumentScene = forwardRef(({
           isDraggable={true}
           // isSelected={selectedModelId === monument.id && selectedModelType === 'monument'}
           // 修改 isSelected 判断：检查该元素是否在选中数组中
-          isSelected={selectedElements.some(el => 
+          isSelected={selectedElements.some(el =>
             el.id === monument.id && el.type === 'monument'
           )}
           elementId={monument.id}
@@ -732,6 +732,30 @@ const MonumentScene = forwardRef(({
             if (type === 'art') {
               const artRef = artPlaneRefs.current[id];
               let overrides = {};
+
+              // 镜像复制（默认左右 / 绕自身中心）：
+              // - 缩放：scale.x 取反
+              // - 旋转：按竖直轴对称镜像（rotation.z 取反）
+              // 需要从 mesh 读取实时 transform，避免拉伸缩放/旋转在 state 未落盘时丢失
+              const liveTransform = artRef?.getTransform ? artRef.getTransform() : null;
+              const baseScale = Array.isArray(liveTransform?.scale) ? liveTransform.scale : (Array.isArray(art.scale) ? art.scale : [1, 1, 1]);
+              const baseRotation = Array.isArray(liveTransform?.rotation) ? liveTransform.rotation : (Array.isArray(art.rotation) ? art.rotation : [0, 0, 0]);
+              const basePosition = Array.isArray(liveTransform?.position) ? liveTransform.position : (Array.isArray(art.position) ? art.position : [0, 0, 0]);
+
+              // 偏移量：随尺寸变化，但限制在合理范围内（单位同 position）
+              const offsetX = Math.max(0.05, Math.min(1, Math.abs(baseScale[0] || 1) * 0.6));
+
+              overrides.scale = [-(baseScale[0] || 1), baseScale[1] || 1, baseScale[2] || 1];
+              overrides.rotation = [baseRotation[0] || 0, baseRotation[1] || 0, -(baseRotation[2] || 0)];
+              overrides.position = [
+                (basePosition[0] || 0) + offsetX,
+                basePosition[1] || 0,
+                basePosition[2] || 0
+              ];
+
+              // 保持原图案选中：避免复制品继承 selected 状态
+              overrides.selected = false;
+
               if (artRef && artRef.getCanvasDataURL) {
                 try {
                   const currentImageData = artRef.getCanvasDataURL();

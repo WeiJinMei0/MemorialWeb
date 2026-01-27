@@ -407,8 +407,8 @@ const baseInitY = 0 - baseInitHeight - 0.3;  // 底座默认的初始 Y 轴位�
 const baseInitZ = 0;   // 底座默认的初始 Z 轴位置
 
 const subbaseInitX = 0;
-const subbaseInitY = -0.3;  
-const subbaseInitZ = 0;   
+const subbaseInitY = -0.3;
+const subbaseInitZ = 0;
 
 const tabletInitX = 0;
 const tabletInitY = -0.3; // 碑体默认的初始 Y 轴位置
@@ -483,17 +483,17 @@ const getSelectedElement = (prev) => {
 // newType：新元素的类型（'base'、'subBase'、'monument'）
 // newDimensions：新元素的尺寸
 // prev：当前设计状态
-const getPositionBySelected = (selected, newType, newDimensions,list) => {
+const getPositionBySelected = (selected, newType, newDimensions, list) => {
   const DEFAULT_HORIZONTAL_GAP = 0.2;
   let DEFAULT_Position = [0, 0, 0];
-  if(newType === 'monument'){
+  if (newType === 'monument') {
     DEFAULT_Position = monumentPosition;
   }
-  else{
+  else {
     DEFAULT_Position = basePosition;
   }
   // 没选中
-  if (!selected ) { 
+  if (!selected) {
     // 如果同类型已经存在
     if (list.length > 0) {
       const last = list[list.length - 1];
@@ -512,10 +512,10 @@ const getPositionBySelected = (selected, newType, newDimensions,list) => {
   const newHeight = newDimensions?.height ?? 0;
 
   // 放在上方
-  const aboveY = y + selectedHeight ;
+  const aboveY = y + selectedHeight;
 
   // 放在下方
-  const belowY = y -  newHeight;
+  const belowY = y - newHeight;
 
   // 选中同类型,新产品放在原产品右侧
   if (selected.type === newType) {
@@ -556,7 +556,7 @@ function findTabletsOnTop({
   EPSILON = 0.1
 }) {
   // console.group('🔍【找到顶平面上的 tablets】');
-  
+
   const [bx, by, bz] = basePosition;
   const { length: bL, width: bW, height: bH } = baseDimensions;
 
@@ -630,7 +630,7 @@ function layoutTabletsOnBase({
       const tabletHalfWidth = t.dimensions.width / 2;
       z = baseBackZ - edgeGap - tabletHalfWidth;
     }
-    else{
+    else {
       // console.log('base宽度小于等于默认宽度，tablet居中');
       // base ≤ 14'' → 居中
       z = bz;
@@ -691,7 +691,7 @@ export const useDesignState = () => {
   const loadDesign = useCallback((designToLoad) => {
     try {
       const parsedDesign = JSON.parse(JSON.stringify(designToLoad));
-      
+
       // Ensure all required fields have default values
       const safeDesign = {
         monuments: parsedDesign.monuments || [],
@@ -704,7 +704,7 @@ export const useDesignState = () => {
         // Keep any additional fields from the loaded design
         ...parsedDesign
       };
-      
+
       setDesignState(safeDesign);
       historyRef.current = [safeDesign];
       historyIndexRef.current = 0;
@@ -954,7 +954,7 @@ export const useDesignState = () => {
     updateDesignState(prev => {
       const selected = getSelectedElement(prev);
 
-      const newDimensions = { 
+      const newDimensions = {
         length: tabletInitLength,
         width: tabletInitWidth,
         height: tabletInitHeight
@@ -962,12 +962,12 @@ export const useDesignState = () => {
 
       const tabletList = prev.monuments.filter(m => m.family === 'Tablet');
       const monumentList = designState.monuments;
-      let newTabletPosition = getPositionBySelected( selected, 'monument', newDimensions,tabletList );
-      
+      let newTabletPosition = getPositionBySelected(selected, 'monument', newDimensions, tabletList);
+
       // 生成新Tablet标签（最大序号+1，删除后新增不会覆盖原有命名）
       const newTabletIndex = generateNewTabletLabel(tabletList);
       const newMonumentIndex = generateNewMonumentLabel(monumentList);
-      
+
       const monument = {
         id: `monument-${newMonumentIndex}`,
         type: 'monument',
@@ -995,7 +995,7 @@ export const useDesignState = () => {
 
 
   const addBase = useCallback(() => {
-    
+
     updateDesignState(prev => {
       const selected = getSelectedElement(prev);
 
@@ -1004,9 +1004,9 @@ export const useDesignState = () => {
         width: baseInitWidth,
         height: baseInitHeight
       };
-      
-      const newBasePosition = getPositionBySelected(selected,'base', newDimensions, prev.bases);
-      
+
+      const newBasePosition = getPositionBySelected(selected, 'base', newDimensions, prev.bases);
+
       // 生成新底座标签（最大序号+1，删除后新增不会覆盖原有命名）
       const newBaseIndex = generateNewBaseLabel(prev.bases);
 
@@ -1028,23 +1028,23 @@ export const useDesignState = () => {
         bases: [...prev.bases, base]
       };
     });
-  }, [updateDesignState]); 
+  }, [updateDesignState]);
 
-  
+
   const addSubBase = useCallback(() => {
     updateDesignState(prev => {
       const newDimensions = {
         length: baseInitLength,
         width: baseInitWidth,
-        height: baseInitHeight 
+        height: baseInitHeight
       };
 
       const selected = getSelectedElement(prev);
-  
-      const subBasePosition = getPositionBySelected(selected, 'subBase',newDimensions,prev.subBases);
-  
+
+      const subBasePosition = getPositionBySelected(selected, 'subBase', newDimensions, prev.subBases);
+
       const newIndex = generateNewBaseLabel(prev.subBases);
-  
+
       const subBase = {
         id: `subbase-${newIndex}`,
         type: 'subBase',
@@ -1058,7 +1058,7 @@ export const useDesignState = () => {
         label: `SubBase${newIndex}`,
         isSelected: false
       };
-  
+
       return {
         ...prev,
         subBases: [...prev.subBases, subBase]
@@ -1211,13 +1211,13 @@ export const useDesignState = () => {
       const sourceArray = elementType === 'base'
         ? prev.bases
         : elementType === 'subBase'
-        ? prev.subBases
-        : prev.monuments;
+          ? prev.subBases
+          : prev.monuments;
 
       const target = sourceArray.find(e => e.id === elementId);
       if (!target) return prev;
 
-      
+
       const oldDimensions = target.dimensions;
       const newDims = {
         length: Number(newDimensions.length) || 1,
@@ -1226,7 +1226,7 @@ export const useDesignState = () => {
       };
 
       deltaHeight = newDims.height - (oldDimensions.height || 0);
-      deltaWidth  = newDims.width - (oldDimensions.width || 0);
+      deltaWidth = newDims.width - (oldDimensions.width || 0);
 
       oldBaseOrSubBase = target;
 
@@ -1259,7 +1259,7 @@ export const useDesignState = () => {
             dimensions: newDims,
             weight: calculateWeight(newDims)
           };
-      });
+        });
 
       if (elementType === 'base') {
         updatedState.bases = updateElement(prev.bases);
@@ -1292,9 +1292,9 @@ export const useDesignState = () => {
           };
         });
       }
-   
+
       // base 宽度变化 → tablet 重新布局
-      if(Math.abs(deltaWidth) > EPSILON && elementType === 'base' && tabletsOnTop.length){
+      if (Math.abs(deltaWidth) > EPSILON && elementType === 'base' && tabletsOnTop.length) {
         const relaid = layoutTabletsOnBase({
           base: newBaseOrSubBase,
           tablets: tabletsOnTop,
@@ -1451,27 +1451,30 @@ export const useDesignState = () => {
 
       // 根据元素类型确定位置
       let newPosition;
-      
-      if (elementType === 'text') {
-        // 文本元素：使用传入的位置进行替换
-        if (overrides.position && Array.isArray(overrides.position)) {
-          newPosition = overrides.position;
+
+      // 如果外部显式传入 position，优先使用（用于镜像复制等自定义放置）
+      if (overrides.position && Array.isArray(overrides.position)) {
+        newPosition = overrides.position;
+      } else
+
+        if (elementType === 'text') {
+          // 文本元素：使用传入的位置进行替换
+          {
+            // 如果没有传入位置，使用默认偏移（向右偏移0.15米）
+            newPosition = [
+              elementToDuplicate.position?.[0] || 0,
+              (elementToDuplicate.position?.[1] || 0) - 0.1,
+              elementToDuplicate.position?.[2] || 0
+            ];
+          }
         } else {
-          // 如果没有传入位置，使用默认偏移（向右偏移0.15米）
+          // 其他元素（花瓶和艺术图案）：使用默认的位置偏移
           newPosition = [
-            elementToDuplicate.position?.[0] || 0,
-            (elementToDuplicate.position?.[1] || 0) - 0.1,
+            (elementToDuplicate.position?.[0] || 0) + 1,
+            elementToDuplicate.position?.[1] || 0,
             elementToDuplicate.position?.[2] || 0
           ];
         }
-      } else {
-        // 其他元素（花瓶和艺术图案）：使用默认的位置偏移
-        newPosition = [
-          (elementToDuplicate.position?.[0] || 0) + 1,
-          elementToDuplicate.position?.[1] || 0,
-          elementToDuplicate.position?.[2] || 0
-        ];
-      }
 
       const duplicatedElement = {
         ...elementToDuplicate,
@@ -1480,7 +1483,7 @@ export const useDesignState = () => {
         // 对于文本，确保 monumentId 被正确复制
         monumentId: elementType === 'text' ? (overrides.monumentId || elementToDuplicate.monumentId) : elementToDuplicate.monumentId,
         position: newPosition,
-        };
+      };
 
       return { ...prev, ...setElements([...elements, duplicatedElement]) };
     });
@@ -1720,7 +1723,7 @@ export const useDesignState = () => {
         // 多选模式：切换当前元素的选中状态，不影响其他元素
         const currentElements = getElementArray(elementType);
         const element = currentElements.find(el => el.id === elementId);
-        
+
         let updatedElements;
         if (element && element.isSelected) {
           // 如果已选中，保持选中（不移除）
@@ -1732,7 +1735,7 @@ export const useDesignState = () => {
             isSelected: el.id === elementId ? true : el.isSelected
           }));
         }
-        
+
         // 获取选中元素的颜色
         let selectedColor = prev.currentMaterial;
         const selectedElement = updatedElements.find(el => el.id === elementId);
@@ -1783,11 +1786,11 @@ export const useDesignState = () => {
 
         return {
           ...clearAllState,
-          [elementType === 'monument' ? 'monuments' : 
-          elementType === 'base' ? 'bases' :
-          elementType === 'subBase' ? 'subBases' :
-          elementType === 'vase' ? 'vases' :
-          elementType === 'art' ? 'artElements' : 'textElements']: updatedElements,
+          [elementType === 'monument' ? 'monuments' :
+            elementType === 'base' ? 'bases' :
+              elementType === 'subBase' ? 'subBases' :
+                elementType === 'vase' ? 'vases' :
+                  elementType === 'art' ? 'artElements' : 'textElements']: updatedElements,
           monuments: updatedMonuments,
           currentMaterial: selectedColor
         };
@@ -1839,7 +1842,7 @@ export const useDesignState = () => {
       // 2. 找到选中的底座和副底座
       const selectedBases = prev.bases.filter(b => b.isSelected);
       const selectedSubBases = prev.subBases.filter(sb => sb.isSelected);
-      
+
       // console.log('选中的底座:', selectedBases);
       // console.log('选中的副底座:', selectedSubBases);
 
@@ -1848,11 +1851,11 @@ export const useDesignState = () => {
         console.warn('复位失败：必须选中且仅选中一个墓碑');
         return prev;
       }
-      
+
       const selectedTablet = selectedTablets[0];
       let targetBase = null;
       let baseType = null;
-      
+
       // 4. 确定复位目标（优先底座，再副底座）
       if (selectedBases.length === 1 && selectedSubBases.length === 0) {
         targetBase = selectedBases[0];
@@ -1871,24 +1874,24 @@ export const useDesignState = () => {
       const INCH_TO_METER = 1 / 39.37;
       const BASE_DEFAULT_WIDTH = 14 * INCH_TO_METER;
       const EDGE_GAP = 3 * INCH_TO_METER;
-      
+
       const basePosition = targetBase.position || [0, 0, 0];
       const baseDimensions = targetBase.dimensions || { length: 0, width: 0, height: 0 };
-      
+
       const [bx, by, bz] = basePosition;
       const { length: bL, width: bW, height: bH } = baseDimensions;
-      
+
       // 6. 计算新的墓碑位置
       // Y位置：墓碑底部放在底座顶部
       const baseTopY = by + bH;
       const newY = baseTopY;
-      
+
       // X位置：居中
       const newX = bx;
-      
+
       // Z位置：根据底座宽度决定（使用现有逻辑）
       let newZ = bz;
-      
+
       // 使用现有的 layoutTabletsOnBase 逻辑
       if (bW > BASE_DEFAULT_WIDTH) {
         // 宽底座：离后边缘固定距离
@@ -1897,9 +1900,9 @@ export const useDesignState = () => {
         newZ = baseBackZ - EDGE_GAP - tabletHalfWidth;
       }
       // 窄底座（≤14英寸）：居中，newZ保持不变
-      
+
       const newTabletPosition = [newX, newY, newZ];
-      
+
       // 7. 检查底座上是否还有其他墓碑
       // 使用现有的 findTabletsOnTop 函数
       const existingTabletsOnBase = findTabletsOnTop({
@@ -1908,7 +1911,7 @@ export const useDesignState = () => {
         baseDimensions: targetBase.dimensions,
         EPSILON: 0.01 // 稍微宽松一些的容差
       }).filter(t => t.id !== selectedTablet.id); // 排除当前正在复位的墓碑
-      
+
       // 8. 如果有其他墓碑，需要重新布局
       let updatedMonuments = prev.monuments.map(monument => {
         if (monument.id === selectedTablet.id) {
@@ -1919,7 +1922,7 @@ export const useDesignState = () => {
         }
         return monument;
       });
-      
+
       // 9. 如果有多个墓碑在同一个底座上，需要重新布局
       if (existingTabletsOnBase.length > 0) {
         // 获取底座上的所有墓碑（包括刚复位的）
@@ -1927,7 +1930,7 @@ export const useDesignState = () => {
           ...existingTabletsOnBase,
           { ...selectedTablet, position: newTabletPosition }
         ];
-        
+
         // 使用现有的 layoutTabletsOnBase 函数进行布局
         const layoutResults = layoutTabletsOnBase({
           base: targetBase,
@@ -1935,10 +1938,10 @@ export const useDesignState = () => {
           edgeGap: EDGE_GAP,
           baseDefaultWidth: BASE_DEFAULT_WIDTH
         });
-        
+
         // 创建位置映射
         const positionMap = new Map(layoutResults.map(r => [r.id, r.position]));
-        
+
         // 更新所有在底座上的墓碑位置
         updatedMonuments = updatedMonuments.map(monument => {
           const newPos = positionMap.get(monument.id);
@@ -1951,10 +1954,10 @@ export const useDesignState = () => {
           return monument;
         });
       }
-      
+
       // console.log(`✅ 墓碑 ${selectedTablet.id} 已复位到 ${baseType} ${targetBase.id} 上`);
       // console.log(`新位置:`, newTabletPosition);
-      
+
       return {
         ...prev,
         monuments: updatedMonuments
