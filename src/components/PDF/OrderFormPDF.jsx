@@ -46,9 +46,10 @@ const CheckboxItem = ({ label, checked }) => (
  */
 const OrderFormPDF = ({ designState, orderMeta }) => {
   // 1. 提取设计数据：以第一个碑体/底座/花瓶为主
-  const monument = designState.monuments?.[0] || { dimensions: {}, color: '', polish: '', class: '' };
-  const base = designState.bases?.[0];
-  const vases = designState.vases || [];
+  // 添加 null 检查防止 designState 未定义时报错
+  const monument = designState?.monuments?.[0] || { dimensions: {}, color: '', polish: '', class: '' };
+  const base = designState?.bases?.[0];
+  const vases = designState?.vases || [];
 
   // 2. 提取基本信息 (从右侧表单输入)
   // orderMeta.cemetery 可能包含 "Name & Location"，这里简单处理

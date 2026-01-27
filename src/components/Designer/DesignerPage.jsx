@@ -464,13 +464,15 @@ const DesignerPage = () => {
     try {
       message.loading({ content: 'Creating order...', key: 'ordering', duration: 0 });
 
-      // 构造订单数据（不保存 design 和 thumbnail，只保存引用和元数据）
+      // 构造订单数据（保存完整的设计状态，确保重新登录后也能显示原先订单信息）
       const orderData = {
         orderNumber: `ORD-${Date.now()}`,
         timestamp: new Date().toISOString(),
         userId: user?.id,
         designId: currentDesignId,
         designName: currentDesignName,
+        // ✅ 保存完整的设计状态数据，确保不依赖 designCache
+        designState: designState,
         status: 'Pending',
         meta: formData // 将填写的订单表单数据保存到 meta
       };
@@ -2434,8 +2436,9 @@ const DesignerPage = () => {
         type={orderModalType}
         onCancel={() => setOrderModalVisible(false)}
         onSubmit={handleOrderSubmit}
-        designState={designState} // 传入当前设计数据
-        proofImage={proofImage}   // 传入3D截图
+        designState={designState}
+        proofImage={proofImage}
+        savedArtOptions={savedArtOptions}
       />
     </Layout>
   )

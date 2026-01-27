@@ -1,66 +1,186 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Form, Input, Checkbox, Row, Col, DatePicker } from 'antd';
 import dayjs from 'dayjs';
 import './EditableOrderForm.css';
 
 /**
  * EditableOrderForm 用于在导出 PDF 前快速填写/修正合同字段。
- * 组件会读取 designState 自动带入碑体、底座、花瓶的尺寸/颜色。
+ * 根据 designState 动态显示碑体、底座、花瓶、艺术件的实际数据
+ * 支持多个碑体、底座、花瓶的展示
  */
-const EditableOrderForm = ({ form, initialData, designState }) => {
-  // 初始化数据：把日期字段转成 dayjs，并尽量从 designState 补齐尺寸
+const EditableOrderForm = ({ form, initialData, designState, savedArtOptions = [] }) => {
+  // =========== 数据提取和转换 ===========
+  
+  /**
+   * 标准尺寸转换函数：
+   * 模型内部尺寸单位为米（m）
+   * 转换规则：米 → 英寸 → 英尺-英寸 (分数格式，带 12 寸进位处理)
+   * 例：0.06096m = 2.4 inches = 2'-0"
+   * 按照标准：分数部分四舍五入到最近的 1/4, 1/2, 3/4
+   * 重要：满 12 寸则向前进 1 英尺，如 1'-12" 应显示为 2'-0"
+   */
+  const convertMetersToFeetInchFraction = (meters) => {
+    if (!meters) return '';
+    
+    // 第一步：米 → 英寸 (1 米 = 39.37 英寸)
+    const totalInches = meters * 39.37;
+    
+    // 第二步：英寸 → 英尺和剩余英寸
+    let feet = Math.floor(totalInches / 12);
+    let remainingInches = totalInches - (feet * 12);
+    
+    // 第三步：剩余英寸四舍五入到最近的 1/4
+    const roundedInches = Math.round(remainingInches * 4) / 4;
+    
+    // 第四步：处理 12 寸进位情况
+    if (roundedInches >= 12) {
+      feet += Math.floor(roundedInches / 12);
+      remainingInches = roundedInches % 12;
+    } else {
+      remainingInches = roundedInches;
+    }
+    
+    // 第五步：格式化输出
+    if (remainingInches === 0) {
+      // 整数英尺
+      return `${feet}'-0"`;
+    } else if (remainingInches % 1 === 0) {
+      // 整数英寸（无分数）
+      return `${feet}'-${Math.round(remainingInches)}"`;
+    } else {
+      // 分数英寸（1/4, 1/2, 3/4 等）
+      const decimalPart = remainingInches % 1;
+      const wholeInches = Math.floor(remainingInches);
+      let fractionStr = '';
+      
+      // 四舍五入到最近的分数
+      if (Math.abs(decimalPart - 0.25) < 0.01) fractionStr = '1/4';
+      else if (Math.abs(decimalPart - 0.5) < 0.01) fractionStr = '1/2';
+      else if (Math.abs(decimalPart - 0.75) < 0.01) fractionStr = '3/4';
+      else if (decimalPart > 0) fractionStr = decimalPart.toFixed(2);
+      
+      // 组合显示：如 "1 1/4" 或仅 "1/4"
+      if (wholeInches > 0) {
+        return `${feet}'-${wholeInches} ${fractionStr}"`;
+      } else {
+        return `${feet}'-${fractionStr}"`;
+      }
+    }
+  };
+
+  // 提取设计中的碑体、底座、花瓶、艺术件
+  const designModels = useMemo(() => {
+    const monuments = designState?.monuments || [];
+    const bases = designState?.bases || [];
+    const vases = designState?.vases || [];
+    const arts = savedArtOptions || [];
+
+    // ✅ 优化：只有数量 > 1 时才添加序号
+    return {
+      monuments: monuments.map((m, idx) => ({
+        ...m,
+        sequenceNumber: idx + 1,
+        // 只在多个碑体时显示序号
+        productCode: monuments.length > 1 ? `${m.family || 'Tablet'}_${idx + 1}` : m.family || 'Tablet'
+      })),
+      bases: bases.map((b, idx) => ({
+        ...b,
+        sequenceNumber: idx + 1,
+        // 只在多个底座时显示序号
+        productCode: bases.length > 1 ? `${b.type || 'Base'}_${idx + 1}` : b.type || 'Base'
+      })),
+      vases: vases.map((v, idx) => ({
+        ...v,
+        sequenceNumber: idx + 1,
+        // 只在多个花瓶时显示序号
+        vaseCode: vases.length > 1 ? `${v.class || 'Vase'}_${idx + 1}` : v.class || 'Vase',
+        // 提取 SIZE：从 name 中获取尺寸部分 (例：'Round Vase 4.5 x7.25' → '4.5 x 7.25')
+        sizeFromName: v.name ? v.name.replace(/^.*\s(\d+\.?\d*\s*[x×]\s*\d+\.?\d*).*$/, '$1').trim() : ''
+      })),
+      arts: arts.map((a, idx) => ({
+        ...a,
+        sequenceNumber: idx + 1,
+        // 艺术件的 PATTERN CODE 从 name 或 imagePath 提取
+        patternCode: a.name || a.imagePath?.split('/').pop()?.replace('.png', '') || `Art_${idx + 1}`
+      }))
+    };
+  }, [designState, savedArtOptions]);
+
+  // 初始化表单数据
   useEffect(() => {
     if (initialData) {
       const dateFields = ['date', 'installationDate'];
       const formattedData = { ...initialData };
+      
       dateFields.forEach(field => {
         if (formattedData[field]) formattedData[field] = dayjs(formattedData[field]);
       });
 
-      if (designState) {
-        const monument = designState.monuments?.[0] || {};
-        const base = designState.bases?.[0] || {};
-        const vases = designState.vases || [];
+      // 初始化碑体数据
+      designModels.monuments.forEach((monument, idx) => {
+        const prefix = `tablet_${idx}`;
+        formattedData[`${prefix}_length`] = formattedData[`${prefix}_length`] || convertMetersToFeetInchFraction(monument.dimensions?.length);
+        formattedData[`${prefix}_width`] = formattedData[`${prefix}_width`] || convertMetersToFeetInchFraction(monument.dimensions?.width);
+        formattedData[`${prefix}_height`] = formattedData[`${prefix}_height`] || convertMetersToFeetInchFraction(monument.dimensions?.height);
+        formattedData[`${prefix}_polish`] = formattedData[`${prefix}_polish`] || monument.polish || '';
+        formattedData[`${prefix}_productCode`] = formattedData[`${prefix}_productCode`] || monument.productCode;
+      });
 
-        formattedData.tabletLength = formattedData.tabletLength || monument.dimensions?.length;
-        formattedData.tabletWidth = formattedData.tabletWidth || monument.dimensions?.width;
-        formattedData.tabletHeight = formattedData.tabletHeight || monument.dimensions?.height;
-        formattedData.tabletColor = formattedData.tabletColor || monument.color;
+      // 初始化底座数据
+      designModels.bases.forEach((base, idx) => {
+        const prefix = `base_${idx}`;
+        formattedData[`${prefix}_length`] = formattedData[`${prefix}_length`] || convertMetersToFeetInchFraction(base.dimensions?.length);
+        formattedData[`${prefix}_width`] = formattedData[`${prefix}_width`] || convertMetersToFeetInchFraction(base.dimensions?.width);
+        formattedData[`${prefix}_height`] = formattedData[`${prefix}_height`] || convertMetersToFeetInchFraction(base.dimensions?.height);
+        formattedData[`${prefix}_polish`] = formattedData[`${prefix}_polish`] || base.polish || '';
+        formattedData[`${prefix}_productCode`] = formattedData[`${prefix}_productCode`] || base.productCode;
+      });
 
-        formattedData.baseLength = formattedData.baseLength || base.dimensions?.length;
-        formattedData.baseWidth = formattedData.baseWidth || base.dimensions?.width;
-        formattedData.baseHeight = formattedData.baseHeight || base.dimensions?.height;
-        formattedData.baseColor = formattedData.baseColor || base.color;
+      // ✅ 新增：初始化花瓶数据
+      designModels.vases.forEach((vase, idx) => {
+        const prefix = `vase_${idx}`;
+        formattedData[`${prefix}_size`] = formattedData[`${prefix}_size`] || vase.sizeFromName;
+        formattedData[`${prefix}_color`] = formattedData[`${prefix}_color`] || vase.color || '';
+        formattedData[`${prefix}_qty`] = formattedData[`${prefix}_qty`] || '';
+        formattedData[`${prefix}_vaseCode`] = formattedData[`${prefix}_vaseCode`] || vase.vaseCode;
+      });
 
-        if (vases.length > 0) {
-          formattedData.vaseQty = vases.length;
-          formattedData.vaseColor = vases[0].color;
-        }
-      }
+      // ✅ 新增：初始化艺术件数据
+      designModels.arts.forEach((art, idx) => {
+        const prefix = `art_${idx}`;
+        formattedData[`${prefix}_patternCode`] = formattedData[`${prefix}_patternCode`] || art.patternCode;
+        formattedData[`${prefix}_qty`] = formattedData[`${prefix}_qty`] || '';
+      });
+
       form.setFieldsValue(formattedData);
     }
-  }, [initialData, designState, form]);
+  }, [initialData, designState, designModels, form]);
 
-  // --- 辅助组件：保持视觉与 PDF 模板一致 ---
+  // --- 辅助组件 ---
   const RenderRow = ({ label, name, labelWidth = '110px' }) => (
     <div className="pdf-form-row">
       <span className="pdf-label" style={{ width: labelWidth }}>{label}</span>
-      <Form.Item name={name} className="pdf-input-item"><Input className="pdf-input-box" /></Form.Item>
+      <Form.Item name={name} className="pdf-input-item">
+        <Input className="pdf-input-box" />
+      </Form.Item>
     </div>
   );
 
   const InlineField = ({ label, name, width = 'auto', flex = 1 }) => (
     <div className="pdf-inline-field" style={{ width, flex }}>
       <span className="pdf-label-small">{label}</span>
-      <Form.Item name={name} className="pdf-input-item"><Input className="pdf-input-box" /></Form.Item>
+      <Form.Item name={name} className="pdf-input-item">
+        <Input className="pdf-input-box" />
+      </Form.Item>
     </div>
   );
 
+  // ✅ 复选框组件（用于所有地方）
   const CheckItem = ({ label, name }) => (
     <Form.Item name={name} valuePropName="checked" noStyle>
-      <div className="pdf-check-item">
-        <div className="fake-checkbox"></div> {label}
-      </div>
+      <Checkbox className="pdf-check-item">
+        <span className="pdf-check-label">{label}</span>
+      </Checkbox>
     </Form.Item>
   );
 
@@ -83,6 +203,7 @@ const EditableOrderForm = ({ form, initialData, designState }) => {
               <RenderRow label="CEMETERY:" name="cemetery" />
               <RenderRow label="FAMILY NAME:" name="familyName" />
               <RenderRow label="COUNSELLOR:" name="counsellor" />
+              {/* ✅ 改为多选框样式 */}
               <div className="pdf-checkbox-group-vertical">
                 <CheckItem label="AT-NEED" name="atNeed" />
                 <CheckItem label="PRE-NEED NOW (TO BE CARVED)" name="preNeedCarved" />
@@ -118,158 +239,83 @@ const EditableOrderForm = ({ form, initialData, designState }) => {
           <div className="pdf-section-title">MEMORIAL INFORMATION</div>
           <div className="pdf-content-padding">
 
-            {/* --- [红框1] Product Type / Supplier / Profile --- */}
-            <div className="pdf-flex-row border-bottom" style={{ paddingBottom: '8px', alignItems: 'flex-end' }}>
-              {/* PRODUCT TYPE */}
-              <div style={{ width: '25%' }}>
-                <span className="pdf-label-bold">PRODUCT TYPE:</span>
-                <div className="pdf-checkbox-row" style={{ marginTop: '4px' }}>
-                  <CheckItem label="CORE" name="typeCore" />
-                  <CheckItem label="CUSTOM" name="typeCustom" />
-                </div>
-              </div>
-
-              {/* SUPPLIER (中间) */}
-              <div style={{ width: '35%', display: 'flex', alignItems: 'center', paddingRight: '20px' }}>
-                <span className="pdf-label-bold" style={{ marginRight: '5px' }}>SUPPLIER:</span>
-                <Form.Item name="supplier" className="pdf-input-item" style={{ marginBottom: 0, flex: 1 }}>
+            {/* --- PRODUCT TYPE / SUPPLIER / PROFILE --- */}
+            <div className="pdf-flex-row border-bottom" style={{ paddingBottom: '8px', alignItems: 'center' }}>
+              {/* SUPPLIER - 在同一行 */}
+              <div style={{ display: 'flex', alignItems: 'center', marginRight: '24px' }}>
+                <span className="pdf-label-bold" style={{ marginRight: '8px' }}>SUPPLIER:</span>
+                <Form.Item name="supplier" className="pdf-input-item" style={{ marginBottom: 0, flex: 1, minWidth: '175px' }}>
                   <Input className="pdf-input-box" />
                 </Form.Item>
               </div>
 
-              {/* PROFILE (右侧) */}
-              <div style={{ flex: 1 }}>
-                <span className="pdf-label-bold">PROFILE:</span>
-                <div className="pdf-checkbox-row" style={{ marginTop: '4px' }}>
+              {/* PROFILE - 在同一行 */}
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span className="pdf-label-bold" style={{ marginRight: '8px' }}>PROFILE:</span>
+                <div className="pdf-checkbox-row" style={{ flexDirection: 'row', gap: 'px' }}>
                   <CheckItem label="SERP" name="profileSerp" />
                   <CheckItem label="FLAT" name="profileFlat" />
                   <CheckItem label="BYZANTINE" name="profileByzantine" />
                 </div>
               </div>
-            </div>
-
-            {/* Row 2: Colour & Other */}
-            <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px' }}>
-              <InlineField label="COLOUR:" name="tabletColor" flex={1} />
-              <div style={{ width: '10px' }}></div>
-              <InlineField label="OTHER:" name="otherInfo" flex={1} />
-            </div>
-
-            {/* Row 3: Tablet Size */}
-            <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px' }}>
-              <span className="pdf-label-bold" style={{width: '100px'}}>TABLET SIZE(FT)</span>
-              <InlineField label="LENGTH:" name="tabletLength" />
-              <InlineField label="THICKNESS:" name="tabletWidth" />
-              <InlineField label="HEIGHT:" name="tabletHeight" />
-              <InlineField label="PRODUCT CODE:" name="tabletCode" />
-            </div>
-
-            {/* Row 4: Base Size */}
-            <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px' }}>
-              <span className="pdf-label-bold" style={{width: '100px'}}>BASE SIZE(FT)</span>
-              <InlineField label="LENGTH:" name="baseLength" />
-              <InlineField label="THICKNESS:" name="baseWidth" />
-              <InlineField label="HEIGHT:" name="baseHeight" />
-              <InlineField label="PRODUCT CODE:" name="baseCode" />
-            </div>
-
-            {/* --- [红框2] Polish Block (组合在一起) --- */}
-            <div className="pdf-polish-block border-bottom">
-              <div style={{ display: 'flex', borderBottom: '1px solid #ccc' }}>
-                {/* 左：Tablet Polish */}
-                <div style={{ width: '50%', borderRight: '1px solid #ccc', padding: '8px 8px 8px 0' }}>
-                  <div className="pdf-label-bold" style={{ marginBottom: '4px' }}>TABLET POLISH</div>
-                  <div className="pdf-checkbox-grid">
-                    <CheckItem label="P5 POLISH FRONT, TOP, BACK & SIDES" name="polishP5" />
-                    <CheckItem label="P3 POLISH FRONT, TOP & BACK" name="polishP3" />
-                    <CheckItem label="P2 POLISH FRONT & BACK" name="polishP2" />
-                    <CheckItem label="OTHER" name="polishOther" />
-                  </div>
-                </div>
-                {/* 右：Base Polish */}
-                <div style={{ width: '50%', padding: '8px 0 8px 15px' }}>
-                  <div className="pdf-label-bold" style={{ marginBottom: '4px' }}>BASE POLISH</div>
-                  <div className="pdf-checkbox-grid">
-                    <CheckItem label="P1 POLISHED TOP" name="baseP1" />
-                    <CheckItem label="POLISHED MARGIN" name="basePolished" />
-                    <CheckItem label="MARGIN ALL AROUND" name="baseMargin" />
-                  </div>
+                {/* PRODUCT TYPE */}
+              <div style={{ display: 'flex', alignItems: 'center', marginRight: '24px' }}>
+                <span className="pdf-label-bold" style={{ marginRight: '8px' }}>PRODUCT TYPE:</span>
+                <div className="pdf-checkbox-row" style={{ flexDirection: 'row', gap: '8px' }}>
+                  <CheckItem label="CORE" name="typeCore" />
+                  <CheckItem label="CUSTOM" name="typeCustom" />
                 </div>
               </div>
-              {/* 下：Other Description */}
-              <div style={{ padding: '8px 0' }}>
-                <InlineField label="OTHER (SEPARATE PAGODA TOPS, MONUMENT WINGS, COLUMN BALLS, ETC) DESCRIPTION:" name="otherDesc" />
+              {/* Other */}
+              <div style={{ display: 'flex', alignItems: 'center', marginRight: '24px' }}>
+                <span className="pdf-label-bold" style={{ marginRight: '8px' }}>OTHER:</span>
+                <Form.Item name="supplier" className="pdf-input-item" style={{ marginBottom: 0, flex: 1, minWidth: '175px' }}>
+                  <Input className="pdf-input-box" />
+                </Form.Item>
               </div>
             </div>
 
-            {/* --- [红框3] Bench Section --- */}
-            <div className="pdf-bench-section border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
-              <div className="pdf-flex-row" style={{ alignItems: 'center', marginBottom: '6px' }}>
-                <span className="pdf-label-bold" style={{ fontSize: '11px', marginRight: '10px' }}>BENCH</span>
+            {/* --- 碑体 (TABLETS) --- */}
+            {designModels.monuments.length > 0 && (
+              <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+                <span className="pdf-label-bold" style={{ width: '80px' }}>TABLETS:</span>
+                <div style={{ flex: 1 }}>
+                  {designModels.monuments.map((tablet, idx) => (
+                    <div key={`tablet-${idx}`} style={{ marginBottom: idx < designModels.monuments.length - 1 ? '6px' : 0 }}>
+                      <div className="pdf-flex-row" style={{ gap: '15px', alignItems: 'center' }}>
+                        <InlineField label="LENGTH:" name={`tablet_${idx}_length`} width="120px" flex="none" />
+                        <InlineField label="THICKNESS:" name={`tablet_${idx}_width`} width="120px" flex="none" />
+                        <InlineField label="HEIGHT:" name={`tablet_${idx}_height`} width="120px" flex="none" />
+                        <InlineField label="POLISH:" name={`tablet_${idx}_polish`} width="100px" flex="none" />
+                        {/* ✅ 优化：PRODUCT CODE 改为输入框可编辑 */}
+                        <InlineField label="PRODUCT CODE:" name={`tablet_${idx}_productCode`} width="130px" flex="none" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-                {/* Bench Type 占宽一些 */}
-                <div style={{ flex: 1.5, display: 'flex', alignItems: 'center', marginRight: '15px' }}>
-                  <span className="pdf-label-small" style={{ marginRight: '5px' }}>BENCH TYPE:</span>
-                  <Form.Item name="benchType" className="pdf-input-item" style={{ flex: 1, marginBottom: 0 }}>
-                    <Input className="pdf-input-box" />
-                  </Form.Item>
-                </div>
-
-                {/* Product Code 占窄一些 */}
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-                  <span className="pdf-label-small" style={{ marginRight: '5px' }}>PRODUCT CODE:</span>
-                  <Form.Item name="benchCode" className="pdf-input-item" style={{ flex: 1, marginBottom: 0 }}>
-                    <Input className="pdf-input-box" />
-                  </Form.Item>
-                </div>
-              </div>
-
-              <div className="pdf-flex-row" style={{ alignItems: 'center' }}>
-                <span className="pdf-label-small" style={{ marginRight: '5px' }}>MEMORIALIZATION:</span>
-                <div style={{ display: 'flex', gap: '10px', marginRight: '20px' }}>
-                  <CheckItem label="BRONZE" name="benchBronze" />
-                  <CheckItem label="CARVING" name="benchCarving" />
-                </div>
-
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-                  <span className="pdf-label-small" style={{ marginRight: '5px' }}>SPECIAL INSTRUCTIONS:</span>
-                  <Form.Item name="benchInstructions" className="pdf-input-item" style={{ flex: 1, marginBottom: 0 }}>
-                    <Input className="pdf-input-box" />
-                  </Form.Item>
+            {/* --- 底座 (BASES) --- */}
+            {designModels.bases.length > 0 && (
+              <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+                <span className="pdf-label-bold" style={{ width: '80px' }}>BASES:</span>
+                <div style={{ flex: 1 }}>
+                  {designModels.bases.map((base, idx) => (
+                    <div key={`base-${idx}`} style={{ marginBottom: idx < designModels.bases.length - 1 ? '6px' : 0 }}>
+                      <div className="pdf-flex-row" style={{ gap: '15px', alignItems: 'center' }}>
+                        <InlineField label="LENGTH:" name={`base_${idx}_length`} width="120px" flex="none" />
+                        <InlineField label="THICKNESS:" name={`base_${idx}_width`} width="120px" flex="none" />
+                        <InlineField label="HEIGHT:" name={`base_${idx}_height`} width="120px" flex="none" />
+                        <InlineField label="POLISH:" name={`base_${idx}_polish`} width="100px" flex="none" />
+                        {/* ✅ 优化：PRODUCT CODE 改为输入框可编辑 */}
+                        <InlineField label="PRODUCT CODE:" name={`base_${idx}_productCode`} width="130px" flex="none" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-
-            {/* Rock/Pedestal */}
-            <div style={{ paddingTop: '8px' }}>
-              <div className="pdf-flex-row" style={{ marginBottom: '6px' }}>
-                <span className="pdf-label-bold" style={{width: '150px'}}>ROCK/PEDESTAL/OTHER</span>
-                <InlineField label="LENGTH (FT):" name="rockLength" />
-                <InlineField label="WIDTH (FT):" name="rockWidth" />
-                <InlineField label="HEIGHT (FT):" name="rockHeight" />
-              </div>
-              <div className="pdf-flex-row" style={{ marginBottom: '6px' }}>
-                <InlineField label="PRODUCT CODE:" name="rockCode" />
-                <InlineField label="PROFILE:" name="rockProfile" />
-                <InlineField label="TYPE:" name="rockType" />
-              </div>
-              <div className="pdf-flex-row" style={{ marginBottom: '6px' }}>
-                <span className="pdf-label-small">MEMORIALIZATION:</span>
-                <div className="pdf-checkbox-row" style={{marginLeft:'10px', marginRight:'20px'}}>
-                  <CheckItem label="BRONZE" name="rockBronze" />
-                  <CheckItem label="CARVING" name="rockCarving" />
-                </div>
-                <span className="pdf-label-small">POLISH OPTION:</span>
-                <div className="pdf-checkbox-row" style={{marginLeft:'10px'}}>
-                  <CheckItem label="FF" name="rockFF" />
-                  <CheckItem label="PP" name="rockPP" />
-                  <span style={{fontSize:'9px', marginLeft:'5px'}}>(FULL FACE OR POLISHED PANEL)</span>
-                </div>
-              </div>
-              <div className="pdf-flex-row">
-                <InlineField label="SPECIAL INSTRUCTIONS:" name="rockInstructions" />
-              </div>
-            </div>
+            )}
 
           </div>
         </div>
@@ -279,44 +325,75 @@ const EditableOrderForm = ({ form, initialData, designState }) => {
           <div className="pdf-section-title">ENHANCEMENTS</div>
           <div className="pdf-content-padding">
 
-            {/* Row 1: VASES [对齐：SIZE长, COLOUR长, QTY短, PC长] */}
-            <div className="pdf-flex-row border-bottom">
-              <span className="pdf-label-bold" style={{width:'80px'}}>VASES:</span>
-              {/* 调整 flex 比例: 2:2:0.5:2 */}
-              <InlineField label="SIZE:" name="vaseSize" flex={2} />
-              <InlineField label="COLOUR:" name="vaseColor" flex={2} />
-              <InlineField label="QTY:" name="vaseQty" width="50px" flex="none" />
-              <InlineField label="PC:" name="vasePC" flex={2} />
-            </div>
-
-            {/* Row 2: LUCKY CUBE | INCENSE BURNER [保持左右分栏] */}
-            <div className="pdf-flex-row border-bottom">
-              {/* 左侧：Lucky Cube */}
-              <div style={{flex: 1, display:'flex', gap:'5px', borderRight:'1px solid #ccc', paddingRight:'5px'}}>
-                <span className="pdf-label-bold" style={{width:'80px'}}>LUCKY CUBE:</span>
-                <InlineField label="SIZE:" name="cubeSize" flex={1} />
-                <InlineField label="COLOUR:" name="cubeColor" flex={1} />
+            {/* 花瓶 (VASES) - 动态根据设计中的花瓶数量生成 */}
+            {designModels.vases.length > 0 && (
+              <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+                <span className="pdf-label-bold" style={{ width: '80px' }}>VASES:</span>
+                <div style={{ flex: 1 }}>
+                  {designModels.vases.map((vase, idx) => (
+                    <div key={`vase-${idx}`} style={{ marginBottom: idx < designModels.vases.length - 1 ? '6px' : 0 }}>
+                      <div className="pdf-flex-row" style={{ gap: '15px', alignItems: 'center' }}>
+                        {/* ✅ 优化：SIZE 改为输入框可编辑 */}
+                        <InlineField label="SIZE:" name={`vase_${idx}_size`} width="130px" flex="none" />
+                        <InlineField label="COLOR:" name={`vase_${idx}_color`} width="100px" flex="none" />
+                        <InlineField label="QTY:" name={`vase_${idx}_qty`} width="80px" flex="none" />
+                        {/* ✅ 优化：VASE CODE 改为输入框可编辑 */}
+                        <InlineField label="VASE CODE:" name={`vase_${idx}_vaseCode`} width="130px" flex="none" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              {/* 右侧：Incense Burner - 标签稍微缩短间距 */}
-              <div style={{flex: 1, display:'flex', gap:'5px', paddingLeft:'5px'}}>
-                <span className="pdf-label-bold" style={{ whiteSpace: 'nowrap', marginRight: '5px' }}>INCENSE BURNER:</span>
-                <InlineField label="SIZE:" name="incenseSize" flex={1} />
-                <InlineField label="COLOUR:" name="incenseColor" flex={1} />
-              </div>
-            </div>
+            )}
 
-            {/* Row 3: BRONZE LAMPS [对齐 Row 1] */}
-            <div className="pdf-flex-row border-bottom">
-              <span className="pdf-label-bold" style={{width:'95px'}}>BRONZE LAMPS:</span>
+            {/* 艺术件 (PICTURES) - 动态根据设计中的艺术件数量生成 */}
+            {designModels.arts.length > 0 && (
+              <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+                <span className="pdf-label-bold" style={{ width: '80px' }}>PICTURES:</span>
+                <div style={{ flex: 1 }}>
+                  {designModels.arts.map((art, idx) => (
+                    <div key={`art-${idx}`} style={{ marginBottom: idx < designModels.arts.length - 1 ? '6px' : 0 }}>
+                      <div className="pdf-flex-row" style={{ gap: '15px', alignItems: 'center' }}>
+                        {/* ✅ 优化：PATTERN CODE 改为输入框可编辑 */}
+                        <InlineField label="PATTERN CODE:" name={`art_${idx}_patternCode`} width="150px" flex="none" />
+                        <InlineField label="QTY:" name={`art_${idx}_qty`} width="80px" flex="none" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Lucky Cube */}
+            <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+              <span className="pdf-label-bold" style={{ width: '95px' }}>Lucky Cube:</span>
               <InlineField label="SIZE:" name="lampSize" flex={2} />
               <InlineField label="SUPPLIER:" name="lampSupplier" flex={2} />
               <InlineField label="QTY:" name="lampQty" width="50px" flex="none" />
               <InlineField label="PC:" name="lampPC" flex={2} />
             </div>
 
-            {/* Row 4: STATUES [关键修正：4个输入框均匀分布] */}
-            <div className="pdf-flex-row border-bottom">
-              <span className="pdf-label-bold" style={{width:'60px'}}>STATUES:</span>
+            {/* Incense Burner */}
+            <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+              <span className="pdf-label-bold" style={{ width: '95px' }}>Incense Burner:</span>
+              <InlineField label="SIZE:" name="lampSize" flex={2} />
+              <InlineField label="SUPPLIER:" name="lampSupplier" flex={2} />
+              <InlineField label="QTY:" name="lampQty" width="50px" flex="none" />
+              <InlineField label="PC:" name="lampPC" flex={2} />
+            </div>
+
+            {/* Bronze Lamps */}
+            <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+              <span className="pdf-label-bold" style={{ width: '95px' }}>BRONZE LAMPS:</span>
+              <InlineField label="SIZE:" name="lampSize" flex={2} />
+              <InlineField label="SUPPLIER:" name="lampSupplier" flex={2} />
+              <InlineField label="QTY:" name="lampQty" width="50px" flex="none" />
+              <InlineField label="PC:" name="lampPC" flex={2} />
+            </div>
+
+            {/* Statues */}
+            <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+              <span className="pdf-label-bold" style={{ width: '60px' }}>STATUES:</span>
               <InlineField label="MATERIAL:" name="statueMaterial" flex={1.5} />
               <InlineField label="SIZE:" name="statueSize" flex={1} />
               <InlineField label="COLOUR:" name="statueColor" flex={1} />
@@ -324,18 +401,18 @@ const EditableOrderForm = ({ form, initialData, designState }) => {
               <InlineField label="QTY:" name="statueQty" width="50px" flex="none" />
             </div>
 
-            {/* Row 5: CAMEO PICTURES [3个长输入框] */}
-            <div className="pdf-flex-row border-bottom">
-              <span className="pdf-label-bold" style={{width:'105px'}}>CAMEO PICTURES:</span>
+            {/* Cameo Pictures */}
+            <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+              <span className="pdf-label-bold" style={{ width: '105px' }}>CAMEO PICTURES:</span>
               <InlineField label="SIZE:" name="cameoSize" flex={1.5} />
               <InlineField label="COLOUR:" name="cameoColor" flex={1.5} />
               <InlineField label="SUPPLIER:" name="cameoSupplier" flex={1.5} />
               <InlineField label="QTY:" name="cameoQty" width="50px" flex="none" />
             </div>
 
-            {/* Row 6: ETCHINGS [Description 占大头] */}
-            <div className="pdf-flex-row border-bottom">
-              <span className="pdf-label-bold" style={{width:'60px'}}>ETCHINGS:</span>
+            {/* Etchings */}
+            <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+              <span className="pdf-label-bold" style={{ width: '60px' }}>ETCHINGS:</span>
               <InlineField label="DESCRIPTION:" name="etchingDesc" flex={3} />
               <InlineField label="SIZE:" name="etchingSize" width="100px" flex="none" />
               <InlineField label="QTY:" name="etchingQty" width="50px" flex="none" />
@@ -349,19 +426,22 @@ const EditableOrderForm = ({ form, initialData, designState }) => {
               </div>
             </div>
 
-            {/* Row 7: OTHER [Description 占大头] */}
-            <div className="pdf-flex-row border-bottom">
-              <span className="pdf-label-bold" style={{width:'50px'}}>OTHER:</span>
+            {/* Other */}
+            <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
+              <span className="pdf-label-bold" style={{ width: '50px' }}>OTHER:</span>
               <InlineField label="DESCRIPTION:" name="otherDesc2" flex={3} />
               <InlineField label="SIZE:" name="otherSize" width="80px" flex="none" />
               <InlineField label="QTY:" name="otherQty" width="50px" flex="none" />
               <InlineField label="PC:" name="otherPC" width="100px" flex="none" />
-              <InlineField label="SUPPLIER:" name="otherSupplier" width="120px" flex="none" />
             </div>
 
-            {/* Row 8: SPECIAL INSTRUCTIONS */}
-            <div className="pdf-flex-row">
-              <span className="pdf-label-bold" style={{width:'135px'}}>SPECIAL INSTRUCTIONS:</span>
+            {/* Special Instructions */}
+            <div className="pdf-flex-row" style={{ paddingTop: '8px' }}>
+              <span className="pdf-label-bold" style={{ width: '50px' }}>SUPPLIER:</span>
+              <Form.Item name="finalInstructions" className="pdf-input-item" style={{ flex: 1 }}>
+                <Input className="pdf-input-box" />
+              </Form.Item>
+              <span className="pdf-label-bold" style={{ width: '135px' }}>SPECIAL INSTRUCTIONS:</span>
               <Form.Item name="finalInstructions" className="pdf-input-item" style={{ flex: 1 }}>
                 <Input className="pdf-input-box" />
               </Form.Item>

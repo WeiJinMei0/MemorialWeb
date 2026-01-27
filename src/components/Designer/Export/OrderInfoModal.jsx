@@ -15,7 +15,8 @@ const OrderInfoModal = ({
                           designState,
                           proofImage,
                           type = 'proof',
-                          onSubmit
+                          onSubmit,
+                          savedArtOptions = []
                         }) => {
   const [form] = Form.useForm();
   const [formData, setFormData] = useState({});

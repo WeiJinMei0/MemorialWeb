@@ -22,16 +22,16 @@ const styles = StyleSheet.create({
  */
 const DesignProofPDF = ({ designState, orderMeta, proofImage }) => {
   // 安全地从数组获取首个碑体/底座，缺省时提供占位
-  const monument = designState.monuments && designState.monuments.length > 0
+  const monument = designState?.monuments && designState.monuments.length > 0
     ? designState.monuments[0]
     : { class: 'N/A', dimensions: { length: 0, width: 0, height: 0 }, color: 'N/A', polish: 'N/A' };
 
-  const base = designState.bases && designState.bases.length > 0
+  const base = designState?.bases && designState.bases.length > 0
     ? designState.bases[0]
     : null;
 
-  const textElements = designState.textElements || [];
-  const artElements = designState.artElements || [];
+  const textElements = designState?.textElements || [];
+  const artElements = designState?.artElements || [];
 
   // 提取使用的字体列表
   const usedFonts = [...new Set(textElements.map(t => t.font))].join(', ');
