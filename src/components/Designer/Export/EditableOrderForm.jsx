@@ -376,19 +376,19 @@ const EditableOrderForm = ({ form, initialData, designState, savedArtOptions = [
             {/* Lucky Cube */}
             <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
               <span className="pdf-label-bold" style={{ width: '95px' }}>Lucky Cube:</span>
-              <InlineField label="SIZE:" name="lampSize" flex={2} />
-              <InlineField label="SUPPLIER:" name="lampSupplier" flex={2} />
-              <InlineField label="QTY:" name="lampQty" width="50px" flex="none" />
-              <InlineField label="PC:" name="lampPC" flex={2} />
+              <InlineField label="SIZE:" name="LuckySize" flex={2} />
+              <InlineField label="SUPPLIER:" name="LuckySupplier" flex={2} />
+              <InlineField label="QTY:" name="LuckyQty" width="50px" flex="none" />
+              <InlineField label="PC:" name="LuckyPC" flex={2} />
             </div>
 
             {/* Incense Burner */}
             <div className="pdf-flex-row border-bottom" style={{ paddingTop: '8px', paddingBottom: '8px' }}>
               <span className="pdf-label-bold" style={{ width: '95px' }}>Incense Burner:</span>
-              <InlineField label="SIZE:" name="lampSize" flex={2} />
-              <InlineField label="SUPPLIER:" name="lampSupplier" flex={2} />
-              <InlineField label="QTY:" name="lampQty" width="50px" flex="none" />
-              <InlineField label="PC:" name="lampPC" flex={2} />
+              <InlineField label="SIZE:" name="IncenseSize" flex={2} />
+              <InlineField label="SUPPLIER:" name="IncenseSupplier" flex={2} />
+              <InlineField label="QTY:" name="IncenseQty" width="50px" flex="none" />
+              <InlineField label="PC:" name="IncensePC" flex={2} />
             </div>
 
             {/* Bronze Lamps */}
@@ -447,7 +447,7 @@ const EditableOrderForm = ({ form, initialData, designState, savedArtOptions = [
             {/* Special Instructions */}
             <div className="pdf-flex-row" style={{ paddingTop: '8px' }}>
               <span className="pdf-label-bold" style={{ width: '50px' }}>SUPPLIER:</span>
-              <Form.Item name="finalInstructions" className="pdf-input-item" style={{ flex: 1 }}>
+              <Form.Item name="supplier" className="pdf-input-item" style={{ flex: 1 }}>
                 <Input className="pdf-input-box" />
               </Form.Item>
               <span className="pdf-label-bold" style={{ width: '135px' }}>SPECIAL INSTRUCTIONS:</span>
