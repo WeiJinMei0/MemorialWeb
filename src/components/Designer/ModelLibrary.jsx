@@ -181,7 +181,16 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
                 'Pagoda Top',
                 'Wing'
               ],
-              'Cross': []
+              'Cross': [
+                '2CROSS _ 2-2,8,4-0',
+                '2CROSS _ 2-8,8,4-0',
+                '2Cross Aegean Gothic _ 2-0 x 3-0',
+                '2Cross Byzantine _ 2-2 x 3-0',
+                'CROSS _ 2-2,8,4-0',
+                'CROSS _ 2-8,8,4-0',
+                'Cross Aegean Gothic _ 2-0 x 3-0',
+                'Cross Byzantine _ 2-2 x 3-0'
+              ]
             };
 
             const classes = familyClasses[selectedFamily] || [];
