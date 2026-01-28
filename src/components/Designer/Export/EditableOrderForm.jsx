@@ -123,6 +123,7 @@ const EditableOrderForm = ({ form, initialData, designState, savedArtOptions = [
         formattedData[`${prefix}_width`] = formattedData[`${prefix}_width`] || convertMetersToFeetInchFraction(monument.dimensions?.width);
         formattedData[`${prefix}_height`] = formattedData[`${prefix}_height`] || convertMetersToFeetInchFraction(monument.dimensions?.height);
         formattedData[`${prefix}_polish`] = formattedData[`${prefix}_polish`] || monument.polish || '';
+        formattedData[`${prefix}_color`] = formattedData[`${prefix}_color`] || monument.color || '';
         formattedData[`${prefix}_productCode`] = formattedData[`${prefix}_productCode`] || monument.productCode;
       });
 
@@ -133,7 +134,13 @@ const EditableOrderForm = ({ form, initialData, designState, savedArtOptions = [
         formattedData[`${prefix}_width`] = formattedData[`${prefix}_width`] || convertMetersToFeetInchFraction(base.dimensions?.width);
         formattedData[`${prefix}_height`] = formattedData[`${prefix}_height`] || convertMetersToFeetInchFraction(base.dimensions?.height);
         formattedData[`${prefix}_polish`] = formattedData[`${prefix}_polish`] || base.polish || '';
-        formattedData[`${prefix}_productCode`] = formattedData[`${prefix}_productCode`] || base.productCode;
+        formattedData[`${prefix}_color`] = formattedData[`${prefix}_color`] || base.color || '';
+        // ✅ 处理 PRODUCT CODE：如果以 base 开头（不区分大小写），将 b 改为大写 B
+        let productCode = formattedData[`${prefix}_productCode`] || base.productCode || '';
+        if (productCode && productCode.toLowerCase().startsWith('base')) {
+          productCode = 'Base' + productCode.substring(4);
+        }
+        formattedData[`${prefix}_productCode`] = productCode;
       });
 
       // ✅ 新增：初始化花瓶数据
@@ -283,12 +290,13 @@ const EditableOrderForm = ({ form, initialData, designState, savedArtOptions = [
                   {designModels.monuments.map((tablet, idx) => (
                     <div key={`tablet-${idx}`} style={{ marginBottom: idx < designModels.monuments.length - 1 ? '6px' : 0 }}>
                       <div className="pdf-flex-row" style={{ gap: '15px', alignItems: 'center' }}>
-                        <InlineField label="LENGTH:" name={`tablet_${idx}_length`} width="120px" flex="none" />
-                        <InlineField label="THICKNESS:" name={`tablet_${idx}_width`} width="120px" flex="none" />
-                        <InlineField label="HEIGHT:" name={`tablet_${idx}_height`} width="120px" flex="none" />
-                        <InlineField label="POLISH:" name={`tablet_${idx}_polish`} width="100px" flex="none" />
+                        <InlineField label="LENGTH:" name={`tablet_${idx}_length`} width="95px" flex="none" />
+                        <InlineField label="THICKNESS:" name={`tablet_${idx}_width`} width="110px" flex="none" />
+                        <InlineField label="HEIGHT:" name={`tablet_${idx}_height`} width="95px" flex="none" />
+                        <InlineField label="POLISH:" name={`tablet_${idx}_polish`} width="80px" flex="none" />
+                        <InlineField label="COLOR:" name={`tablet_${idx}_color`} width="100px" flex="none" />
                         {/* ✅ 优化：PRODUCT CODE 改为输入框可编辑 */}
-                        <InlineField label="PRODUCT CODE:" name={`tablet_${idx}_productCode`} width="130px" flex="none" />
+                        <InlineField label="PRODUCT CODE:" name={`tablet_${idx}_productCode`} width="140px" flex="none" />
                       </div>
                     </div>
                   ))}
@@ -304,12 +312,13 @@ const EditableOrderForm = ({ form, initialData, designState, savedArtOptions = [
                   {designModels.bases.map((base, idx) => (
                     <div key={`base-${idx}`} style={{ marginBottom: idx < designModels.bases.length - 1 ? '6px' : 0 }}>
                       <div className="pdf-flex-row" style={{ gap: '15px', alignItems: 'center' }}>
-                        <InlineField label="LENGTH:" name={`base_${idx}_length`} width="120px" flex="none" />
-                        <InlineField label="THICKNESS:" name={`base_${idx}_width`} width="120px" flex="none" />
-                        <InlineField label="HEIGHT:" name={`base_${idx}_height`} width="120px" flex="none" />
-                        <InlineField label="POLISH:" name={`base_${idx}_polish`} width="100px" flex="none" />
+                        <InlineField label="LENGTH:" name={`base_${idx}_length`} width="95px" flex="none" />
+                        <InlineField label="THICKNESS:" name={`base_${idx}_width`} width="110px" flex="none" />
+                        <InlineField label="HEIGHT:" name={`base_${idx}_height`} width="95px" flex="none" />
+                        <InlineField label="POLISH:" name={`base_${idx}_polish`} width="80px" flex="none" />
+                        <InlineField label="COLOR:" name={`base_${idx}_color`} width="100px" flex="none" />
                         {/* ✅ 优化：PRODUCT CODE 改为输入框可编辑 */}
-                        <InlineField label="PRODUCT CODE:" name={`base_${idx}_productCode`} width="130px" flex="none" />
+                        <InlineField label="PRODUCT CODE:" name={`base_${idx}_productCode`} width="140px" flex="none" />
                       </div>
                     </div>
                   ))}
