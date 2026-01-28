@@ -216,7 +216,9 @@ const useSVGTexture = (textContent, options = {}) => {
                 
                 // 平移：消除字符自身的左偏移 + 当前累计的X偏移
                 const x1 = curve.v1.x - charBox.min.x + currentX;
-                const y1 = curve.v1.y - charBox.min.y; // Y轴保持对齐
+                // VCut 需要保留字体 baseline/descender：不要按字符自身 minY 抹平到底边
+                // three.js 字体坐标系中 baseline 通常在 y=0，descender 为负值（如 j/g）
+                const y1 = curve.v1.y;
                 
                 if (idx === 0) {
                   newShape.moveTo(x1, y1);
@@ -224,21 +226,21 @@ const useSVGTexture = (textContent, options = {}) => {
 
                 if (curve.isLineCurve && curve.v2) {
                   const x2 = curve.v2.x - charBox.min.x + currentX;
-                  const y2 = curve.v2.y - charBox.min.y;
+                  const y2 = curve.v2.y;
                   newShape.lineTo(x2, y2);
                 } else if (curve.isQuadraticBezierCurve && curve.v2) {
                   const cpX = curve.v1.x - charBox.min.x + currentX;
-                  const cpY = curve.v1.y - charBox.min.y;
+                  const cpY = curve.v1.y;
                   const x2 = curve.v2.x - charBox.min.x + currentX;
-                  const y2 = curve.v2.y - charBox.min.y;
+                  const y2 = curve.v2.y;
                   newShape.quadraticCurveTo(cpX, cpY, x2, y2);
                 } else if (curve.isCubicBezierCurve && curve.v2 && curve.v3) {
                   const cp1X = curve.v1.x - charBox.min.x + currentX;
-                  const cp1Y = curve.v1.y - charBox.min.y;
+                  const cp1Y = curve.v1.y;
                   const cp2X = curve.v2.x - charBox.min.x + currentX;
-                  const cp2Y = curve.v2.y - charBox.min.y;
+                  const cp2Y = curve.v2.y;
                   const x3 = curve.v3.x - charBox.min.x + currentX;
-                  const y3 = curve.v3.y - charBox.min.y;
+                  const y3 = curve.v3.y;
                   newShape.bezierCurveTo(cp1X, cp1Y, cp2X, cp2Y, x3, y3);
                 }
               });
@@ -254,7 +256,7 @@ const useSVGTexture = (textContent, options = {}) => {
                     if (!curve.v1) return;
                     
                     const x1 = curve.v1.x - charBox.min.x + currentX;
-                    const y1 = curve.v1.y - charBox.min.y;
+                    const y1 = curve.v1.y;
                     
                     if (idx === 0) {
                       newHole.moveTo(x1, y1);
@@ -262,21 +264,21 @@ const useSVGTexture = (textContent, options = {}) => {
 
                     if (curve.isLineCurve && curve.v2) {
                       const x2 = curve.v2.x - charBox.min.x + currentX;
-                      const y2 = curve.v2.y - charBox.min.y;
+                      const y2 = curve.v2.y;
                       newHole.lineTo(x2, y2);
                     } else if (curve.isQuadraticBezierCurve && curve.v2) {
                       const cpX = curve.v1.x - charBox.min.x + currentX;
-                      const cpY = curve.v1.y - charBox.min.y;
+                      const cpY = curve.v1.y;
                       const x2 = curve.v2.x - charBox.min.x + currentX;
-                      const y2 = curve.v2.y - charBox.min.y;
+                      const y2 = curve.v2.y;
                       newHole.quadraticCurveTo(cpX, cpY, x2, y2);
                     } else if (curve.isCubicBezierCurve && curve.v2 && curve.v3) {
                       const cp1X = curve.v1.x - charBox.min.x + currentX;
-                      const cp1Y = curve.v1.y - charBox.min.y;
+                      const cp1Y = curve.v1.y;
                       const cp2X = curve.v2.x - charBox.min.x + currentX;
-                      const cp2Y = curve.v2.y - charBox.min.y;
+                      const cp2Y = curve.v2.y;
                       const x3 = curve.v3.x - charBox.min.x + currentX;
-                      const y3 = curve.v3.y - charBox.min.y;
+                      const y3 = curve.v3.y;
                       newHole.bezierCurveTo(cp1X, cp1Y, cp2X, cp2Y, x3, y3);
                     }
                   });
@@ -336,6 +338,11 @@ const useSVGTexture = (textContent, options = {}) => {
         const pad = padding * textureScale;
         const svgWidth = Math.ceil(textWidth + pad * 2);
         const svgHeight = Math.ceil(textHeight + pad * 2);
+
+        // baseline 在 three.js 字体坐标系中通常是 y=0
+        // 我们在生成 SVG 时会整体平移 (-box.min.y + pad)，并做 y 轴翻转
+        // 因此 baseline 距离“纹理底部”的像素距离为 (pad - box.min.y)/textureScale
+        const baselineFromBottomPx = (pad - box.min.y) / textureScale;
 
         /* 生成 SVG path 数据 */
         let d = '';
@@ -466,6 +473,7 @@ const useSVGTexture = (textContent, options = {}) => {
             texture,
             widthPx: svgWidth / textureScale,
             heightPx: svgHeight / textureScale,
+            baselineFromBottomPx,
           });
 
           URL.revokeObjectURL(url);
@@ -552,11 +560,17 @@ function VcutCurvedGlyph({
 
   if (!result) return null;
 
-  const { texture, widthPx, heightPx } = result;
+  const { texture, widthPx, heightPx, baselineFromBottomPx } = result;
   const scale = 0.001;
+  const heightWorld = heightPx * scale;
+  const baselineFromBottomWorld = (baselineFromBottomPx ?? (heightPx / 2)) * scale;
+
+  // position 的 y 作为 baseline，对齐后允许 descender 向下探出（如 j/g）
+  const [x, y, z] = position;
+  const adjustedY = y + heightWorld / 2 - baselineFromBottomWorld;
 
   return (
-    <mesh position={position} rotation={[0, 0, rotationZ]}>
+    <mesh position={[x, adjustedY, z]} rotation={[0, 0, rotationZ]}>
       <planeGeometry args={[widthPx * scale, heightPx * scale]} />
       <meshBasicMaterial
         map={texture}
@@ -576,7 +590,7 @@ function VcutJustifiedChar({
   fontOption,
   position,
   vcutColor,
-  baselineAlign = false // 是否底部对齐
+  baselineAlign = false // 是否按字体 baseline 对齐
 }) {
   const result = useSVGTexture(char, {
     fillColor: vcutColor,
@@ -587,12 +601,14 @@ function VcutJustifiedChar({
 
   if (!result) return null;
 
-  const { texture, widthPx, heightPx } = result;
+  const { texture, widthPx, heightPx, baselineFromBottomPx } = result;
   const scale = 0.001;
 
-  // 计算实际位置：如果需要底部对齐，向上偏移半个高度
+  // 计算实际位置：如果需要 baseline 对齐，让 position.y 表示基线位置
   const [x, y, z] = position;
-  const adjustedY = baselineAlign ? y + (heightPx * scale) / 2 : y;
+  const heightWorld = heightPx * scale;
+  const baselineFromBottomWorld = (baselineFromBottomPx ?? (heightPx / 2)) * scale;
+  const adjustedY = baselineAlign ? (y + heightWorld / 2 - baselineFromBottomWorld) : y;
 
   return (
     <mesh position={[x, adjustedY, z]}>
@@ -1452,9 +1468,9 @@ const EnhancedTextElement = ({
                    el.geometry.computeBoundingBox();
                    const box = el.geometry.boundingBox;
                    if (box) {
-                     // 底部对齐（基线对齐）：所有字符的底部对齐到同一水平线
-                     // 使用 -box.min.y 而不是居中，确保不同高度的字符底部对齐
-                     el.geometry.translate(0, -box.min.y, 0);
+                    // 按字体 baseline 对齐：不要做“底边对齐”，否则 j/g 这类 descender 会被抬起
+                    // TextGeometry/Font.generateShapes 的 baseline 通常就在 y=0，保持原始 y 即可
+                    // 这里只做标记，避免重复处理
                      el.geometry.userData = { ...el.geometry.userData, baselineAligned: true };
                    }
                  }}
