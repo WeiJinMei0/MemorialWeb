@@ -29,6 +29,7 @@ import { PrinterOutlined } from '@ant-design/icons'; // 确保引入了打印图
 import { AimOutlined, CopyOutlined, DownOutlined } from '@ant-design/icons'; // 复位图标
 import designService from '../../services/designService';
 import designCache from '../../services/designCache'; // Design cache manager
+import orderService from '../../services/orderService'; // 订单服务
 
 const { Sider, Content, Footer } = Layout;
 
@@ -459,60 +460,46 @@ const DesignerPage = () => {
     }
   }, [currentDesignId, currentDesignName, designState, user, t, modal, sceneRef]);
 
-  // 处理订单表单提交
+  // 处理订单表单提交 - 使用后端 API 持久化订单
   const handleOrderSubmit = useCallback(async (formData) => {
     try {
       message.loading({ content: 'Creating order...', key: 'ordering', duration: 0 });
 
-      // 构造订单数据（保存完整的设计状态，确保重新登录后也能显示原先订单信息）
+      // 构造订单数据发送到后端
+      // 订单号自动生成，合同号由用户输入
+      const orderNumber = `ORD-${Date.now()}`;
       const orderData = {
-        orderNumber: `ORD-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        userId: user?.id,
-        designId: currentDesignId,
-        designName: currentDesignName,
-        // ✅ 保存完整的设计状态数据，确保不依赖 designCache
-        designState: designState,
-        status: 'Pending',
-        meta: formData // 将填写的订单表单数据保存到 meta
+        designId: currentDesignId ? parseInt(currentDesignId, 10) : null,
+        status: 'pending',
+        // 将完整的设计状态保存到 data 字段
+        data: {
+          designName: currentDesignName,
+          designState: designState
+        },
+        // 将表单数据保存到 meta 字段
+        meta: {
+          ...formData,
+          orderNumber: orderNumber,  // 自动生成的订单号
+          contractNo: formData.contractNo || formData.orderNumber  // 用户输入的合同号（兼容旧数据）
+        }
       };
 
-      // 保存订单到 localStorage，并清理过期数据
-      const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-
-      // 保存前检查存储空间，如果接近限制则删除最旧的 10 个订单
-      try {
-        orders.push(orderData);
-        localStorage.setItem('orders', JSON.stringify(orders));
-      } catch (quotaError) {
-        if (quotaError.name === 'QuotaExceededError') {
-          // 空间不足，删除最旧的订单
-          console.warn('Storage quota exceeded, cleaning up old orders...');
-
-          // 按时间戳排序，删除最旧的 10 个订单
-          const sortedOrders = orders.sort((a, b) =>
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-          );
-          const cleanedOrders = sortedOrders.slice(10); // 保留最新的，删除最旧的 10 个
-
-          cleanedOrders.push(orderData);
-          localStorage.setItem('orders', JSON.stringify(cleanedOrders));
-
-          message.warning('Old orders have been cleaned up to make space', 2);
-        } else {
-          throw quotaError;
-        }
+      // 调用后端 API 创建订单
+      const response = await orderService.create(orderData);
+      
+      // 后端返回格式: { code: 201, message: 'Order created', data: {...} }
+      if (response && (response.data || response.code === 201)) {
+        message.success({ content: 'Order created successfully!', key: 'ordering', duration: 2 });
+        // 关闭 modal
+        setOrderModalVisible(false);
+      } else {
+        throw new Error(response?.message || 'Failed to create order');
       }
-
-      message.success({ content: 'Order created successfully!', key: 'ordering', duration: 2 });
-
-      // 关闭 modal
-      setOrderModalVisible(false);
     } catch (error) {
       console.error('Order submission error:', error);
-      message.error({ content: 'Failed to create order', key: 'ordering', duration: 3 });
+      message.error({ content: error.message || 'Failed to create order', key: 'ordering', duration: 3 });
     }
-  }, [currentDesignId, currentDesignName, user, sceneRef]);
+  }, [currentDesignId, currentDesignName, designState, message]);
   const handlePrintDesign = useCallback(async () => {
     try {
       if (sceneRef.current) {
