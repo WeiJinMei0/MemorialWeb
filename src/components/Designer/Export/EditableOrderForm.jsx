@@ -251,7 +251,7 @@ const EditableOrderForm = ({ form, initialData, designState, savedArtOptions = [
               {/* SUPPLIER - 在同一行 */}
               <div style={{ display: 'flex', alignItems: 'center', marginRight: '24px' }}>
                 <span className="pdf-label-bold" style={{ marginRight: '8px' }}>SUPPLIER:</span>
-                <Form.Item name="supplier" className="pdf-input-item" style={{ marginBottom: 0, flex: 1, minWidth: '175px' }}>
+                <Form.Item name="supplier0" className="pdf-input-item" style={{ marginBottom: 0, flex: 1, minWidth: '175px' }}>
                   <Input className="pdf-input-box" />
                 </Form.Item>
               </div>
@@ -276,7 +276,7 @@ const EditableOrderForm = ({ form, initialData, designState, savedArtOptions = [
               {/* Other */}
               <div style={{ display: 'flex', alignItems: 'center', marginRight: '24px' }}>
                 <span className="pdf-label-bold" style={{ marginRight: '8px' }}>OTHER:</span>
-                <Form.Item name="supplier" className="pdf-input-item" style={{ marginBottom: 0, flex: 1, minWidth: '175px' }}>
+                <Form.Item name="other" className="pdf-input-item" style={{ marginBottom: 0, flex: 1, minWidth: '175px' }}>
                   <Input className="pdf-input-box" />
                 </Form.Item>
               </div>
