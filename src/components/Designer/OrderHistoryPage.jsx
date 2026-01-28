@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Table, Button, Image, Tag, Empty, Input, Modal, Form, message, App } from 'antd';
+import { Table, Button, Image, Tag, Empty, Input, Modal, Form, message, App, Spin } from 'antd';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import OrderFormPDF from '../PDF/OrderFormPDF';
@@ -7,7 +7,7 @@ import arborLogo from '/Arbor White Logo.png';
 import EditableOrderForm from './Export/EditableOrderForm'; // 引入新组件
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import designCache from '../../services/designCache';
+import orderService from '../../services/orderService'; // 订单服务
 import './OrderHistoryPage.css';
 
 const { Search } = Input;
@@ -25,82 +25,159 @@ const OrderHistoryPage = () => {
   const [currentDesignState, setCurrentDesignState] = useState(null);
   const [form] = Form.useForm();
   const [downloading, setDownloading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // 从后端加载订单列表（列表接口不返回 data 字段以避免内存溢出）
+  const loadOrders = async () => {
+    try {
+      setLoading(true);
+      const response = await orderService.list({ page: 1, pageSize: 100 });
+      // 后端返回格式: { code: 200, message: 'success', data: { items: [...], total: ... } }
+      if (response && response.data && response.data.items) {
+        // 将后端数据映射为前端格式（注意：列表不包含 data 字段）
+        const mappedOrders = response.data.items.map(order => {
+          // 订单号：自动生成的 ORD-xxx，如果 meta 中没有则使用 ID 生成
+          const orderNumber = order.meta?.orderNumber || `ORD-${order.id}`;
+          return {
+            id: order.id,
+            key: order.id,
+            orderNumber: orderNumber,  // 自动生成的订单号
+            timestamp: order.createdAt,
+            designId: order.designId,
+            status: order.status,
+            meta: order.meta || {},
+            totalPrice: order.totalPrice
+          };
+        });
+        setOrders(mappedOrders);
+      } else {
+        console.warn('Unexpected response format:', response);
+        setOrders([]);
+      }
+    } catch (error) {
+      console.error('Failed to load orders:', error);
+      message.error('Failed to load orders');
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 加载数据
   useEffect(() => {
-    const allOrders = JSON.parse(localStorage.getItem('orders') || '[]');
-    const userOrders = allOrders.filter(order => order.userId === user?.id);
-    setOrders(userOrders.map(o => ({ ...o, key: o.orderNumber })));
-    setLoading(false);
+    if (user) {
+      loadOrders();
+    }
   }, [user]);
 
-  // 打开编辑弹窗
-  const handleViewDetails = (order) => {
-    // 每次打开前先重置表单，避免上一个订单遗留的字段状态干扰本次显示
+  // 打开编辑弹窗 - 需要先从后端获取完整订单数据（包含设计快照）
+  const handleViewDetails = async (order) => {
+    // 每次打开前先重置表单和状态
     form.resetFields();
-
-    setCurrentOrder(order);
-
-    // ✅ 表单与设计解耦：
-    //  - 优先使用订单中保存的 designState（生成表单时的快照）
-    //  - 如果没有，则只用一个“空设计状态”，不再从最新设计或 designCache 中补数据
-    // 这样每个表单彼此独立，重新登录后也不会因为设计被删除/修改而出错
-    let designState = order.designState;
-    if (!designState) {
-      designState = {
-        monuments: [],
-        bases: [],
-        subBases: [],
-        vases: [],
-        artElements: [],
-        textElements: [],
-        currentMaterial: null,
-      };
-    }
-    setCurrentDesignState(designState);
-
-    // 将订单中已有的 meta 数据进行字段映射
-    // OrderInfoModal 使用 orderNumber，EditableOrderForm 使用 contractNo
-    let metaData = { ...order.meta };
-    if (metaData.orderNumber && !metaData.contractNo) {
-      metaData.contractNo = metaData.orderNumber;
-    }
-
+    setCurrentOrder(null);
+    setCurrentDesignState(null);
+    setDetailLoading(true);
     setEditModalVisible(true);
 
-    // 填充表单初始数据
-    form.setFieldsValue(metaData);
+    try {
+      // 从后端获取完整的订单详情（包含 data 字段）
+      const response = await orderService.getDetail(order.id);
+      
+      // 后端返回格式: { code: 200, message: 'success', data: { id, userId, designId, data, meta, ... } }
+      if (response && response.data) {
+        const orderData = response.data;
+        const fullOrder = {
+          ...order,
+          data: orderData.data,
+          designName: orderData.data?.designName,
+          designState: orderData.data?.designState
+        };
+        
+        setCurrentOrder(fullOrder);
+
+        // ✅ 表单与设计解耦：
+        //  - 优先使用订单中保存的 designState（生成表单时的快照）
+        //  - 如果没有，则只用一个"空设计状态"
+        let designState = fullOrder.designState;
+        if (!designState) {
+          designState = {
+            monuments: [],
+            bases: [],
+            subBases: [],
+            vases: [],
+            artElements: [],
+            textElements: [],
+            currentMaterial: null,
+          };
+        }
+        setCurrentDesignState(designState);
+
+        // 将订单中已有的 meta 数据进行字段映射
+        // 兼容旧数据：如果只有 orderNumber 没有 contractNo，则将 orderNumber 作为 contractNo
+        let metaData = { ...orderData.meta };
+        if (metaData.orderNumber && !metaData.contractNo) {
+          // 旧数据兼容：如果 orderNumber 看起来像合同号（不是 ORD- 开头），则作为 contractNo
+          if (!metaData.orderNumber.startsWith('ORD-')) {
+            metaData.contractNo = metaData.orderNumber;
+          }
+        }
+
+        // 填充表单初始数据
+        form.setFieldsValue(metaData);
+      } else {
+        throw new Error('Failed to load order details: invalid response format');
+      }
+    } catch (error) {
+      console.error('Failed to load order details:', error);
+      message.error('Failed to load order details');
+      setEditModalVisible(false);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
-  // 保存更改
-  const handleSaveOrder = () => {
-    form.validateFields().then(values => {
-      const updatedOrders = orders.map(o => {
-        if (o.orderNumber === currentOrder.orderNumber) {
-          // 将表单的所有字段保存到 order.meta 中
-          // 同时保留 designState，确保设计数据不会丢失
-          const newOrder = {
-            ...o,
-            meta: { ...o.meta, ...values }, // 合并新数据
-            // ✅ 保留原先的 designState，不让其在编辑时被清除
-            designState: currentDesignState || o.designState
-          };
-          setCurrentOrder(newOrder);
-          return newOrder;
-        }
-        return o;
-      });
+  // 保存更改 - 使用后端 API
+  const handleSaveOrder = async () => {
+    try {
+      const values = await form.validateFields();
+      setSaving(true);
 
-      setOrders(updatedOrders);
-      // 更新 localStorage (注意：真实项目中应调用 API)
-      const allOrders = JSON.parse(localStorage.getItem('orders') || '[]');
-      const otherUsersOrders = allOrders.filter(o => o.userId !== user?.id);
-      const finalOrders = [...otherUsersOrders, ...updatedOrders]; // 这里简化处理，只更新当前用户的
-      localStorage.setItem('orders', JSON.stringify(finalOrders));
+      // 调用后端 API 更新订单
+      const updateData = {
+        meta: { ...currentOrder.meta, ...values }
+      };
 
-      message.success('Order updated successfully');
-      setEditModalVisible(false);
-    });
+      const response = await orderService.update(currentOrder.id, updateData);
+
+      // 后端返回格式: { code: 200, message: 'success', data: {...} }
+      if (response && response.data) {
+        // 更新本地状态
+        const updatedOrders = orders.map(o => {
+          if (o.id === currentOrder.id) {
+            const newOrder = {
+              ...o,
+              meta: { ...o.meta, ...values },
+              designState: currentDesignState || o.designState
+            };
+            setCurrentOrder(newOrder);
+            return newOrder;
+          }
+          return o;
+        });
+        setOrders(updatedOrders);
+
+        message.success('Order updated successfully');
+        setEditModalVisible(false);
+      } else {
+        throw new Error(response?.message || 'Failed to update order');
+      }
+    } catch (error) {
+      console.error('Failed to save order:', error);
+      message.error(error.message || 'Failed to save order');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // 下载当前表单为美化后的 PDF
@@ -166,7 +243,9 @@ const OrderHistoryPage = () => {
         console.warn('Failed to draw Arbor logo on PDF:', e);
       }
 
-      pdf.save(`Order_${currentOrder.orderNumber}.pdf`);
+      // 使用合同号作为文件名，如果没有则使用订单号
+      const fileName = currentOrder.meta?.contractNo || currentOrder.orderNumber;
+      pdf.save(`Order_${fileName}.pdf`);
     } catch (error) {
       console.error('Failed to generate order PDF:', error);
       message.error('Failed to generate PDF, please try again.');
@@ -175,29 +254,32 @@ const OrderHistoryPage = () => {
     }
   };
 
-  // 删除订单
-  const handleDeleteOrder = (orderNumber) => {
+  // 删除订单 - 使用后端 API
+  const handleDeleteOrder = (orderId) => {
     modal.confirm({
       title: 'Delete Order',
       content: 'Are you sure you want to delete this order? This action cannot be undone.',
       okText: 'Delete',
       okType: 'danger',
       cancelText: 'Cancel',
-      onOk: () => {
+      onOk: async () => {
         try {
-          // 从 localStorage 中删除订单
-          const allOrders = JSON.parse(localStorage.getItem('orders') || '[]');
-          const filteredOrders = allOrders.filter(o => o.orderNumber !== orderNumber);
-          localStorage.setItem('orders', JSON.stringify(filteredOrders));
+          // 调用后端 API 删除订单
+          const response = await orderService.delete(orderId);
           
-          // 更新本地状态
-          const updatedOrders = orders.filter(o => o.orderNumber !== orderNumber);
-          setOrders(updatedOrders);
-          
-          message.success('Order deleted successfully');
+          // 后端返回格式: { code: 200, message: 'Deleted' } 或 { code: 200, message: 'success', data: null }
+          if (response && (response.message === 'Deleted' || response.code === 200)) {
+            // 更新本地状态
+            const updatedOrders = orders.filter(o => o.id !== orderId);
+            setOrders(updatedOrders);
+            
+            message.success('Order deleted successfully');
+          } else {
+            throw new Error(response?.message || 'Failed to delete order');
+          }
         } catch (error) {
           console.error('Error deleting order:', error);
-          message.error('Failed to delete order');
+          message.error(error.message || 'Failed to delete order');
         }
       },
     });
@@ -236,7 +318,7 @@ const OrderHistoryPage = () => {
           <Button type="primary" size="small" onClick={() => handleViewDetails(record)}>
             Edit / View Details
           </Button>
-          <Button danger size="small" onClick={() => handleDeleteOrder(record.orderNumber)}>
+          <Button danger size="small" onClick={() => handleDeleteOrder(record.id)}>
             Delete
           </Button>
         </div>
@@ -257,17 +339,22 @@ const OrderHistoryPage = () => {
         style={{ top: 20 }}
         footer={[
           <Button key="close" onClick={() => setEditModalVisible(false)}>Close</Button>,
-          <Button key="save" type="primary" onClick={handleSaveOrder}>Save Changes</Button>,
+          <Button key="save" type="primary" onClick={handleSaveOrder} loading={saving} disabled={detailLoading}>Save Changes</Button>,
           <Button
             key="download"
             onClick={handleDownloadPdf}
             loading={downloading}
+            disabled={detailLoading}
           >
             Download PDF
           </Button>,
         ]}
       >
-        {currentOrder && (
+        {detailLoading ? (
+          <div style={{ textAlign: 'center', padding: '50px 0' }}>
+            <Spin size="large" tip="Loading order details..." />
+          </div>
+        ) : currentOrder ? (
           <EditableOrderForm
             // 使用订单号作为 key，确保切换不同订单时组件被重新挂载，避免内部状态串联
             key={currentOrder.orderNumber}
@@ -276,7 +363,7 @@ const OrderHistoryPage = () => {
             designState={currentDesignState}
             savedArtOptions={currentDesignState?.artElements || []}
           />
-        )}
+        ) : null}
       </Modal>
     </div>
   );
