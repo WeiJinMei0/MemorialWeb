@@ -370,6 +370,36 @@ const PRODUCT_FAMILIES = {
     defaultPolish: 'P5',
     polishOptions: ['P5'],
     defaultClass: 'Hampton - 2 unit'
+  },
+  'Marker & Pillow & Slant': {
+    needsBase: false,
+    defaultPolish: 'P5',
+    polishOptions: ['P5', 'PT'],
+    defaultClass: '1 Maker'
+  },
+  'Heart Shape': {
+    needsBase: false,
+    defaultPolish: 'P5',
+    polishOptions: ['P5', 'PT'],
+    defaultClass: '1 Heart #1'
+  },
+  'Custom': {
+    needsBase: false,
+    defaultPolish: 'P5',
+    polishOptions: ['P5'],
+    defaultClass: '1 Bubble Top'
+  },
+  'Asian Shape': {
+    needsBase: false,
+    defaultPolish: 'P5',
+    polishOptions: ['P5'],
+    defaultClass: '1 Hong Kong Style'
+  },
+  'Cross': {
+    needsBase: false,
+    defaultPolish: 'P5',
+    polishOptions: ['P5'],
+    defaultClass: '2CROSS _ 2-2,8,4-0'
   }
 }
 
