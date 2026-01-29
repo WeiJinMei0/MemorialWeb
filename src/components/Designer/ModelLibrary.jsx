@@ -4,7 +4,7 @@ import { SearchOutlined, HomeOutlined, ArrowLeftOutlined } from '@ant-design/ico
 import './ModelLibrary.css';
 
 // 模拟数据 - 在实际应用中应从API获取
-const SHAPE_FAMILIES = ['Tablet', 'Bench', 'Rock', 'Pedestal', 'Columbarium'];
+const SHAPE_FAMILIES = ['Tablet', 'Bench', 'Columbarium', 'Marker & Pillow & Slant', 'Heart Shape', 'Custom', 'Asian Shape', 'Cross'];
 const VASE_CLASSES = ['Round Vase', 'Planter Vase', 'Inverted Taper Vase', 'Square Vase', 'Cross Shape Vase'];
 const ART_CLASSES = ['Asian Themed', 'Shape Carved of Material Object', 'Sandblast Carving Components', 'Ceramic Photo'];
 
@@ -97,10 +97,100 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
             // 模拟具体款式数据 (Shapes: Family -> Class)
             const familyClasses = {
               'Tablet': ['Serp Top', 'Flat Top', 'Half Serp Top', 'Oval Top'],
-              'Columbarium': ['1 Hampton - 2 Unit - West Canada', '2 Hampton - 2 Unit - GAT', '2 Hampton - 2 Unit - GAT', '4 Hampton - 3 Unitt with Vase', '5 Hampton - 4 Unit', '6 Hampton - 2 Unit with Peak Roof', '7 Douglas - 2 unit'],
+              'Columbarium': [
+                '1 Hampton - 2 Unit - West Canada',
+                '2 Hampton - 2 Unit - GAT',
+                '3 Hampton - 3 Unit',
+                '4 Hampton - 3 Unitt with Vase',
+                '5 Hampton - 4 Unit',
+                '6 Hampton - 2 Unit with Peak Roof',
+                '7 Douglas - 2 unit',
+                '8 Douglas - 3 unit',
+                '9 Heritage',
+                '10 Heritage with Peak Roof',
+                '11 Hampton - 2 Unit with Straight Bench'
+              ],
               'Rock': ['Triangle Rock', 'Round Rock', 'Square Rock'],
               'Pedestal': ['Cremation Pedestal', 'Oversize Cremation Pedestal'],
-              'Bench': ['1 Smith Bench - Straight Seat', '4 Double Smith Bench - Straight Seat', '5 Double Smith Bench - Curved Seat', '6 Oversize Smith Bench - Straight Seat', '7 Double Oversize Smith Bench Straight Seat']
+              'Bench': [
+                '1 Smith Bench - Straight Seat',
+                '4 Double Smith Bench - Straight Seat',
+                '5 Double Smith Bench - Curved Seat',
+                '6 Oversize Smith Bench - Straight Seat',
+                '7 Double Oversize Smith Bench Straight Seat',
+                '8 Double Oversize Smith Bench Curved Seat',
+                '10 Curved Bench - West Canada',
+                '12 Serenity Bench',
+                '13 Jones Bench',
+                '14 Oversize Jones Bench',
+                '15 Rockwell Bench',
+                '16 Contemporary Bench',
+                '18 Straight Bench with Curved Legs',
+                '19 Classic Bench',
+                '20 Reflections Bench'
+              ],
+              'Marker & Pillow & Slant': [
+                '1 Maker',
+                '2 Pillow Flat Top',
+                '3 Pillow Serp Top',
+                '4 Slant with Front Nose - Flat Top',
+                '5 Slant with Front Nose - Serp Top',
+                '6 Slant with Front Nose - Oval Top',
+                '7 Slant with Full Face - Flat Top',
+                '8 Slant with Full Face - Serp Top',
+                '9 Slant with Full Face - Oval Top'
+              ],
+              'Heart Shape': [
+                '1 Heart #1',
+                '2 Heart #2',
+                '4 Double Heart'
+              ],
+              'Custom': [
+                '1 Bubble Top',
+                '2 Pillar Roof Top',
+                '3 Tear Drop',
+                '4 Tear Drop with Cross',
+                '5 Half Serp Convex with Bevel',
+                '6 Book',
+                '7 Open Book',
+                '8 Diamond Roof Top with Bevel',
+                '9 Ming Ya',
+                '10 Ming Ya with Column',
+                '11 Mountain Top',
+                'Custom Shape #1',
+                'Custom Shape #4',
+                'Custom Shape #6',
+                'Custom Shape #7',
+                'Custom Shape #8',
+                'Custom Shape #9',
+                'Custom Shape #10',
+                'Custom Shape #11',
+                'Custom Shape #12',
+                'Custom Shape #13',
+                'Custom Shape #15'
+              ],
+              'Asian Shape': [
+                '1 Hong Kong Style',
+                '2 Pagoda Top - C',
+                '2 Pagoda Top - F',
+                '3 Wing with Column',
+                '4 Column',
+                '4 Square Column',
+                '5 Ball',
+                '10 Lucky Cube',
+                'Pagoda Top',
+                'Wing'
+              ],
+              'Cross': [
+                '2CROSS _ 2-2,8,4-0',
+                '2CROSS _ 2-8,8,4-0',
+                '2Cross Aegean Gothic _ 2-0 x 3-0',
+                '2Cross Byzantine _ 2-2 x 3-0',
+                'CROSS _ 2-2,8,4-0',
+                'CROSS _ 2-8,8,4-0',
+                'Cross Aegean Gothic _ 2-0 x 3-0',
+                'Cross Byzantine _ 2-2 x 3-0'
+              ]
             };
 
             const classes = familyClasses[selectedFamily] || [];
