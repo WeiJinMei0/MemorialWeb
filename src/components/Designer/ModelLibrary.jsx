@@ -141,8 +141,8 @@ const ModelLibrary = ({ type, onSelect, productFamilies = {} }) => {
                 '9 Slant with Full Face - Oval Top'
               ],
               'Heart Shape': [
-                '1 Heart #1',
-                '2 Heart #2',
+                '1 Heart',
+                '2 Heart',
                 '4 Double Heart'
               ],
               'Custom': [
