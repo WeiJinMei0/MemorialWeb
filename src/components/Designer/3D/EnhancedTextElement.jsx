@@ -1548,7 +1548,7 @@ const EnhancedTextElement = ({
   // alignment: 'left'=顶部对齐, 'right'=底部对齐, 'center'=垂直居中, 'justify'=两端对齐
   const renderVerticalColumn = (columnText, columnIndex, columnX, isVcut, lineFontFamily, maxColumnHeight, alignment) => {
     const fontSize = text.size * 0.0254;
-    const charGap = fontSize * (text.lineSpacing || 1.2); // 字符间垂直间距
+    const charGap = fontSize * (text.lineSpacing || 1.2); // 列内垂直间距，仅与 LineSpacing 有关
     const fontOption = lineFontOptions[columnIndex] || DEFAULT_FONT_OPTION;
     const charCount = columnText.length;
 
@@ -1635,9 +1635,10 @@ const EnhancedTextElement = ({
     const isJustify = text.alignment === 'justify' && textDirection === 'horizontal';
 
     // 垂直模式：每行变成一列，列内字符垂直排列，列从右向左排列（中文传统阅读顺序）
+    // 按行看：每行是横跨多列同一位置的字符，Kerning 控制这些行内字符之间的水平间距（列间距）
     if (textDirection === 'vertical') {
-      const columnGap = fontSize * 1.5; // 列间距
-      const charGap = fontSize * (text.lineSpacing || 1.2);
+      const columnGap = fontSize * 1.5 + fontSize * (text.kerning || 0) * 0.1; // 列间距 = 基础间距 + 字间距(Kerning)
+      const charGap = fontSize * (text.lineSpacing || 1.2); // 列内垂直间距仅与 LineSpacing 有关
       const totalColumns = lines.length;
       
       // 计算所有列中最多字符数，用于统一对齐
